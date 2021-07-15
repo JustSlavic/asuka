@@ -2,6 +2,52 @@
 
 
 static bool running = false;
+static BITMAPINFO BitmapInfo{};
+static void* BitmapMemory{};
+HBITMAP BitmapHandle{};
+HDC BitmapDeviceContext;
+
+static void
+ResizeDIBSection(LONG width, LONG height)
+{
+    // Maybe don't free first, free after, then free first if second succeed
+
+    // todo: Free first DIBSection
+    if (BitmapHandle) {
+        DeleteObject(BitmapHandle);
+    }
+
+    if (!BitmapDeviceContext) {
+        // Should we recreate this in the certain circumstances
+        BitmapDeviceContext = CreateCompatibleDC(0);
+    }
+
+    BitmapInfo.bmiHeader.biSize = sizeof(BitmapInfo.bmiHeader);
+    BitmapInfo.bmiHeader.biWidth = width;
+    BitmapInfo.bmiHeader.biHeight = height;
+    BitmapInfo.bmiHeader.biPlanes = 1;
+    BitmapInfo.bmiHeader.biBitCount = 32;
+    BitmapInfo.bmiHeader.biCompression = BI_RGB;
+
+    BitmapHandle = CreateDIBSection(
+        BitmapDeviceContext,
+        &BitmapInfo,
+        DIB_RGB_COLORS,
+        &BitmapMemory,
+        0, 0);
+}
+
+
+static void
+Win32UpdateWindow(HDC device_context, int x, int y, int width, int height)
+{
+    StretchDIBits(
+        device_context,
+        x, y, width, height,
+        x, y, width, height,
+        BitmapMemory, &BitmapInfo,
+        DIB_RGB_COLORS, SRCCOPY);
+}
 
 
 LRESULT CALLBACK
@@ -14,18 +60,30 @@ MainWindowCallback(
     LRESULT result;
 
     switch (message) {
+        case WM_SIZE: {
+            RECT client_rectangle;
+            GetClientRect(
+              window,
+              &client_rectangle
+            );
+
+            LONG width = client_rectangle.right - client_rectangle.left;
+            LONG height = client_rectangle.bottom - client_rectangle.top;
+
+            ResizeDIBSection(width, height);
+            OutputDebugStringA("WM_SIZE\n");
+            break;
+        }
         case WM_MOVE:
             OutputDebugStringA("WM_MOVE\n");
             break;
-        case WM_SIZE:
-            OutputDebugStringA("WM_SIZE\n");
+        case WM_CLOSE:
+            running = false;
+            OutputDebugStringA("WM_CLOSE\n");
             break;
         case WM_DESTROY:
-            OutputDebugStringA("WM_DESTROY\n");
-            break;
-        case WM_CLOSE:
-            OutputDebugStringA("WM_CLOSE\n");
             running = false;
+            OutputDebugStringA("WM_DESTROY\n");
             break;
         case WM_ACTIVATEAPP:
             OutputDebugStringA("WN_ACTIVATEAPP\n");
@@ -76,7 +134,7 @@ WinMain(
 {
     WNDCLASSA windowClass{};
 
-    windowClass.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
+    // windowClass.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
     windowClass.lpfnWndProc = MainWindowCallback;
     windowClass.hInstance = hInstance;
     windowClass.lpszClassName = "AsukaWindowClass";
