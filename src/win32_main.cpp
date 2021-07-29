@@ -20,13 +20,11 @@
 
 #include <defines.hpp>
 #include "asuka.hpp"
-#include <math.hpp>
 
 #include <windows.h>
 #include <xinput.h>
 #include <dsound.h>
 #include <stdio.h>
-#include <math.h>
 
 
 
@@ -216,7 +214,37 @@ static void Win32_CopyBufferToWindow(HDC device_context, int WindowWidth, int Wi
 }
 
 
-static void Win32_FillSoundBuffer(Win32_SoundOutput* SoundOutput, DWORD BytesToLock, DWORD BytesToWrite) {
+static void Win32_ClearSoundBuffer(Win32_SoundOutput* SoundOutput) {
+    VOID* Region1;
+    DWORD Region1_Size;
+    VOID* Region2;
+    DWORD Region2_Size;
+
+    // DirectSound output test
+    if (SUCCEEDED(Global_SecondaryBuffer->Lock(
+        0, SoundOutput->SecondaryBufferSize,
+        &Region1, &Region1_Size,
+        &Region2, &Region2_Size,
+        0)))
+    {
+        uint8_t* DestMemory = (uint8_t*)Region1;
+        for (int ByteIndex = 0; ByteIndex < Region1_Size; ByteIndex++) {
+            *DestMemory++ = 0;
+        }
+        DestMemory = (uint8_t*)Region2;
+        for (int ByteIndex = 0; ByteIndex < Region2_Size; ByteIndex++) {
+            *DestMemory++ = 0;
+        }
+
+        Global_SecondaryBuffer->Unlock(Region1, Region1_Size, Region2, Region2_Size);
+    }
+}
+
+
+static void Win32_FillSoundBuffer(
+    Win32_SoundOutput* SoundOutput, DWORD BytesToLock, DWORD BytesToWrite,
+    Game_SoundOutputBuffer* SourceBuffer)
+{
     VOID* Region1;
     DWORD Region1_Size;
     VOID* Region2;
@@ -232,39 +260,27 @@ static void Win32_FillSoundBuffer(Win32_SoundOutput* SoundOutput, DWORD BytesToL
         &Region2_Size,
         0)))
     {
-        int16 ToneVolume = 2000;
+        int16* SourceSamples = SourceBuffer->Samples;
 
         {
             DWORD SampleCount = Region1_Size / SoundOutput->BytesPerSample;
-            int16* SampleOut = (int16*) Region1;
+            int16* DestSamples = (int16*) Region1;
 
             for (DWORD SampleIndex = 0; SampleIndex < SampleCount; SampleIndex++) {
-                float32 t = SoundOutput->SineTime;
-                float32 SineValue = sinf(t);
-                int16 SampleValue = (int16)(SineValue * ToneVolume);
-
-                *SampleOut++ = SampleValue;
-                *SampleOut++ = SampleValue;
-
-                SoundOutput->SineTime += 2.f * math::consts<float32>::pi() * 1.f / SoundOutput->WavePeriod;
-                ++SoundOutput->RunningSampleIndex;
+                *DestSamples++ = *SourceSamples++;
+                *DestSamples++ = *SourceSamples++;
+                SoundOutput->RunningSampleIndex++;
             }
         }
 
         {
             DWORD SampleCount = Region2_Size / SoundOutput->BytesPerSample;
-            int16* SampleOut = (int16*) Region2;
+            int16* DestSamples = (int16*) Region2;
 
             for (DWORD SampleIndex = 0; SampleIndex < SampleCount; SampleIndex++) {
-                float32 t = SoundOutput->SineTime;
-                float32 SineValue = sinf(t);
-                int16 SampleValue = (int16)(SineValue * ToneVolume);
-
-                *SampleOut++ = SampleValue;
-                *SampleOut++ = SampleValue;
-
-                SoundOutput->SineTime += 2.f * math::consts<float32>::pi() * 1.f / SoundOutput->WavePeriod;
-                ++SoundOutput->RunningSampleIndex;
+                *DestSamples++ = *SourceSamples++;
+                *DestSamples++ = *SourceSamples++;
+                SoundOutput->RunningSampleIndex++;
             }
         }
     }
@@ -400,8 +416,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15; // We want to fill buffer up to 1/60th of a second
 
             Win32_InitDirectSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample);
-            Win32_FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount); // SoundOutput.SecondaryBufferSize);
+            Win32_ClearSoundBuffer(&SoundOutput); // SoundOutput.SecondaryBufferSize);
             Global_SecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+
+            int16* Samples = (int16*) VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
             Running = true;
             int FrameCounter = 0;
@@ -443,16 +461,28 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         bool GamepadX = Gamepad.wButtons & XINPUT_GAMEPAD_X;
                         bool GamepadY = Gamepad.wButtons & XINPUT_GAMEPAD_Y;
 
-                        int16 GamepadStickLX = Gamepad.sThumbLX;
-                        int16 GamepadStickLY = Gamepad.sThumbLY;
+
+                        float32 Gamepad_StickLX = 0;
+                        if (Gamepad.sThumbLX < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
+                            Gamepad_StickLX = (float32)Gamepad.sThumbLX / 32768.f;
+                        } else if (Gamepad.sThumbLX > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
+                            Gamepad_StickLX = (float32)Gamepad.sThumbLX / 32767.f;
+                        }
+
+                        float32 Gamepad_StickLY = 0;
+                        if (Gamepad.sThumbLY < -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
+                            Gamepad_StickLY = (float32)Gamepad.sThumbLY / 32768.f;
+                        } else if (Gamepad.sThumbLY > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
+                            Gamepad_StickLY = (float32)Gamepad.sThumbLY / 32767.f;
+                        }
 
                         uint8 GamepadLeftTrigger = Gamepad.bLeftTrigger;
                         uint8 GamepadRightTrigger = Gamepad.bRightTrigger;
 
-                        XOffset += GamepadStickLX / 4096;
-                        YOffset += GamepadStickLY / 4096;
+                        XOffset += Gamepad_StickLX * 10;
+                        YOffset += Gamepad_StickLY * 10;
 
-                        SoundOutput.ToneHz = 256 + (int32)(256.f * ((float32)GamepadStickLY / 32767.f));
+                        SoundOutput.ToneHz = 256 + (int32)(256.f * (Gamepad_StickLY));
                         if (SoundOutput.ToneHz == 0) SoundOutput.ToneHz = 1;
                         SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
 
@@ -540,24 +570,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
                 // RenderGradient(&Global_BackBuffer, XOffset++, YOffset);
 
-                Game_OffscreenBuffer Buffer;
-                Buffer.Memory = Global_BackBuffer.Memory;
-                Buffer.Width = Global_BackBuffer.Width;
-                Buffer.Height = Global_BackBuffer.Height;
-                Buffer.Pitch = Global_BackBuffer.Pitch;
-                Buffer.BytesPerPixel = Global_BackBuffer.BytesPerPixel;
-
-                Game_UpdateAndRender(&Buffer, XOffset++, YOffset);
-
                 DWORD PlayCursor;
                 DWORD WriteCursor;
-                if (
-                    // !SoundPlaying &&
-                    SUCCEEDED(Global_SecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
+
+                DWORD BytesToLock;
+                DWORD TargetCursor;
+                DWORD BytesToWrite;
+                bool SoundIsValid = false;
+                if (SUCCEEDED(Global_SecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
                 {
-                    DWORD BytesToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
-                    DWORD TargetCursor = (PlayCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize;
-                    DWORD BytesToWrite = 0;
+                    BytesToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
+                    TargetCursor = (PlayCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize;
+                    BytesToWrite = 0;
+
                     if (BytesToLock == TargetCursor) {
                         BytesToWrite = 0;
                     } else
@@ -568,7 +593,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         BytesToWrite = TargetCursor - BytesToLock;
                     }
 
-                    Win32_FillSoundBuffer(&SoundOutput, BytesToLock, BytesToWrite);
+                    SoundIsValid = true;
+                }
+
+                Game_SoundOutputBuffer SoundBuffer {};
+                SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
+                SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
+                SoundBuffer.Samples = Samples;
+
+                Game_OffscreenBuffer Buffer;
+                Buffer.Memory = Global_BackBuffer.Memory;
+                Buffer.Width = Global_BackBuffer.Width;
+                Buffer.Height = Global_BackBuffer.Height;
+                Buffer.Pitch = Global_BackBuffer.Pitch;
+                Buffer.BytesPerPixel = Global_BackBuffer.BytesPerPixel;
+
+                Game_UpdateAndRender(&Buffer, XOffset++, YOffset, &SoundBuffer, SoundOutput.ToneHz);
+
+                if (SoundIsValid) {
+                    Win32_FillSoundBuffer(&SoundOutput, BytesToLock, BytesToWrite, &SoundBuffer);
                 }
 
                 {

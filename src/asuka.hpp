@@ -22,12 +22,20 @@ struct Game_OffscreenBuffer {
     int BytesPerPixel;
 };
 
+struct Game_SoundOutputBuffer {
+    int16*  Samples;
+    int32   SampleCount;
+    int32   SamplesPerSecond;
+};
+
 // IN:
 // 1. control input
 // 2. bitmap buffer to fill
 // 3. sound buffer to fill
 // 4. timing
-void Game_UpdateAndRender(Game_OffscreenBuffer* Buffer, int XOffset, int YOffset);
+void Game_UpdateAndRender(
+    Game_OffscreenBuffer* Buffer, int XOffset, int YOffset,
+    Game_SoundOutputBuffer* SoundBuffer, int ToneHz);
 
 
 #ifdef UNITY_BUILD

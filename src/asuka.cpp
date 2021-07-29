@@ -1,4 +1,27 @@
 #include "asuka.hpp"
+#include <math.hpp>
+#include <math.h>
+
+
+void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, int ToneHz) {
+    static float32 tSine;
+
+    int16_t ToneVolume = 2000;
+
+    int16_t WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
+
+    int16_t* SampleOut = SoundBuffer->Samples;
+    for (int32_t SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
+
+        float32 SineValue = sinf(tSine);
+        int16 SampleValue = (int16)(SineValue * ToneVolume);
+
+        *SampleOut++ = SampleValue;
+        *SampleOut++ = SampleValue;
+
+        tSine += 2.f * math::consts<float32>::pi() / WavePeriod;
+    }
+}
 
 
 static void RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int YOffset) {
@@ -33,6 +56,11 @@ static void RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int YOffse
 }
 
 
-void Game_UpdateAndRender(Game_OffscreenBuffer* Buffer, int XOffset, int YOffset) {
+void Game_UpdateAndRender(
+    Game_OffscreenBuffer* Buffer, int XOffset, int YOffset,
+    Game_SoundOutputBuffer* SoundBuffer, int ToneHz)
+{
+    // @todo: Allow sample offsets for more robust platform options
+    Game_OutputSound(SoundBuffer, ToneHz);
     RenderGradient(Buffer, XOffset, YOffset);
 }
