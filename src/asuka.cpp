@@ -6,12 +6,12 @@
 void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, int ToneHz) {
     static float32 tSine;
 
-    int16_t ToneVolume = 2000;
+    int16 ToneVolume = 2000;
 
-    int16_t WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
+    int16 WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
 
-    int16_t* SampleOut = SoundBuffer->Samples;
-    for (int32_t SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
+    int16* SampleOut = SoundBuffer->Samples;
+    for (int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
 
         float32 SineValue = sinf(tSine);
         int16 SampleValue = (int16)(SineValue * ToneVolume);
@@ -44,8 +44,8 @@ static void RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int YOffse
             // BUT ARCHITECTURE IS LITTLE ENDIAN!!!
             // Pixel in registry: ARGB
             //
-            uint8_t Blue = x + XOffset;
-            uint8_t Green = y + YOffset;
+            uint8 Blue = x + XOffset;
+            uint8 Green = y + YOffset;
 
             *Pixel = (Blue) | (Green << 8);
             Pixel++;
