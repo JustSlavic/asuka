@@ -3,6 +3,7 @@
 
 
 #ifdef ASUKA_OS_WINDOWS
+
 typedef __int8 int8;
 typedef __int16 int16;
 typedef __int32 int32;
@@ -23,13 +24,13 @@ typedef unsigned __int64 uint64;
 #define ASSERT_MSG(COND, MSG)
 #endif
 
-#endif
+#endif // ASUKA_OS_WINDOWS
 
 #ifdef ASUKA_OS_LINUX
-#endif
+#endif // ASUKA_OS_LINUX
 
 #ifdef ASUKA_OS_MACOS
-#endif
+#endif // ASUKA_OS_MACOS
 
 typedef float float32;
 typedef double float64;

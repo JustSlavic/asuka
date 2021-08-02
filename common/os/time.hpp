@@ -4,11 +4,9 @@
 
 namespace os {
 
-
 uint64 get_processor_cycles();
-int64 get_performance_counter_frequency();
-int64 get_performance_counter();
-
+int64  get_performance_counter_frequency();
+int64  get_performance_counter();
 
 } // os
 
@@ -16,14 +14,5 @@ int64 get_performance_counter();
 #if ASUKA_OS_WINDOWS
 #include "windows/time.hpp"
 #endif
-
-#if ASUKA_OS_LINUX
-#include "linux/time.hpp"
-#endif
-
-#if ASUKA_OS_MACOS
-#include "macos/time.hpp"
-#endif
-
 
 #endif // ASUKA_COMMON_OS_TIME_HPP
