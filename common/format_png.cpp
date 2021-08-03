@@ -31,11 +31,11 @@ struct PNG_IHDRHeader {
 };
 #pragma pack(pop)
 
-enum rendering_intent {
-    perceptual = 0,
-    relative_colorimetric = 1,
-    saturation = 2,
-    absolute_colorimetric = 3,
+enum RenderingIntent {
+    PERCEPTUAL = 0,
+    RELATIVE_COLORIMETRIC = 1,
+    SATURATION = 2,
+    ABSOLUTE_COLORIMETRIC = 3,
 };
 
 void* load_png_file(const char* filename) {

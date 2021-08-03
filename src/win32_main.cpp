@@ -21,6 +21,8 @@
 #include <defines.hpp>
 #include "asuka.hpp"
 #include <os/time.hpp>
+#include <os/file.hpp>
+#include <format_png.hpp>
 
 #include <windows.h>
 #include <xinput.h>
@@ -357,6 +359,9 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
 
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+
+    void* png_memory = load_png_file("resources/sprites/debug.png");
+
     Win32_LoadXInputFunctions();
     WNDCLASSA WindowClass{};
 
