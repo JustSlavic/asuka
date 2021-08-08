@@ -19,10 +19,10 @@ typedef unsigned __int64 uint64;
     if (COND) {} else { __debugbreak(); } void(0)
 #define ASSERT_MSG(COND, MSG) \
     if (COND) {} else { __debugbreak(); } void(0)
-#else
+#else // ASUKA_DEBUG
 #define ASSERT(COND)
 #define ASSERT_MSG(COND, MSG)
-#endif
+#endif // ASUKA_DEBUG
 
 #endif // ASUKA_OS_WINDOWS
 
@@ -37,6 +37,19 @@ typedef double float64;
 
 typedef float f32;
 typedef double f64;
+
+
+#define DECLARE_BIT_FIELD_T(NAME, T, ...) \
+    struct NAME { \
+        enum INTERNAL : T { \
+            __VA_ARGS__ \
+        }; \
+        T value = 0; \
+        bool get(INTERNAL t) { return (value & t) != 0; } \
+        void set(INTERNAL t) { value |= t; } \
+        void unset(INTERNAL t) { value &= (~t); } \
+    }
+#define DECLARE_BIT_FIELD(NAME, ...) DEFINE_BIT_MASK_T(NAME, u32, __VA_ARGS__)
 
 
 #endif // ASUKA_COMMON_DEFINES_HPP
