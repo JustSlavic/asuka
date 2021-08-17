@@ -56,8 +56,6 @@ struct Win32_SoundOutput {
     int BytesPerSample;
     int SecondaryBufferSize;
     int LatencySampleCount;
-    int WavePeriod;
-    float32 SineTime;
 };
 
 
@@ -460,10 +458,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     SoundOutput.BytesPerSample = sizeof(sound_sample) * SoundOutput.ChannelCount;
     SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
     SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 60; // We want to fill buffer up to 1/60th of a second
-    // == specific to the sine wave == //
-    SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
-    SoundOutput.SineTime = 0;
-    // =============================== //
 
     Win32_InitDirectSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample);
     Win32_ClearSoundBuffer(&SoundOutput); // SoundOutput.SecondaryBufferSize);
@@ -565,7 +559,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
                 SoundOutput.ToneHz = 256 + (int32)(256.f * (Gamepad_StickLY));
                 if (SoundOutput.ToneHz == 0) SoundOutput.ToneHz = 1;
-                SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
 
                 if (GamepadX) {
                     PrintBatteryInformation = true;

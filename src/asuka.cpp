@@ -18,6 +18,9 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, int ToneHz) {
         *SampleOut++ = SampleValue;
 
         tSine += 2.f * math::consts<float32>::pi() / WavePeriod;
+        if (tSine > 2.f * math::consts<float32>::pi()) {
+            tSine -= 2.f * math::consts<float32>::pi();
+        }
     }
 }
 
