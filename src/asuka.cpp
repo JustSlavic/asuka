@@ -7,12 +7,10 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, int ToneHz) {
     static float32 tSine;
 
     int16 ToneVolume = 2000;
-
     int16 WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
-
     int16* SampleOut = SoundBuffer->Samples;
-    for (int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
 
+    for (int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
         float32 SineValue = sinf(tSine);
         int16 SampleValue = (int16)(SineValue * ToneVolume);
 
@@ -24,7 +22,7 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, int ToneHz) {
 }
 
 
-static void RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int YOffset) {
+static void Game_RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int YOffset) {
     //                  Width->                                      Width * BytesPerPixel
     // BitmapMemory: 0  BB GG RR xx BB GG RR xx BB GG RR xx    ...   BB GG RR xx           <additional padding?>
     // BM + Pitch:   1  BB GG RR xx BB GG RR xx BB GG RR xx    ...   BB GG RR xx           <additional padding?>
@@ -62,5 +60,5 @@ void Game_UpdateAndRender(
 {
     // @todo: Allow sample offsets for more robust platform options
     Game_OutputSound(SoundBuffer, ToneHz);
-    RenderGradient(Buffer, XOffset, YOffset);
+    Game_RenderGradient(Buffer, XOffset, YOffset);
 }

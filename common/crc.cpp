@@ -20,7 +20,8 @@ void make_crc_table() {
             if (c & 1) {
                 // polynomial: 1+x+x^2+x^4+x^5+x^7+x^8+x^10+x^11+x^12+x^16+x^22+x^23+x26+x^32
                 // 1110'1101'1011'1000'1000'0011'0010'0000
-                // Note: x^32 is not written explicitly, it is implied
+                // Note: x^32 is not written explicitly, it is implied; To account this last 1 bit
+                //       we take 1's compliment of the result.
                 uint32 polynomial = 0xedb88320; // Hex representation of this polynomial
                 c = polynomial ^ (c >> 1);
             } else {
@@ -33,22 +34,24 @@ void make_crc_table() {
 }
 
 //
-//   Update a running CRC with the bytes buf[0..len-1] -- the CRC
+// Update a running CRC with the bytes buf[0..len-1] -- the CRC
 // should be initialized to all 1's, and the transmitted value
 // is the 1's complement of the final running CRC (see the crc() routine below).
 //
-uint32 update_crc(uint32 crc, uint8 *buf, int32 len) {
-    uint32 c = crc;
+uint32 update_crc(uint32 init, uint8 *buf, int32 len) {
+    uint32 crc = init;
 
     if (!crc_table_computed) {
         make_crc_table();
     }
 
     for (int32 n = 0; n < len; n++) {
-        c = crc_table[(c ^ buf[n]) & 0xff] ^ (c >> 8);
+        crc = crc_table[(crc ^ buf[n]) & 0xff] ^ (crc >> 8);
+        //              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //                   What is going on here???
     }
 
-    return c;
+    return crc;
 }
 
 //
@@ -56,6 +59,8 @@ uint32 update_crc(uint32 crc, uint8 *buf, int32 len) {
 //
 uint32 crc(uint8 *buf, int32 len) {
     return update_crc(0xffff'ffff, buf, len) ^ 0xffff'ffff;
+    //                ^^^^^^^^^^^            ^^^^^^^^^^^^^
+    //                Initialize all 1's     Take 1's complement of the result
 }
 
 

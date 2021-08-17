@@ -52,14 +52,16 @@ struct Win32_SoundOutput {
     int SamplesPerSecond;
     int ToneHz;
     uint32 RunningSampleIndex;
-    int WavePeriod;
     int ChannelCount;
     int BytesPerSample;
     int SecondaryBufferSize;
-    float32 SineTime;
     int LatencySampleCount;
+    int WavePeriod;
+    float32 SineTime;
 };
 
+
+typedef int16 sound_sample;
 
 static bool Running;
 static Win32_OffscreenBuffer Global_BackBuffer;
@@ -120,6 +122,50 @@ static float32 Win32_ProcessXInputStickValue(int16 value, int16 deadzone) {
 }
 
 
+static void Win32_ProcessGamepadBattery(XINPUT_BATTERY_INFORMATION BatteryInformation) {
+    switch (BatteryInformation.BatteryType) {
+        case BATTERY_TYPE_DISCONNECTED: {
+            OutputDebugStringA("BATTERY DISCONNECTED\n");
+            break;
+        }
+        case BATTERY_TYPE_WIRED: {
+            OutputDebugStringA("BATTERY WIRED: ");
+            break;
+        }
+        case BATTERY_TYPE_ALKALINE: {
+            OutputDebugStringA("BATTERY ALKALINE: ");
+            break;
+        }
+        case BATTERY_TYPE_NIMH: {
+            OutputDebugStringA("BATTERY NIMH: ");
+            break;
+        }
+        case BATTERY_TYPE_UNKNOWN: {
+            break;
+        }
+    }
+
+    switch (BatteryInformation.BatteryLevel) {
+        case BATTERY_LEVEL_EMPTY: {
+            OutputDebugStringA("BATTERY EMPTY\n");
+            break;
+        }
+        case BATTERY_LEVEL_LOW: {
+            OutputDebugStringA("BATTERY LOW\n");
+            break;
+        }
+        case BATTERY_LEVEL_MEDIUM: {
+            OutputDebugStringA("BATTERY MEDIUM\n");
+            break;
+        }
+        case BATTERY_LEVEL_FULL: {
+            OutputDebugStringA("BATTERY FULL\n");
+            break;
+        }
+    }
+}
+
+
 static void Win32_InitDirectSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize) {
     // Load the library
     HMODULE DirectSoundLibrary = LoadLibraryA("dsound.dll");
@@ -132,7 +178,7 @@ static void Win32_InitDirectSound(HWND Window, int32 SamplesPerSecond, int32 Buf
         WAVEFORMATEX WaveFormat {};
         WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
         WaveFormat.nChannels = 2;
-        WaveFormat.wBitsPerSample = 16;
+        WaveFormat.wBitsPerSample = sizeof(sound_sample) * 8;
         WaveFormat.nSamplesPerSec = SamplesPerSecond;
         WaveFormat.nBlockAlign = (WaveFormat.nChannels * WaveFormat.wBitsPerSample) / 8;
         WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
@@ -167,8 +213,9 @@ static void Win32_InitDirectSound(HWND Window, int32 SamplesPerSecond, int32 Buf
                 SecondaryBufferDescription.lpwfxFormat = &WaveFormat;
 
                 if (SUCCEEDED(DirectSound->CreateSoundBuffer(&SecondaryBufferDescription, &Global_SecondaryBuffer, 0))) {
-                        OutputDebugStringA("We successfully created secondary buffer!\n");
+                    OutputDebugStringA("We successfully created secondary buffer!\n");
                 } else {
+                    OutputDebugStringA("Could not create secondary buffer!\n");
                     // Diagnostics
                 }
             } else {
@@ -278,7 +325,7 @@ static void Win32_FillSoundBuffer(
 
         {
             DWORD SampleCount = Region1_Size / SoundOutput->BytesPerSample;
-            int16* DestSamples = (int16*) Region1;
+            sound_sample* DestSamples = (sound_sample*) Region1;
 
             for (DWORD SampleIndex = 0; SampleIndex < SampleCount; SampleIndex++) {
                 *DestSamples++ = *SourceSamples++;
@@ -289,7 +336,7 @@ static void Win32_FillSoundBuffer(
 
         {
             DWORD SampleCount = Region2_Size / SoundOutput->BytesPerSample;
-            int16* DestSamples = (int16*) Region2;
+            sound_sample* DestSamples = (sound_sample*) Region2;
 
             for (DWORD SampleIndex = 0; SampleIndex < SampleCount; SampleIndex++) {
                 *DestSamples++ = *SourceSamples++;
@@ -378,6 +425,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     ATOM ClassAtomResult = RegisterClassA(&WindowClass);
     if (!ClassAtomResult) {
         // Handle error
+        return 1;
     }
 
     HWND Window = CreateWindowExA(
@@ -397,6 +445,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     if (!Window) {
         // Handle error
+        return 1;
     }
 
     int32 XOffset = 0;
@@ -407,11 +456,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     SoundOutput.SamplesPerSecond = 48000;
     SoundOutput.ToneHz = 256;
     SoundOutput.RunningSampleIndex = 0;
-    SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
     SoundOutput.ChannelCount = 2;
-    SoundOutput.BytesPerSample = sizeof(int16) * SoundOutput.ChannelCount;
+    SoundOutput.BytesPerSample = sizeof(sound_sample) * SoundOutput.ChannelCount;
     SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
-    SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15; // We want to fill buffer up to 1/60th of a second
+    SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 60; // We want to fill buffer up to 1/60th of a second
+    // == specific to the sine wave == //
+    SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
+    SoundOutput.SineTime = 0;
+    // =============================== //
 
     Win32_InitDirectSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample);
     Win32_ClearSoundBuffer(&SoundOutput); // SoundOutput.SecondaryBufferSize);
@@ -532,42 +584,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 XINPUT_BATTERY_INFORMATION BatteryInformation;
                 if (PrintBatteryInformation) {
                     if (XInputGetBatteryInformation(0, BATTERY_DEVTYPE_GAMEPAD, &BatteryInformation) == ERROR_SUCCESS) {
-                        switch (BatteryInformation.BatteryType) {
-                            case BATTERY_TYPE_DISCONNECTED: {
-                                OutputDebugStringA("BATTERY DISCONNECTED\n");
-                            }
-                            break;
-                            case BATTERY_TYPE_WIRED:
-                                OutputDebugStringA("BATTERY WIRED: ");
-                            break;
-                            case BATTERY_TYPE_ALKALINE:
-                                OutputDebugStringA("BATTERY ALKALINE: ");
-                            break;
-                            case BATTERY_TYPE_NIMH:
-                                OutputDebugStringA("BATTERY NIMH: ");
-                            break;
-                            case BATTERY_TYPE_UNKNOWN:
-                            break;
-                        }
-
-                        switch (BatteryInformation.BatteryLevel) {
-                            case BATTERY_LEVEL_EMPTY: {
-                                OutputDebugStringA("BATTERY EMPTY\n");
-                            }
-                            break;
-                            case BATTERY_LEVEL_LOW: {
-                                OutputDebugStringA("BATTERY LOW\n");
-                            }
-                            break;
-                            case BATTERY_LEVEL_MEDIUM: {
-                                OutputDebugStringA("BATTERY MEDIUM\n");
-                            }
-                            break;
-                            case BATTERY_LEVEL_FULL: {
-                                OutputDebugStringA("BATTERY FULL\n");
-                            }
-                            break;
-                        }
+                        Win32_ProcessGamepadBattery(BatteryInformation);
                     } else {
                         // Diagnostics
                     }
@@ -596,8 +613,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 // }
             }
         }
-
-        // RenderGradient(&Global_BackBuffer, XOffset++, YOffset);
 
         DWORD PlayCursor;
         DWORD WriteCursor;

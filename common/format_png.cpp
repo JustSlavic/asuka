@@ -56,6 +56,7 @@ void* load_png_file(const char* filename) {
     auto result = os::load_entire_file(filename);
 
     uint8* signature = (uint8*) result.memory;
+    // @todo: do runtime checking in all builds
     ASSERT(signature[0] == 137 &&
            signature[1] == 80  &&
            signature[2] == 78  &&
@@ -65,13 +66,13 @@ void* load_png_file(const char* filename) {
            signature[6] == 26  &&
            signature[7] == 10);
 
-    uint8* chunks = (uint8*)((uint8*)result.memory + PNG_SIGNATURE_SIZE);
+    uint8* chunk = (uint8*)((uint8*)result.memory + PNG_SIGNATURE_SIZE);
 
     bool end = false;
     PNG_IHDRHeader header{};
 
     // @todo: check if comparing pointers is allowed
-    while (chunks < ((uint8*)result.memory + result.size)) {
+    while (chunk < ((uint8*)result.memory + result.size)) {
         //
         // Chunks of PNG file follow this layout:
         //
@@ -80,9 +81,9 @@ void* load_png_file(const char* filename) {
         // +-------------------+-------------+----------------+
         // |<-    8 bytes    ->|<- N bytes ->|<-  4  bytes  ->|
         //
-        PNG_ChunkHeader* chunk_header = (PNG_ChunkHeader*)chunks;
+        PNG_ChunkHeader* chunk_header = (PNG_ChunkHeader*)chunk;
         uint32 size = change_endianess(chunk_header->size_of_data);
-        uint8* data = chunks + sizeof(PNG_ChunkHeader);
+        uint8* data = chunk + sizeof(PNG_ChunkHeader);
         uint32 crc  = change_endianess(*(uint32*)(data + size));
 
         if (chunk_header->type[0] == 'I' &&
@@ -90,7 +91,6 @@ void* load_png_file(const char* filename) {
             chunk_header->type[2] == 'D' &&
             chunk_header->type[3] == 'R')
         {
-            // This is IHDR chunk
             PNG_IHDRHeader* ihdr = (PNG_IHDRHeader*)data;
             header.width = change_endianess(ihdr->width);
             header.height = change_endianess(ihdr->height);
@@ -109,14 +109,8 @@ void* load_png_file(const char* filename) {
                  chunk_header->type[2] == 'G' &&
                  chunk_header->type[3] == 'B')
         {
-            //
-            // The sRGB chunk contains:
-            //  +------------------+
-            //  | Rendering intent |
-            //  +------------------+
-            //  |<-    1 byte    ->|
-            // 
             PNG_RenderingIntent rendering_intent = *(PNG_RenderingIntent*)data;
+
             OutputDebugStringA("Rendering intent: ");
             switch (rendering_intent) {
                 case PNG_PERCEPTUAL: {
@@ -142,7 +136,6 @@ void* load_png_file(const char* filename) {
                  chunk_header->type[2] == 'A' &&
                  chunk_header->type[3] == 'T')
         {
-            // This is IDAT chunk
             int x = 0;
         }
         else if (chunk_header->type[0] == 'I' &&
@@ -150,7 +143,7 @@ void* load_png_file(const char* filename) {
                  chunk_header->type[2] == 'N' &&
                  chunk_header->type[3] == 'D')
         {
-            // This is IEND chunk
+            // IEND chunk has no data.
             end = true;
         }
 
@@ -166,7 +159,7 @@ void* load_png_file(const char* filename) {
         }
 
         if (end) break;
-        chunks = data + size + sizeof(PNG_ChunkCRC);
+        chunk = data + size + sizeof(PNG_ChunkCRC);
     }
 
     return nullptr;
