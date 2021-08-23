@@ -33,9 +33,7 @@ struct Game_SoundOutputBuffer {
 // 2. bitmap buffer to fill
 // 3. sound buffer to fill
 // 4. timing
-void Game_UpdateAndRender(
-    Game_OffscreenBuffer* Buffer, int XOffset, int YOffset,
-    Game_SoundOutputBuffer* SoundBuffer, int ToneHz);
+void Game_UpdateAndRender(Game_OffscreenBuffer* Buffer, Game_SoundOutputBuffer* SoundBuffer);
 
 
 #ifdef UNITY_BUILD
