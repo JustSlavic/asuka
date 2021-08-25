@@ -405,7 +405,7 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 
-    void* png_memory = load_png_file("resources/sprites/debug.png");
+    png_image png_image_result = load_png_file("resources/sprites/debug.png");
 
     Win32_LoadXInputFunctions();
     WNDCLASSA WindowClass{};
@@ -645,7 +645,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         Buffer.Pitch = Global_BackBuffer.Pitch;
         Buffer.BytesPerPixel = Global_BackBuffer.BytesPerPixel;
 
-        Game_UpdateAndRender(&Buffer, XOffset++, YOffset, &SoundBuffer, SoundOutput.ToneHz);
+        Game_UpdateAndRender(&Buffer, XOffset++, YOffset, &SoundBuffer, SoundOutput.ToneHz, png_image_result);
 
         if (SoundIsValid) {
             Win32_FillSoundBuffer(&SoundOutput, BytesToLock, BytesToWrite, &SoundBuffer);

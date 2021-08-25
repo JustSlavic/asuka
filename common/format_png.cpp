@@ -1,4 +1,5 @@
 #include "format_png.hpp"
+#include "os/file.hpp"
 #include "crc.hpp"
 
 
@@ -84,10 +85,10 @@ uint32 get_bits(bit_fetcher* fetcher, int32 n) {
 }
 
 
-void* load_png_file(const char* filename) {
-    auto result = os::load_entire_file(filename);
+png_image load_png_file(const char* filename) {
+    auto load_result = os::load_entire_file(filename);
 
-    uint8* signature = (uint8*) result.memory;
+    uint8* signature = (uint8*) load_result.memory;
     // @todo: do runtime checking in all builds
     ASSERT(signature[0] == 137 &&
            signature[1] == 80  &&
@@ -98,13 +99,13 @@ void* load_png_file(const char* filename) {
            signature[6] == 26  &&
            signature[7] == 10);
 
-    uint8* chunk = (uint8*)((uint8*)result.memory + PNG_SIGNATURE_SIZE);
+    uint8* chunk = (uint8*)((uint8*)load_result.memory + PNG_SIGNATURE_SIZE);
 
     bool end = false;
     PNG_IHDRHeader header{};
 
     // @todo: check if comparing pointers is allowed
-    while (chunk < ((uint8*)result.memory + result.size)) {
+    while (chunk < ((uint8*)load_result.memory + load_result.size)) {
         //
         // Chunks of PNG file follow this layout:
         //
@@ -223,7 +224,7 @@ void* load_png_file(const char* filename) {
                 } else {
                     if (BTYPE == 3) {
                         // @todo: return error;
-                        return nullptr;
+                        return {};
                     }
 
                     if (BTYPE == 1) {
@@ -340,5 +341,15 @@ void* load_png_file(const char* filename) {
         chunk = data + size + sizeof(PNG_ChunkCRC);
     }
 
-    return nullptr;
+    png_image result {};
+
+    result.width = header.width;
+    result.height = header.height;
+    result.stride = 0;
+    result.bytes_per_pixel = 4; // rgba
+
+    result.size = result.width * result.bytes_per_pixel + result.stride;
+    result.data = (uint8*) VirtualAlloc(0, result.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+    return result;
 }

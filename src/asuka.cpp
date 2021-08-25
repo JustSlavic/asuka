@@ -25,7 +25,7 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, int ToneHz) {
 }
 
 
-static void Game_RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int YOffset) {
+static void Game_RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int YOffset, png_image png_image_result) {
     //                  Width->                                      Width * BytesPerPixel
     // BitmapMemory: 0  BB GG RR xx BB GG RR xx BB GG RR xx    ...   BB GG RR xx           <additional padding?>
     // BM + Pitch:   1  BB GG RR xx BB GG RR xx BB GG RR xx    ...   BB GG RR xx           <additional padding?>
@@ -54,14 +54,33 @@ static void Game_RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int Y
 
         Row += Buffer->Pitch;
     }
+
+    Row = (uint8*)Buffer->Memory;
+    uint8* image_row = png_image_result.data;
+
+    for (int y = 0; y < png_image_result.height; y++) {
+        uint32* Pixel = (uint32*) Row;
+        uint8* image_pixel_channel = image_row;
+        for (int x = 0; x < png_image_result.width; x++) {
+            uint8 Blue  = *image_pixel_channel++;
+            uint8 Green = *image_pixel_channel++;
+            uint8 Red   = *image_pixel_channel++;
+            uint8 Alpha = *image_pixel_channel++;
+
+            *Pixel = (Blue) | (Green << 8) | (Red << 16) | (Alpha << 24);
+            Pixel++;
+        }
+
+        Row += Buffer->Pitch;
+    }
 }
 
 
 void Game_UpdateAndRender(
     Game_OffscreenBuffer* Buffer, int XOffset, int YOffset,
-    Game_SoundOutputBuffer* SoundBuffer, int ToneHz)
+    Game_SoundOutputBuffer* SoundBuffer, int ToneHz, png_image png_image_result)
 {
     // @todo: Allow sample offsets for more robust platform options
     Game_OutputSound(SoundBuffer, ToneHz);
-    Game_RenderGradient(Buffer, XOffset, YOffset);
+    Game_RenderGradient(Buffer, XOffset, YOffset, png_image_result);
 }

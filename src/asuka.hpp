@@ -2,6 +2,7 @@
 #define ASUKA_ASUKA_HPP
 
 #include "defines.hpp"
+#include <format_png.hpp>
 
 
 //
@@ -35,7 +36,7 @@ struct Game_SoundOutputBuffer {
 // 4. timing
 void Game_UpdateAndRender(
     Game_OffscreenBuffer* Buffer, int XOffset, int YOffset,
-    Game_SoundOutputBuffer* SoundBuffer, int ToneHz);
+    Game_SoundOutputBuffer* SoundBuffer, int ToneHz, png_image png_image_result);
 
 
 #ifdef UNITY_BUILD
