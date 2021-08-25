@@ -30,16 +30,18 @@ file_read_result load_entire_file(const char* filename) {
         return result;
     }
 
+    ASSERT(FileSize.QuadPart <= UINT32_MAX);
+
     void* Memory = VirtualAlloc(0, FileSize.QuadPart, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
     DWORD BytesRead;
     BOOL ReadFileResult = ReadFile(
-      FileHandle,
-      Memory,
-      FileSize.QuadPart,
-      &BytesRead,
-      NULL);
-    if (ReadFileResult == FALSE) {
+        FileHandle,
+        Memory,
+        FileSize.QuadPart,
+        &BytesRead,
+        NULL);
+    if (ReadFileResult == FALSE && BytesRead == FileSize.QuadPart) {
         // @todo: log error
         VirtualFree(Memory, 0, MEM_RELEASE);
         return result;
