@@ -41,7 +41,7 @@ typedef unsigned long long int64;
 
 #define ASUKA_DEBUG_BREAK __builtin_trap
 
-#endif // ASUKA_COMPILER_GNU_C
+#endif // ASUKA_COMPILER_GNU
 
 #ifdef ASUKA_DEBUG
 #define ASSERT(COND) \
@@ -59,11 +59,17 @@ typedef unsigned long long int64;
 #ifdef ASUKA_OS_MACOS
 #endif // ASUKA_OS_MACOS
 
-typedef float float32;
+#define ARRAY_COUNT(ARRAY) (sizeof(ARRAY) / sizeof((ARRAY)[0]))
+
+#define KILOBYTES(VALUE) (((uint64)(VALUE))*1024)
+#define MEGABYTES(VALUE) (KILOBYTES((uint64)(VALUE))*1024)
+#define GIGABYTES(VALUE) (MEGABYTES((uint64)(VALUE))*1024)
+#define TERABYTES(VALUE) (GIGABYTES((uint64)(VALUE))*1024)
+
+typedef int32  bool32;
+typedef float  float32;
+typedef float  f32;
 typedef double float64;
-
-typedef float f32;
 typedef double f64;
-
 
 #endif // ASUKA_COMMON_DEFINES_HPP

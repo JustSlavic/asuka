@@ -28,7 +28,6 @@
 #include <stdio.h>
 
 
-
 struct Win32_OffscreenBuffer {
     // Pixels are always 32-bits wide Little Endian, Memory Order BBGGRRxx
     BITMAPINFO Info;
@@ -105,11 +104,31 @@ static void Win32_LoadXInputFunctions() {
 }
 
 
-static float32 Win32_ProcessXInputStickValue(int16 value, int16 deadzone) {
+static void Win32_ProcessXInputButton(
+    Game_ButtonState* OldState,
+    Game_ButtonState* NewState,
+    DWORD XInputButtonState,
+    DWORD ButtonBit)
+{
+    NewState->EndedDown = (XInputButtonState & ButtonBit) == ButtonBit;
+    NewState->HalfTransitionCount = ((NewState->EndedDown != OldState->EndedDown) ? 1 : 0);
+}
+
+
+static float32 Win32_ProcessXInputStick(int16 value, int16 deadzone) {
     if (value < -deadzone) {
-        return ((float32)value + (float32)deadzone) / (32768.f - (float32)deadzone);
+        return (float32)(value + deadzone) / (float32)(32768 - deadzone);
     } else if (value > deadzone) {
-        return ((float32)value - (float32)deadzone) / (32767.f - (float32)deadzone);
+        return (float32)(value - deadzone) / (float32)(32767 - deadzone);
+    }
+
+    return 0.f;
+}
+
+
+static float32 Win32_ProcessXInputTrigger(uint8 value, uint8 deadzone) {
+    if (value < deadzone) {
+        return (float32)(value + deadzone) / (float32)(255 - deadzone);
     }
 
     return 0.f;
@@ -399,7 +418,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     SoundOutput.ChannelCount = 2;
     SoundOutput.BytesPerSample = sizeof(int16) * SoundOutput.ChannelCount;
     SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
-    SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15; // We want to fill buffer up to 1/60th of a second
+    SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 30; // We want to fill buffer up to 1/60th of a second
 
     Win32_InitDirectSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
     Win32_ClearSoundBuffer(&SoundOutput);
@@ -407,13 +426,30 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     int16* Samples = (int16*) VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
+#ifdef ASUKA_DEBUG
+    LPVOID BaseAddress = (LPVOID)TERABYTES(1);
+#else
+    LPVOID BaseAddress = 0;
+#endif
+
+    Game_Memory GameMemory{};
+    GameMemory.PermanentStorageSize = MEGABYTES(64);
+    GameMemory.TransientStorageSize = GIGABYTES(2);
+
+    uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
+    GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    GameMemory.TransientStorage = (uint8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
+
     Running = true;
     int FrameCounter = 0;
-    bool PrintBatteryInformation = false;
-    bool TestGamepadVibration = false;
+    bool SoundIsValid = false;
 
     int64 LastCounter = os::get_performance_counter();
     uint64 LastCycleCount = os::get_processor_cycles();
+
+    Game_Input Input[2] {};
+    Game_Input* OldInput = &Input[0];
+    Game_Input* NewInput = &Input[1];
 
     while (Running) {
         FrameCounter ++;
@@ -465,104 +501,118 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             }
         }
 
-        XINPUT_STATE InputState;
-        for (DWORD GamepadIndex = 0; GamepadIndex < XUSER_MAX_COUNT; GamepadIndex++ ) {
+        DWORD MaxControllerCount = XUSER_MAX_COUNT;
+        if (MaxControllerCount > ARRAY_COUNT(Input[0].Controllers)) {
+            MaxControllerCount = ARRAY_COUNT(Input[0].Controllers);
+        }
+
+        for (DWORD GamepadIndex = 0; GamepadIndex < MaxControllerCount; GamepadIndex++ ) {
+            XINPUT_STATE InputState;
             auto CONTROLLER_STATE_EC = XInputGetState(0, &InputState);
             if (CONTROLLER_STATE_EC == ERROR_SUCCESS) {
                 XINPUT_GAMEPAD Gamepad = InputState.Gamepad;
 
-                bool GamepadDPadUp = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP;
-                bool GamepadDPadDown = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
-                bool GamepadDPadLeft = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
-                bool GamepadDPadRight = Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
-                bool GamepadStart = Gamepad.wButtons & XINPUT_GAMEPAD_START;
-                bool GamepadBack = Gamepad.wButtons & XINPUT_GAMEPAD_BACK;
-                bool GamepadLeftThumb = Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB;
-                bool GamepadRightThumb = Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB;
-                bool GamepadLeftShoulder = Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER;
-                bool GamepadRightShoulder = Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
-                bool GamepadA = Gamepad.wButtons & XINPUT_GAMEPAD_A;
-                bool GamepadB = Gamepad.wButtons & XINPUT_GAMEPAD_B;
-                bool GamepadX = Gamepad.wButtons & XINPUT_GAMEPAD_X;
-                bool GamepadY = Gamepad.wButtons & XINPUT_GAMEPAD_Y;
+                Game_ControllerInput* OldGamepadInput = &OldInput->Controllers[GamepadIndex];
+                Game_ControllerInput* NewGamepadInput = &NewInput->Controllers[GamepadIndex];
 
+                NewGamepadInput->IsAnalog = true;
 
-                float32 Gamepad_StickLX = Win32_ProcessXInputStickValue(Gamepad.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
-                float32 Gamepad_StickLY = Win32_ProcessXInputStickValue(Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+                Win32_ProcessXInputButton(&OldGamepadInput->A, &NewGamepadInput->A, Gamepad.wButtons, XINPUT_GAMEPAD_A);
+                Win32_ProcessXInputButton(&OldGamepadInput->B, &NewGamepadInput->B, Gamepad.wButtons, XINPUT_GAMEPAD_B);
+                Win32_ProcessXInputButton(&OldGamepadInput->X, &NewGamepadInput->X, Gamepad.wButtons, XINPUT_GAMEPAD_X);
+                Win32_ProcessXInputButton(&OldGamepadInput->Y, &NewGamepadInput->Y, Gamepad.wButtons, XINPUT_GAMEPAD_Y);
 
-                float32 Gamepad_StickRX = Win32_ProcessXInputStickValue(Gamepad.sThumbRX, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
-                float32 Gamepad_StickRY = Win32_ProcessXInputStickValue(Gamepad.sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
+                Win32_ProcessXInputButton(&OldGamepadInput->DpadUp, &NewGamepadInput->DpadUp, Gamepad.wButtons, XINPUT_GAMEPAD_DPAD_UP);
+                Win32_ProcessXInputButton(&OldGamepadInput->DpadDown, &NewGamepadInput->DpadDown, Gamepad.wButtons, XINPUT_GAMEPAD_DPAD_DOWN);
+                Win32_ProcessXInputButton(&OldGamepadInput->DpadLeft, &NewGamepadInput->DpadLeft, Gamepad.wButtons, XINPUT_GAMEPAD_DPAD_LEFT);
+                Win32_ProcessXInputButton(&OldGamepadInput->DpadRight, &NewGamepadInput->DpadRight, Gamepad.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT);
 
-                uint8 GamepadLeftTrigger = Gamepad.bLeftTrigger;
-                uint8 GamepadRightTrigger = Gamepad.bRightTrigger;
+                Win32_ProcessXInputButton(&OldGamepadInput->ShoulderLeft, &NewGamepadInput->ShoulderLeft, Gamepad.wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER);
+                Win32_ProcessXInputButton(&OldGamepadInput->ShoulderRight, &NewGamepadInput->ShoulderRight, Gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER);
 
-                if (GamepadX) {
-                    PrintBatteryInformation = true;
-                }
+                Win32_ProcessXInputButton(&OldGamepadInput->StickLeft, &NewGamepadInput->StickLeft, Gamepad.wButtons, XINPUT_GAMEPAD_LEFT_THUMB);
+                Win32_ProcessXInputButton(&OldGamepadInput->StickRight, &NewGamepadInput->StickRight, Gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB);
 
-                if (GamepadY) {
-                    TestGamepadVibration = true;
-                }
+                Win32_ProcessXInputButton(&OldGamepadInput->Back, &NewGamepadInput->Back, Gamepad.wButtons, XINPUT_GAMEPAD_BACK);
+                Win32_ProcessXInputButton(&OldGamepadInput->Start, &NewGamepadInput->Start, Gamepad.wButtons, XINPUT_GAMEPAD_START);
 
-                XINPUT_BATTERY_INFORMATION BatteryInformation;
-                if (PrintBatteryInformation) {
-                    if (XInputGetBatteryInformation(0, BATTERY_DEVTYPE_GAMEPAD, &BatteryInformation) == ERROR_SUCCESS) {
-                        switch (BatteryInformation.BatteryType) {
-                            case BATTERY_TYPE_DISCONNECTED: {
-                                OutputDebugStringA("BATTERY DISCONNECTED\n");
-                            }
-                            break;
-                            case BATTERY_TYPE_WIRED:
-                                OutputDebugStringA("BATTERY WIRED: ");
-                            break;
-                            case BATTERY_TYPE_ALKALINE:
-                                OutputDebugStringA("BATTERY ALKALINE: ");
-                            break;
-                            case BATTERY_TYPE_NIMH:
-                                OutputDebugStringA("BATTERY NIMH: ");
-                            break;
-                            case BATTERY_TYPE_UNKNOWN:
-                            break;
-                        }
+                NewGamepadInput->StickLXStarted = OldGamepadInput->StickLXEnded;
+                NewGamepadInput->StickLXEnded = Win32_ProcessXInputStick(Gamepad.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
 
-                        switch (BatteryInformation.BatteryLevel) {
-                            case BATTERY_LEVEL_EMPTY: {
-                                OutputDebugStringA("BATTERY EMPTY\n");
-                            }
-                            break;
-                            case BATTERY_LEVEL_LOW: {
-                                OutputDebugStringA("BATTERY LOW\n");
-                            }
-                            break;
-                            case BATTERY_LEVEL_MEDIUM: {
-                                OutputDebugStringA("BATTERY MEDIUM\n");
-                            }
-                            break;
-                            case BATTERY_LEVEL_FULL: {
-                                OutputDebugStringA("BATTERY FULL\n");
-                            }
-                            break;
-                        }
-                    } else {
-                        // Diagnostics
-                    }
-                }
+                NewGamepadInput->StickLYStarted = OldGamepadInput->StickLYEnded;
+                NewGamepadInput->StickLYEnded = Win32_ProcessXInputStick(Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
 
-                if (TestGamepadVibration) {
-                    if (FrameCounter % 100 == 0 && FrameCounter % 200 == 0) {
-                        XINPUT_VIBRATION GamepadVibrationState {};
-                        GamepadVibrationState.wLeftMotorSpeed  = 0;
-                        GamepadVibrationState.wRightMotorSpeed = 10000;
+                NewGamepadInput->StickRXStarted = OldGamepadInput->StickRXEnded;
+                NewGamepadInput->StickRXEnded = Win32_ProcessXInputStick(Gamepad.sThumbRX, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
 
-                        XInputSetState(0, &GamepadVibrationState);
-                    } else if (FrameCounter % 100 == 0 && FrameCounter % 200 != 0) {
-                        XINPUT_VIBRATION GamepadVibrationState {};
-                        GamepadVibrationState.wLeftMotorSpeed  = 10000;
-                        GamepadVibrationState.wRightMotorSpeed = 0;
+                NewGamepadInput->StickRYStarted = OldGamepadInput->StickRYEnded;
+                NewGamepadInput->StickRYEnded = Win32_ProcessXInputStick(Gamepad.sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
 
-                        XInputSetState(0, &GamepadVibrationState);
-                    }
-                }
+                NewGamepadInput->TriggerLeftStarted = OldGamepadInput->TriggerLeftEnded;
+                NewGamepadInput->TriggerLeftEnded = Win32_ProcessXInputTrigger(Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
+
+                NewGamepadInput->TriggerRightStarted = OldGamepadInput->TriggerRightEnded;
+                NewGamepadInput->TriggerRightEnded = Win32_ProcessXInputTrigger(Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
+
+                // XINPUT_BATTERY_INFORMATION BatteryInformation;
+                // if (PrintBatteryInformation) {
+                //     if (XInputGetBatteryInformation(0, BATTERY_DEVTYPE_GAMEPAD, &BatteryInformation) == ERROR_SUCCESS) {
+                //         switch (BatteryInformation.BatteryType) {
+                //             case BATTERY_TYPE_DISCONNECTED: {
+                //                 OutputDebugStringA("BATTERY DISCONNECTED\n");
+                //             }
+                //             break;
+                //             case BATTERY_TYPE_WIRED:
+                //                 OutputDebugStringA("BATTERY WIRED: ");
+                //             break;
+                //             case BATTERY_TYPE_ALKALINE:
+                //                 OutputDebugStringA("BATTERY ALKALINE: ");
+                //             break;
+                //             case BATTERY_TYPE_NIMH:
+                //                 OutputDebugStringA("BATTERY NIMH: ");
+                //             break;
+                //             case BATTERY_TYPE_UNKNOWN:
+                //             break;
+                //         }
+
+                //         switch (BatteryInformation.BatteryLevel) {
+                //             case BATTERY_LEVEL_EMPTY: {
+                //                 OutputDebugStringA("BATTERY EMPTY\n");
+                //             }
+                //             break;
+                //             case BATTERY_LEVEL_LOW: {
+                //                 OutputDebugStringA("BATTERY LOW\n");
+                //             }
+                //             break;
+                //             case BATTERY_LEVEL_MEDIUM: {
+                //                 OutputDebugStringA("BATTERY MEDIUM\n");
+                //             }
+                //             break;
+                //             case BATTERY_LEVEL_FULL: {
+                //                 OutputDebugStringA("BATTERY FULL\n");
+                //             }
+                //             break;
+                //         }
+                //     } else {
+                //         // Diagnostics
+                //     }
+                // }
+
+                // if (TestGamepadVibration) {
+                //     if (FrameCounter % 100 == 0 && FrameCounter % 200 == 0) {
+                //         XINPUT_VIBRATION GamepadVibrationState {};
+                //         GamepadVibrationState.wLeftMotorSpeed  = 0;
+                //         GamepadVibrationState.wRightMotorSpeed = 10000;
+
+                //         XInputSetState(0, &GamepadVibrationState);
+                //     } else if (FrameCounter % 100 == 0 && FrameCounter % 200 != 0) {
+                //         XINPUT_VIBRATION GamepadVibrationState {};
+                //         GamepadVibrationState.wLeftMotorSpeed  = 10000;
+                //         GamepadVibrationState.wRightMotorSpeed = 0;
+
+                //         XInputSetState(0, &GamepadVibrationState);
+                //     }
+                // }
             } else {
                 // Controller is unpluged or other error
                 // OutputDebugStringA("Some error occurred when polling device input state.\n");
@@ -581,17 +631,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         DWORD TargetCursor;
         DWORD BytesToWrite;
 
-        bool SoundIsValid = false;
         if (SUCCEEDED(Global_SecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
         {
-            ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
-            TargetCursor = (PlayCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize;
-            BytesToWrite = 0;
+            if (SoundIsValid) {
+                ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
+            } else {
+                ByteToLock = WriteCursor;
+                SoundOutput.RunningSampleIndex = WriteCursor / SoundOutput.BytesPerSample;
+            }
+
+            // TargetCursor = (PlayCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize;
+            // BytesToWrite = 0;
+            TargetCursor = (WriteCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize;
 
             if (ByteToLock == TargetCursor) {
                 BytesToWrite = 0;
-            } else
-            if (ByteToLock > TargetCursor) {
+            } else if (ByteToLock > TargetCursor) {
                 BytesToWrite = SoundOutput.SecondaryBufferSize - ByteToLock;
                 BytesToWrite += TargetCursor;
             } else {
@@ -601,9 +656,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             SoundIsValid = true;
         }
 
-        // char print_buffer[1024];
-        // sprintf(print_buffer, "PC: %d\nWC: %d\nBL: %d\nBW: %d\n\n", PlayCursor, WriteCursor, ByteToLock, BytesToWrite);
-        // OutputDebugString(print_buffer);
+        char print_buffer[1024];
+        sprintf(print_buffer, "PC: %d\nWC: %d\nBL: %d\nBW: %d\n\n", PlayCursor, WriteCursor, ByteToLock, BytesToWrite);
+        OutputDebugString(print_buffer);
+
+        // if (FrameCounter == 10) Running = false;
 
         Game_SoundOutputBuffer SoundBuffer {};
         SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
@@ -617,7 +674,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         Buffer.Pitch  = Global_BackBuffer.Pitch;
         Buffer.BytesPerPixel = Global_BackBuffer.BytesPerPixel;
 
-        Game_UpdateAndRender(&Buffer, &SoundBuffer);
+        Game_UpdateAndRender(&GameMemory, NewInput, &Buffer, &SoundBuffer);
 
         if (SoundIsValid) {
             Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
@@ -650,6 +707,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         LastCounter = EndCounter;
         LastCycleCount = EndCycleCount;
+
+        Game_Input* TmpInput = NewInput;
+        NewInput = OldInput;
+        OldInput = TmpInput;
     }
 
     return 0;
