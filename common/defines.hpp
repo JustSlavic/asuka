@@ -66,6 +66,28 @@ typedef unsigned long long int64;
 #define GIGABYTES(VALUE) (MEGABYTES((uint64)(VALUE))*1024)
 #define TERABYTES(VALUE) (GIGABYTES((uint64)(VALUE))*1024)
 
+#define INT8_MIN (0x80)
+#define INT8_MAX (0x7F)
+
+#define UINT8_MIN (0)
+#define UINT8_MAX (0xFF)
+
+#define INT16_MIN (0x8000)
+#define INT16_MAX (0x7FFF)
+
+#define UINT16_MIN (0)
+#define UINT16_MAX (0xFFFF)
+
+#define INT32_MIN (0x80000000)
+#define INT32_MAX (0x7FFFFFFF)
+
+#define UINT32_MIN (0)
+#define UINT32_MAX (0xFFFFFFFF)
+
+#define UINT64_MIN (0)
+#define UINT64_MAX (0xFFFFFFFFFFFFFFFF)
+
+
 typedef int32  bool32;
 typedef float  float32;
 typedef float  f32;
