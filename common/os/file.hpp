@@ -10,6 +10,7 @@ struct file_read_result {
 };
 
 file_read_result load_entire_file(const char* filename);
+bool write_file(const char* filename, file_read_result file);
 
 } // os
 

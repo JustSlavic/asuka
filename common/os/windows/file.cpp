@@ -27,6 +27,7 @@ file_read_result load_entire_file(const char* filename) {
     BOOL GetSizeResult = GetFileSizeEx(FileHandle, &FileSize);
     if (GetSizeResult == 0) {
         // @todo: log error
+        CloseHandle(FileHandle);
         return result;
     }
 
@@ -35,12 +36,10 @@ file_read_result load_entire_file(const char* filename) {
     void* Memory = VirtualAlloc(0, FileSize.QuadPart, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
     DWORD BytesRead;
-    BOOL ReadFileResult = ReadFile(
-        FileHandle,
-        Memory,
-        FileSize.QuadPart,
-        &BytesRead,
-        NULL);
+    BOOL ReadFileResult = ReadFile(FileHandle, Memory, FileSize.QuadPart, &BytesRead, NULL);
+
+    CloseHandle(FileHandle);
+
     if (ReadFileResult == FALSE && BytesRead == FileSize.QuadPart) {
         // @todo: log error
         VirtualFree(Memory, 0, MEM_RELEASE);
@@ -50,6 +49,29 @@ file_read_result load_entire_file(const char* filename) {
     result.memory = Memory;
     result.size = FileSize.QuadPart;
     return result;
+}
+
+
+bool write_file(const char* filename, file_read_result file) {
+    HANDLE FileHandle = CreateFileA(
+        filename,
+        GENERIC_WRITE,
+        NULL,
+        NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+
+    if (FileHandle == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    DWORD BytesWritten;
+    BOOL WriteFile(FileHandle, file.memory, file.size, &BytesWritten, NULL);
+
+    CloseHandle(FileHandle);
+
+    return file.size == BytesWritten;
 }
 
 
