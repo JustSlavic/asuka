@@ -257,11 +257,11 @@ static void Win32_ClearSoundBuffer(Win32_SoundOutput* SoundOutput) {
         0)))
     {
         uint8* DestMemory = (uint8*)Region1;
-        for (int ByteIndex = 0; ByteIndex < Region1_Size; ByteIndex++) {
+        for (DWORD ByteIndex = 0; ByteIndex < Region1_Size; ByteIndex++) {
             *DestMemory++ = 0;
         }
         DestMemory = (uint8*)Region2;
-        for (int ByteIndex = 0; ByteIndex < Region2_Size; ByteIndex++) {
+        for (DWORD ByteIndex = 0; ByteIndex < Region2_Size; ByteIndex++) {
             *DestMemory++ = 0;
         }
 
@@ -319,7 +319,7 @@ static void Win32_FillSoundBuffer(
 
 
 LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LPARAM lParam) {
-    LRESULT result;
+    LRESULT result {};
 
     switch (message) {
         case WM_SIZE: {
@@ -348,7 +348,7 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
         case WM_SYSKEYUP:
         case WM_KEYDOWN:
         case WM_KEYUP: {
-            OutputDebugStringA("SYSKEY HANDLING IN MAIN WINDOW CALLBACK\n");
+            ASSERT_FAIL("Key handling happens in the main loop.");
             break;
         }
         case WM_PAINT: {
@@ -434,10 +434,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     Game_Memory GameMemory{};
     GameMemory.PermanentStorageSize = MEGABYTES(64);
-    GameMemory.TransientStorageSize = GIGABYTES(2);
+    GameMemory.TransientStorageSize = GIGABYTES(1);
 
     uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
-    GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, (size_t)TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     GameMemory.TransientStorage = (uint8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
 
     Running = true;
@@ -465,7 +465,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 case WM_KEYDOWN:
                 case WM_KEYUP: {
                     OutputDebugStringA("SYSKEY MY HANDLING\n");
-                    uint32 VKCode = Message.wParam;
+                    uint32 VKCode = (uint32)Message.wParam;
                     bool WasDown = (Message.lParam & (1 << 30)) != 0;
                     bool IsDown = (Message.lParam & (1 << 31)) == 0;
 
@@ -624,12 +624,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         // RenderGradient(&Global_BackBuffer, XOffset++, YOffset);
 
-        DWORD PlayCursor;
-        DWORD WriteCursor;
+        DWORD PlayCursor = 0;
+        DWORD WriteCursor = 0;
 
-        DWORD ByteToLock;
-        DWORD TargetCursor;
-        DWORD BytesToWrite;
+        DWORD ByteToLock = 0;
+        DWORD TargetCursor = 0;
+        DWORD BytesToWrite = 0;
 
         if (SUCCEEDED(Global_SecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
         {
@@ -644,9 +644,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             // BytesToWrite = 0;
             TargetCursor = (WriteCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize;
 
-            if (ByteToLock == TargetCursor) {
-                BytesToWrite = 0;
-            } else if (ByteToLock > TargetCursor) {
+            if (ByteToLock > TargetCursor) {
                 BytesToWrite = SoundOutput.SecondaryBufferSize - ByteToLock;
                 BytesToWrite += TargetCursor;
             } else {
@@ -656,9 +654,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             SoundIsValid = true;
         }
 
-        char print_buffer[1024];
-        sprintf(print_buffer, "PC: %d\nWC: %d\nBL: %d\nBW: %d\n\n", PlayCursor, WriteCursor, ByteToLock, BytesToWrite);
-        OutputDebugString(print_buffer);
+        // char print_buffer[1024];
+        // sprintf(print_buffer, "PC: %d\nWC: %d\nBL: %d\nBW: %d\n\n", PlayCursor, WriteCursor, ByteToLock, BytesToWrite);
+        // OutputDebugString(print_buffer);
 
         // if (FrameCounter == 10) Running = false;
 

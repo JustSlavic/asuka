@@ -1,19 +1,20 @@
 #include "asuka.hpp"
 #include <math.hpp>
 #include <math.h>
+#include <debug/casts.hpp>
 
 
 void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, int ToneHz) {
     static float32 tSine;
 
     int16 ToneVolume = 2000;
-    int16 WavePeriod = ToneHz != 0 ? SoundBuffer->SamplesPerSecond / ToneHz : 1;
+    int16 WavePeriod = ToneHz != 0 ? truncate_cast_to_int16(SoundBuffer->SamplesPerSecond / ToneHz) : 1;
     int16* SampleOut = SoundBuffer->Samples;
 
     for (int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
 
         float32 SineValue = sinf(tSine);
-        int16 SampleValue = (int16)(SineValue * ToneVolume);
+        int16 SampleValue = truncate_cast_to_int16(SineValue * ToneVolume);
 
         *SampleOut++ = SampleValue;
         *SampleOut++ = SampleValue;
@@ -34,7 +35,6 @@ static void RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int YOffse
     // Pitch = Width * BytesPerPixel + Stride
     //
 
-    int Pitch = Buffer->Width*Buffer->BytesPerPixel;
     uint8* Row = (uint8*)Buffer->Memory;
 
     for (int y = 0; y < Buffer->Height; y++) {
@@ -46,8 +46,8 @@ static void RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int YOffse
             // BUT ARCHITECTURE IS LITTLE ENDIAN!!!
             // Pixel in registry: ARGB
             //
-            uint8 Blue = x + XOffset;
-            uint8 Green = y + YOffset;
+            uint8 Blue = truncate_cast_to_uint8(x + XOffset);
+            uint8 Green = truncate_cast_to_uint8(y + YOffset);
 
             *Pixel = (Blue) | (Green << 8);
             Pixel++;
@@ -77,15 +77,17 @@ void Game_UpdateAndRender(
 
     Game_ControllerInput* Input0 = &Input->Controllers[0];
     if (Input0->IsAnalog) {
-        GameState->ToneHz = 256 + (256 * Input0->StickLYEnded);
-        GameState->XOffset += Input0->StickRXEnded * 10;
-        GameState->YOffset += Input0->StickRYEnded * 10;
+        GameState->ToneHz = truncate_cast_to_int32(256 + (256 * Input0->StickLYEnded));
+        GameState->XOffset += truncate_cast_to_int32(Input0->StickRXEnded * 10);
+        GameState->YOffset += truncate_cast_to_int32(Input0->StickRYEnded * 10);
 
         if (Input0->A.EndedDown) {
             GameState->YOffset += 100;
         }
     } else {
-
+        if (Input0->DpadUp.EndedDown) {
+            GameState->YOffset += 10;
+        }
     }
 
     // @todo: Allow sample offsets for more robust platform options
