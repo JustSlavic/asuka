@@ -379,6 +379,61 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
 }
 
 
+void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController) {
+    MSG Message;
+    while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
+        if (Message.message == WM_QUIT) Running = false;
+        TranslateMessage(&Message);
+
+        switch (Message.message) {
+            case WM_SYSKEYDOWN:
+            case WM_SYSKEYUP:
+            case WM_KEYDOWN:
+            case WM_KEYUP: {
+                OutputDebugStringA("SYSKEY MY HANDLING\n");
+                uint32 VKCode = (uint32)Message.wParam;
+                bool WasDown = (Message.lParam & (1 << 30)) != 0;
+                bool IsDown = (Message.lParam & (1 << 31)) == 0;
+
+                if (WasDown != IsDown) {
+                    if (VKCode == VK_ESCAPE) {
+                        Running = false;
+                        Win32_ProcessKeyboardEvent(&KeyboardController->Back, IsDown);
+                    } else if (VKCode == VK_SPACE) {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->Start, IsDown);
+                    } else if (VKCode == 'W') {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadUp, IsDown);
+                    } else if (VKCode == 'A') {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadLeft, IsDown);
+                    } else if (VKCode == 'S') {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadDown, IsDown);
+                    } else if (VKCode == 'D') {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadRight, IsDown);
+                    } else if (VKCode == 'Q') {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->ShoulderLeft, IsDown);
+                    } else if (VKCode == 'E') {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->ShoulderRight, IsDown);
+                    } else if (VKCode == VK_UP) {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadUp, IsDown);
+                    } else if (VKCode == VK_DOWN) {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadDown, IsDown);
+                    } else if (VKCode == VK_LEFT) {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadLeft, IsDown);
+                    } else if (VKCode == VK_RIGHT) {
+                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadRight, IsDown);
+                    }
+                }
+                break;
+            }
+            default: {
+                DispatchMessageA(&Message);
+                break;
+            }
+        }
+    }
+}
+
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     Win32_LoadXInputFunctions();
     WNDCLASSA WindowClass{};
@@ -466,58 +521,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         Game_ControllerInput ZeroController{};
         *NewKeyboardController = ZeroController;
 
+        // Save EndedDown state between frames so that we could hold buttons
         for (uint32 ButtonIndex = 0; ButtonIndex < ARRAY_COUNT(OldKeyboardController->Buttons); ButtonIndex++) {
             NewKeyboardController->Buttons[ButtonIndex].EndedDown = OldKeyboardController->Buttons[ButtonIndex].EndedDown;
         }
 
-        MSG Message;
-        while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
-            if (Message.message == WM_QUIT) Running = false;
-            TranslateMessage(&Message);
-
-            switch (Message.message) {
-                case WM_SYSKEYDOWN:
-                case WM_SYSKEYUP:
-                case WM_KEYDOWN:
-                case WM_KEYUP: {
-                    OutputDebugStringA("SYSKEY MY HANDLING\n");
-                    uint32 VKCode = (uint32)Message.wParam;
-                    bool WasDown = (Message.lParam & (1 << 30)) != 0;
-                    bool IsDown = (Message.lParam & (1 << 31)) == 0;
-
-                    if (WasDown != IsDown) {
-                        if (VKCode == VK_ESCAPE) {
-                            Running = false;
-                        } else if (VKCode == 'W') {
-                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadUp, IsDown);
-                        } else if (VKCode == 'A') {
-                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadLeft, IsDown);
-                        } else if (VKCode == 'S') {
-                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadDown, IsDown);
-                        } else if (VKCode == 'D') {
-                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadRight, IsDown);
-                        } else if (VKCode == 'Q') {
-                            Win32_ProcessKeyboardEvent(&NewKeyboardController->ShoulderLeft, IsDown);
-                        } else if (VKCode == 'E') {
-                            Win32_ProcessKeyboardEvent(&NewKeyboardController->ShoulderRight, IsDown);
-                        } else if (VKCode == VK_UP) {
-                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadUp, IsDown);
-                        } else if (VKCode == VK_DOWN) {
-                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadDown, IsDown);
-                        } else if (VKCode == VK_LEFT) {
-                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadLeft, IsDown);
-                        } else if (VKCode == VK_RIGHT) {
-                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadRight, IsDown);
-                        }
-                    }
-                    break;
-                }
-                default: {
-                    DispatchMessageA(&Message);
-                    break;
-                }
-            }
-        }
+        Win32_ProcessPendingMessages(NewKeyboardController);
 
         DWORD MaxControllerCount = XUSER_MAX_COUNT;
         if (MaxControllerCount > ARRAY_COUNT(Input[0].Controllers) - 1) {
