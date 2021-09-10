@@ -104,6 +104,12 @@ static void Win32_LoadXInputFunctions() {
 }
 
 
+static void Win32_ProcessKeyboardEvent(Game_ButtonState* NewState, bool32 IsDown) {
+    ASSERT(NewState->EndedDown != IsDown);
+    NewState->EndedDown = IsDown;
+    NewState->HalfTransitionCount++;
+}
+
 static void Win32_ProcessXInputButton(
     Game_ButtonState* OldState,
     Game_ButtonState* NewState,
@@ -454,6 +460,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     while (Running) {
         FrameCounter ++;
 
+        Game_ControllerInput* OldKeyboardController = GetController(OldInput, 0);
+        Game_ControllerInput* NewKeyboardController = GetController(NewInput, 0);
+
+        Game_ControllerInput ZeroController{};
+        *NewKeyboardController = ZeroController;
+
+        for (uint32 ButtonIndex = 0; ButtonIndex < ARRAY_COUNT(OldKeyboardController->Buttons); ButtonIndex++) {
+            NewKeyboardController->Buttons[ButtonIndex].EndedDown = OldKeyboardController->Buttons[ButtonIndex].EndedDown;
+        }
+
         MSG Message;
         while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
             if (Message.message == WM_QUIT) Running = false;
@@ -470,26 +486,28 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                     bool IsDown = (Message.lParam & (1 << 31)) == 0;
 
                     if (WasDown != IsDown) {
-                        if (VKCode == 'W') {
-                            OutputDebugStringA("W: ");
-                            if (IsDown) {
-                                OutputDebugStringA("DOWN\n");
-                            }
-                            if (WasDown) {
-                                OutputDebugStringA("UP\n");
-                            }
+                        if (VKCode == VK_ESCAPE) {
+                            Running = false;
+                        } else if (VKCode == 'W') {
+                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadUp, IsDown);
                         } else if (VKCode == 'A') {
-
+                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadLeft, IsDown);
                         } else if (VKCode == 'S') {
-
+                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadDown, IsDown);
                         } else if (VKCode == 'D') {
-
-                        } else if (VKCode == 'E') {
-
+                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadRight, IsDown);
                         } else if (VKCode == 'Q') {
-
+                            Win32_ProcessKeyboardEvent(&NewKeyboardController->ShoulderLeft, IsDown);
+                        } else if (VKCode == 'E') {
+                            Win32_ProcessKeyboardEvent(&NewKeyboardController->ShoulderRight, IsDown);
                         } else if (VKCode == VK_UP) {
-
+                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadUp, IsDown);
+                        } else if (VKCode == VK_DOWN) {
+                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadDown, IsDown);
+                        } else if (VKCode == VK_LEFT) {
+                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadLeft, IsDown);
+                        } else if (VKCode == VK_RIGHT) {
+                            Win32_ProcessKeyboardEvent(&NewKeyboardController->DpadRight, IsDown);
                         }
                     }
                     break;
@@ -502,18 +520,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
 
         DWORD MaxControllerCount = XUSER_MAX_COUNT;
-        if (MaxControllerCount > ARRAY_COUNT(Input[0].Controllers)) {
-            MaxControllerCount = ARRAY_COUNT(Input[0].Controllers);
+        if (MaxControllerCount > ARRAY_COUNT(Input[0].Controllers) - 1) {
+            MaxControllerCount = ARRAY_COUNT(Input[0].Controllers) - 1;
         }
 
-        for (DWORD GamepadIndex = 0; GamepadIndex < MaxControllerCount; GamepadIndex++ ) {
+        for (DWORD GamepadXInputIndex = 0; GamepadXInputIndex < MaxControllerCount; GamepadXInputIndex++ ) {
+            DWORD GamepadIndex = GamepadXInputIndex + 1; // 0-th Controller is Gamepad controller
+
             XINPUT_STATE InputState;
             auto CONTROLLER_STATE_EC = XInputGetState(0, &InputState);
             if (CONTROLLER_STATE_EC == ERROR_SUCCESS) {
                 XINPUT_GAMEPAD Gamepad = InputState.Gamepad;
 
-                Game_ControllerInput* OldGamepadInput = &OldInput->Controllers[GamepadIndex];
-                Game_ControllerInput* NewGamepadInput = &NewInput->Controllers[GamepadIndex];
+                Game_ControllerInput* OldGamepadInput = GetController(OldInput, GamepadIndex);
+                Game_ControllerInput* NewGamepadInput = GetController(NewInput, GamepadIndex);
 
                 NewGamepadInput->IsAnalog = true;
 
