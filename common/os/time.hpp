@@ -5,8 +5,8 @@
 namespace os {
 
 uint64 get_processor_cycles();
-int64  get_performance_counter_frequency();
-int64  get_performance_counter();
+int64  get_wall_clock_frequency();
+int64  get_wall_clock();
 
 } // os
 

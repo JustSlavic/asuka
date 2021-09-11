@@ -3,7 +3,7 @@
 set COMMON_FLAGS=/Fmwin32_main.map /MT /nologo /GR- /Oi /Zi /EHa- /Feasuka /W4 /WX /wd4201 /wd4100 /wd4189 /D_CRT_SECURE_NO_WARNINGS
 set COMMON_LINKER_FLAGS=/opt:ref
 set COMMON_MY_FLAGS=/DUNITY_BUILD /DASUKA_DEBUG /DASUKA_OS_WINDOWS /I../common
-set COMMON_LIBS=User32.lib Xinput.lib Gdi32.lib
+set COMMON_LIBS=User32.lib Xinput.lib Gdi32.lib Winmm.lib
 
 IF NOT EXIST build mkdir build
 pushd build

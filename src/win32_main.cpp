@@ -435,6 +435,10 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController) {
 
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    UINT DesiredSchedulerGranularityMS = 1; // ms
+    MMRESULT TimeBeginPeriodResult = timeBeginPeriod(DesiredSchedulerGranularityMS); // Set this so that sleep granularity
+    bool32 SleepIsGranular = TimeBeginPeriodResult == TIMERR_NOERROR;
+
     Win32_LoadXInputFunctions();
     WNDCLASSA WindowClass{};
 
@@ -446,7 +450,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     WindowClass.lpszClassName = "AsukaWindowClass";
     // HICON     hIcon;
 
-    int64 PerformanceFrequency = os::get_performance_counter_frequency();
+    int64 WallClockFrequency = os::get_wall_clock_frequency();
 
     ATOM ClassAtomResult = RegisterClassA(&WindowClass);
     if (!ClassAtomResult) {
@@ -471,6 +475,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (!Window) {
         // Handle error
     }
+
+    int MonitorRefreshHz;
+    {
+        HDC DeviceContext = GetDC(Window);
+        MonitorRefreshHz = GetDeviceCaps(DeviceContext, VREFRESH);
+    }
+
+    int GameUpdateHz = MonitorRefreshHz / 2;
+    float32 TargetSecondsElapsedPerFrame = 1.f / GameUpdateHz;
+
+    // @TODO: remove this assert
+    // Require this to be 60 Hz for now, this may be different for different monitors, but for testing purposes that's fine
+    ASSERT(MonitorRefreshHz == 60);
 
     Win32_SoundOutput SoundOutput {};
 
@@ -505,8 +522,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     int FrameCounter = 0;
     bool SoundIsValid = false;
 
-    int64 LastCounter = os::get_performance_counter();
-    uint64 LastCycleCount = os::get_processor_cycles();
+    int64 LastClockTimepoint = os::get_wall_clock();
+    // uint64 LastCycleCount = os::get_processor_cycles();
 
     Game_Input Input[2] {};
     Game_Input* OldInput = &Input[0];
@@ -694,17 +711,42 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
         SoundBuffer.Samples = Samples;
 
-        Game_OffscreenBuffer Buffer;
-        Buffer.Memory = Global_BackBuffer.Memory;
-        Buffer.Width  = Global_BackBuffer.Width;
-        Buffer.Height = Global_BackBuffer.Height;
-        Buffer.Pitch  = Global_BackBuffer.Pitch;
-        Buffer.BytesPerPixel = Global_BackBuffer.BytesPerPixel;
+        Game_OffscreenBuffer ScreenBuffer;
+        ScreenBuffer.Memory = Global_BackBuffer.Memory;
+        ScreenBuffer.Width  = Global_BackBuffer.Width;
+        ScreenBuffer.Height = Global_BackBuffer.Height;
+        ScreenBuffer.Pitch  = Global_BackBuffer.Pitch;
+        ScreenBuffer.BytesPerPixel = Global_BackBuffer.BytesPerPixel;
 
-        Game_UpdateAndRender(&GameMemory, NewInput, &Buffer, &SoundBuffer);
+        Game_UpdateAndRender(&GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
 
         if (SoundIsValid) {
             Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
+        }
+
+        int64 EndClockTimepoint = os::get_wall_clock();
+
+        float32 SecondsElapsedForWork = (float32)(EndClockTimepoint - LastClockTimepoint) / WallClockFrequency;
+
+        float32 SecondsElapsedForFrame = SecondsElapsedForWork;
+        if (SecondsElapsedForFrame < TargetSecondsElapsedPerFrame) {
+            while (SecondsElapsedForFrame < TargetSecondsElapsedPerFrame) {
+                if (SleepIsGranular) {
+                    float32 SleepMS = 1000.f * (TargetSecondsElapsedPerFrame - SecondsElapsedForFrame);
+                    Sleep(truncate_cast_to_uint32(SleepMS));
+                }
+                SecondsElapsedForFrame = (float32)(os::get_wall_clock() - LastClockTimepoint) / WallClockFrequency;
+            }
+
+            if (SecondsElapsedForFrame < TargetSecondsElapsedPerFrame) {
+                // @TODO: Slept for good time!
+            } else {
+                OutputDebugStringA("MISSED FRAME!\n");
+                // @TODO: handle missed frame rate!
+            }
+        } else {
+            OutputDebugStringA("MISSED FRAME!\n");
+            // @TODO: handle missed frame rate!
         }
 
         {
@@ -716,28 +758,28 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             ReleaseDC(Window, DeviceContext);
         }
 
-        int64 EndCounter = os::get_performance_counter();
-        uint64 EndCycleCount = os::get_processor_cycles();
+        {
+            // float32 MilliSecondsElapsed = (1000.f * WallTimeElapsed) / WallClockFrequency;
+            // float32 MegaCyclesElapsed = (float32)CyclesElapsed / 1'000'000.f;
+            float32 FPS = (float32)1.f / SecondsElapsedForFrame;
 
-        int64 CounterElapsed = EndCounter - LastCounter;
-        float32 MilliSecondsElapsed = (1000.f * CounterElapsed) / PerformanceFrequency;
+            char Buffer[256];
+            sprintf(Buffer, "FPS: %f\n", FPS);
+            // sprintf(Buffer, "MegaCycles / frame: %f\nMilliseconds / frame: %fms\nFPS: %f\n", MegaCyclesElapsed, MilliSecondsElapsed, FPS);
 
-        uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
-        float32 MegaCyclesElapsed = (float32)CyclesElapsed / 1'000'000.f;
-
-        float32 FPS = (float32)PerformanceFrequency / CounterElapsed;
-
-        //char Buffer[256];
-        //sprintf(Buffer, "MegaCycles / frame: %f\nMilliseconds / frame: %fms\nFPS: %f\n", MegaCyclesElapsed, MilliSecondsElapsed, FPS);
-
-        //OutputDebugStringA(Buffer);
-
-        LastCounter = EndCounter;
-        LastCycleCount = EndCycleCount;
+            OutputDebugStringA(Buffer);
+        }
 
         Game_Input* TmpInput = NewInput;
         NewInput = OldInput;
         OldInput = TmpInput;
+
+        LastClockTimepoint = os::get_wall_clock();
+
+        // uint64 EndCycleCount = os::get_processor_cycles();
+        // uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
+
+        // LastCycleCount = os::get_processor_cycles();
     }
 
     return 0;
