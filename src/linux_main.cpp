@@ -10,62 +10,54 @@
 
 
 struct linux_screen_buffer {
-    XImage* x_image;
+    XImage x_image;
     void* memory;
     uint32 width;
     uint32 height;
     uint32 bytes_per_pixel;
-    uint32 pad;
 };
 
 
 bool running;
 
 
-static void linux_resize_screen_buffer(linux_screen_buffer* buffer, Display* display, Visual* visual, uint32 width, uint32 height) {
+static void linux_resize_screen_buffer(linux_screen_buffer* buffer, uint32 width, uint32 height) {
     if (buffer->memory) {
-        // TODO: free memory
-        os::free_pages(buffer->memory, width * height * buffer->bytes_per_pixel);
+        os::free_pages(buffer->memory, buffer->width * buffer->height * buffer->bytes_per_pixel);
+        buffer->memory = NULL;
     }
 
     buffer->width = width;
     buffer->height = height;
     buffer->bytes_per_pixel = 4;
-    buffer->pad = 32;
 
     buffer->memory = os::allocate_pages(width * height * buffer->bytes_per_pixel);
     ASSERT(buffer->memory);
+}
 
-    int pitch = width * buffer->bytes_per_pixel;
-    uint8* row = (uint8*)buffer->memory;
-    for (int y = 0; y < height; y++) {
-        uint32* pixel = (uint32*)row;
-        for (int x = 0; x < width; x++) {
-            uint8 blue = (uint8) x;
-            uint8 green = (uint8) y;
-            uint8 red = (uint8) 0;
-            uint8 alpha = (uint8) 255;
 
-            *pixel = (blue) | (green << 8) | (red << 16) | (alpha << 24);
-            pixel++;
-        }
+static void linux_copy_buffer_to_window(linux_screen_buffer* buffer, Display* display, Window window, int screen) {
+    XImage x_image {};
+    x_image.width = buffer->width;
+    x_image.height = buffer->height;
+    x_image.xoffset = 0;
+    x_image.format = ZPixmap;
+    x_image.data = (char*)buffer->memory;
+    x_image.byte_order = LSBFirst;
+    x_image.bitmap_unit = 32;
+    x_image.bitmap_bit_order = LSBFirst;
+    x_image.bitmap_pad = 32;
+    x_image.depth = 24;
+    x_image.bits_per_pixel = 32;
+    x_image.red_mask = 0xFF0000;
+    x_image.green_mask = 0xFF00;
+    x_image.blue_mask = 0xFF;
 
-        row += pitch;
-    }
+    int good = XInitImage(&x_image);
+    ASSERT(good);
 
-    uint32 bytes_per_line = width * buffer->bytes_per_pixel;
-    buffer->x_image = XCreateImage(
-        display,
-        visual,
-        24,
-        ZPixmap,
-        0 /* offset */,
-        (char*)buffer->memory,
-        buffer->width,
-        buffer->height,
-        buffer->pad,
-        0);
-    ASSERT(buffer->x_image);
+    XPutImage(display, window, DefaultGC(display, screen), &x_image,
+        0, 0, 0, 0, buffer->width, buffer->height);
 }
 
 
@@ -77,8 +69,6 @@ int32 main(int32 argc, char** argv) {
     }
 
     int screen = XDefaultScreen(display);
-
-    XSetErrorHandler(x11_error_handler);
 
     uint32 window_width = 1280;
     uint32 window_height = 720;
@@ -94,7 +84,7 @@ int32 main(int32 argc, char** argv) {
         WhitePixel(display, screen));
 
     linux_screen_buffer screen_buffer {};
-    linux_resize_screen_buffer(&screen_buffer, display, DefaultVisual(display, screen), window_width, window_height);
+    linux_resize_screen_buffer(&screen_buffer, window_width, window_height);
 
     // Process window close event through event handler so XNextEvent does not fail
     Atom del_window = XInternAtom(display, "WM_DELETE_WINDOW", 0);
@@ -118,14 +108,8 @@ int32 main(int32 argc, char** argv) {
 
     uint64 total_size = game_memory.PermanentStorageSize + game_memory.TransientStorageSize;
 
-    void* allocated_memory = os::allocate_pages(total_size);
-    if (allocated_memory == NULL) {
-        printf("%s", os::get_allocate_pages_error());
-        return 1;
-    }
-
-    game_memory.PermanentStorage = allocated_memory;
-    game_memory.TransientStorage = (uint8*)allocated_memory + game_memory.PermanentStorageSize;
+    game_memory.PermanentStorage = os::allocate_pages(total_size);
+    game_memory.TransientStorage = (uint8*)game_memory.PermanentStorage + game_memory.PermanentStorageSize;
 
     running = true;
 
@@ -139,10 +123,22 @@ int32 main(int32 argc, char** argv) {
                 running = false;
                 break;
             case Expose:
-                XFillRectangle(display, window, DefaultGC(display, screen), 20, 20, 10, 10);
-                XPutImage(display, window, DefaultGC(display, screen), screen_buffer.x_image,
-                    0, 0, 0, 0, screen_buffer.width, screen_buffer.height);
+                // TODO: get new window buffer size
+                linux_resize_screen_buffer(&screen_buffer, window_width, window_height);
+                break;
         }
+
+        Game_OffscreenBuffer graphics_buffer;
+        graphics_buffer.Memory = screen_buffer.memory;
+        graphics_buffer.Width = screen_buffer.width;
+        graphics_buffer.Height = screen_buffer.height;
+        graphics_buffer.Pitch = screen_buffer.width * screen_buffer.bytes_per_pixel;
+        graphics_buffer.BytesPerPixel = screen_buffer.bytes_per_pixel;
+
+        Game_UpdateAndRender(&game_memory, NULL, &graphics_buffer, NULL);
+
+        linux_copy_buffer_to_window(&screen_buffer, display, window, screen);
+
     }
 
     XDestroyWindow(display, window);
