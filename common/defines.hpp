@@ -48,9 +48,12 @@ typedef long long int64;
     if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
 #define ASSERT_MSG(COND, MSG) \
     if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
+#define ASSERT_FAIL(...) \
+    { ASUKA_DEBUG_BREAK(); } void(0)
 #else // ASUKA_DEBUG
 #define ASSERT(COND)
 #define ASSERT_MSG(COND, MSG)
+#define ASSERT_FAIL(...)
 #endif // ASUKA_DEBUG
 
 #ifdef ASUKA_OS_LINUX

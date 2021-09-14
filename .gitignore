@@ -5,3 +5,6 @@
 *.ilk
 *.obj
 *.exe
+
+# Build directory and files
+build/
