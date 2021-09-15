@@ -7,6 +7,7 @@
 
 #include <asuka.hpp>
 #include <os/memory.hpp>
+#include <os/time.hpp>
 
 
 struct linux_screen_buffer {
@@ -37,6 +38,7 @@ static void linux_resize_screen_buffer(linux_screen_buffer* buffer, uint32 width
 
 
 static void linux_copy_buffer_to_window(linux_screen_buffer* buffer, Display* display, Window window, int screen) {
+    // @TODO: Should I cache this structure int the linux_screen_buffer to avoid XInitImage call ??
     XImage x_image {};
     x_image.width = buffer->width;
     x_image.height = buffer->height;
@@ -112,6 +114,8 @@ int32 main(int32 argc, char** argv) {
     game_memory.TransientStorage = (uint8*)game_memory.PermanentStorage + game_memory.PermanentStorageSize;
 
     running = true;
+    uint64 last_counter = os::get_wall_clock();
+    uint64 last_cycles = os::get_processor_cycles();
 
     while (running) {
         XEvent event;
@@ -139,6 +143,16 @@ int32 main(int32 argc, char** argv) {
 
         linux_copy_buffer_to_window(&screen_buffer, display, window, screen);
 
+        uint64 counter = os::get_wall_clock();
+        uint64 cycles = os::get_processor_cycles();
+
+        uint64 microseconds_elapsed = counter - last_counter;
+        uint64 megacycles_elapsed = cycles - last_cycles;
+
+        // printf("milliseconds elapsed: %5.2f\n", microseconds_elapsed / 1000.f);
+
+        last_cycles = cycles;
+        last_counter = counter;
     }
 
     XDestroyWindow(display, window);
