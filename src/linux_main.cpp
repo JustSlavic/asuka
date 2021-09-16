@@ -122,7 +122,13 @@ int32 main(int32 argc, char** argv) {
     XSetWMProtocols(display, window, &del_window, 1);
 
     // Select kind of events we are interested in
-    XSelectInput(display, window, ExposureMask | KeyPressMask);
+    XSelectInput(display, window,
+        ExposureMask |
+        KeyPressMask |
+        KeyReleaseMask |
+        PointerMotionMask |
+        ButtonPressMask |
+        ButtonReleaseMask);
 
     // Display the window
     XMapWindow(display, window);
