@@ -1,5 +1,8 @@
 #include <defines.hpp>
 
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <stdio.h>
 
 #include <X11/Xlib.h>
@@ -8,6 +11,32 @@
 #include <asuka.hpp>
 #include <os/memory.hpp>
 #include <os/time.hpp>
+
+
+#define GAMEPAD_EVENT_BUTTON         0x01    /* button pressed/released */
+#define GAMEPAD_EVENT_AXIS           0x02    /* joystick moved */
+#define GAMEPAD_EVENT_INIT           0x80    /* initial state of device */
+
+struct linux_joystick_event {
+    uint32 time;   /* event timestamp in milliseconds */
+    int16  value;  /* value */
+    uint8  type;   /* event type */
+    uint8  number; /* axis/button number */
+};
+
+
+int linux_is_valid_fd(int fd) {
+    return fcntl(fd, F_GETFL) != -1 || errno != EBADF;
+}
+
+
+bool32 linux_gamepad_is_plugged_in(int fd) {
+    struct stat statbuf;
+    int ec = fstat(fd, &statbuf);
+
+    bool32 result = (ec == 0) && (statbuf.st_nlink > 0);
+    return result;
+}
 
 
 struct linux_screen_buffer {
@@ -117,19 +146,119 @@ int32 main(int32 argc, char** argv) {
     uint64 last_counter = os::get_wall_clock();
     uint64 last_cycles = os::get_processor_cycles();
 
-    while (running) {
-        XEvent event;
-        XNextEvent(display, &event);
+    int gamepad_fds[4] {};
+    const char* gamepad_device_paths[] = {
+        "/dev/input/js0",
+        "/dev/input/js1",
+        "/dev/input/js2",
+        "/dev/input/js3",
+    };
 
-        switch (event.type) {
-            case KeyPress:
-            case ClientMessage:
-                running = false;
-                break;
-            case Expose:
-                // TODO: get new window buffer size
-                linux_resize_screen_buffer(&screen_buffer, window_width, window_height);
-                break;
+    while (running) {
+        for (int gamepad_index = 0; gamepad_index < ARRAY_COUNT(gamepad_fds); gamepad_index++) {
+            if (gamepad_fds[gamepad_index] == 0) {
+                // Check if new gamepad plugged-in
+                int fd = open(gamepad_device_paths[gamepad_index], O_RDONLY | O_NONBLOCK);
+                if (fd == -1) continue;
+
+                printf("Found new gamepad id: %d\n", gamepad_index);
+                gamepad_fds[gamepad_index] = fd;
+            } else {
+                int fd = gamepad_fds[gamepad_index];
+                // 1. Check if existing gamepad plugged-off
+                if (!linux_gamepad_is_plugged_in(fd)) {
+                    // Gamepad is plugged off
+                    printf("Gamepad %d plugged off\n", gamepad_index);
+                    gamepad_fds[gamepad_index] = 0;
+                } else {
+                    // 2. If gamepad is alive, read events from it:
+                    linux_joystick_event joystick_event;
+                    while (read(fd, &joystick_event, sizeof(joystick_event)) > 0) {
+                        if (joystick_event.type & GAMEPAD_EVENT_INIT) {
+                            // These are synthetic events for initialization
+                            if (joystick_event.type & GAMEPAD_EVENT_BUTTON) {
+                                printf("INIT BUTTON %d\n", joystick_event.number);
+                            } else if (joystick_event.type & GAMEPAD_EVENT_AXIS) {
+                                printf("INIT AXIS %d\n", joystick_event.number);
+                            }
+                        } else if (joystick_event.type & GAMEPAD_EVENT_BUTTON) {
+                            switch (joystick_event.number) {
+                                case 0: printf("A %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                                case 1: printf("B %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                                case 2: printf("X %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                                case 3: printf("Y %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                                case 4: printf("LB %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                                case 5: printf("RB %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                                case 6: printf("Back %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                                case 7: printf("Start %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                                case 8: printf("XBOX %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                                case 9: printf("Left Stick %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                                case 10: printf("Right Stick %s", joystick_event.value ? "PRESS" : "RELEASE"); break;
+                            }
+                            printf(" BUTTON %d\n", joystick_event.number);
+                        } else if (joystick_event.type & GAMEPAD_EVENT_AXIS) {
+                            switch (joystick_event.number) {
+                                case 0: printf("Left Stick X %d", joystick_event.value); break;
+                                case 1: printf("Left Stick Y %d", joystick_event.value); break;
+                                case 2: printf("Left Trigger %d", joystick_event.value); break;
+                                case 3: printf("Right Stick X %d", joystick_event.value); break;
+                                case 4: printf("Right Stick Y %d", joystick_event.value); break;
+                                case 5: printf("Right Trigger %d", joystick_event.value); break;
+                                case 6: printf("Dpad X %d", joystick_event.value); break;
+                                case 7: printf("Dpad Y %d", joystick_event.value); break;
+                            }
+                            printf(" AXIS %d\n", joystick_event.number);
+                        }
+                    }
+                }
+            }
+        }
+
+        XEvent event;
+        while (XPending(display)) {
+            XNextEvent(display, &event);
+            switch (event.type) {
+                case MotionNotify: {
+                    int x = event.xmotion.x;
+                    int y = event.xmotion.y;
+                    int x_root = event.xmotion.x_root;
+                    int y_root = event.xmotion.y_root;
+
+                    printf("Motion event: (%d, %d), root(%d, %d);\n", x, y, x_root, y_root);
+                    break;
+                }
+                case KeyPress:
+                    printf("KeyPress\n"); {
+                    int x = event.xmotion.x;
+                    int y = event.xmotion.y;
+                    int x_root = event.xmotion.x_root;
+                    int y_root = event.xmotion.y_root;
+
+                    printf("Motion event: (%d, %d), root(%d, %d);\n", x, y, x_root, y_root);
+                    break;
+                }
+                case KeyRelease:
+                    printf("KeyRelease\n");
+                    break;
+                case ButtonPress:
+                    printf("ButtonPress\n");
+                    break;
+                case ButtonRelease:
+                    printf("ButtonRelease\n");
+                    break;
+                case ClientMessage:
+                    running = false;
+                    break;
+                case Expose:
+                    int x = event.xexpose.x;
+                    int y = event.xexpose.y;
+                    int w = event.xexpose.width;
+                    int h = event.xexpose.height;
+                    // printf("(%d, %d)\n", x + w, y + h);
+                    // TODO: get new window buffer size
+                    linux_resize_screen_buffer(&screen_buffer, x + w, y + h);
+                    break;
+            }
         }
 
         Game_OffscreenBuffer graphics_buffer;
