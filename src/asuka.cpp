@@ -75,18 +75,18 @@ void Game_UpdateAndRender(
         Memory->IsInitialized = true;
     }
 
-    // Game_ControllerInput* Input0 = &Input->Controllers[0];
-    // if (Input0->IsAnalog) {
-    //     GameState->ToneHz = 256 + (256 * Input0->StickLYEnded);
-    //     GameState->XOffset += Input0->StickRXEnded * 10;
-    //     GameState->YOffset += Input0->StickRYEnded * 10;
+    Game_ControllerInput* Input0 = &Input->Controllers[0];
+    if (Input0->IsAnalog) {
+        GameState->ToneHz = 256 + (256 * Input0->StickLYEnded);
+        GameState->XOffset += Input0->StickRXEnded * 10;
+        GameState->YOffset += Input0->StickRYEnded * 10;
 
-    //     if (Input0->A.EndedDown) {
-    //         GameState->YOffset += 100;
-    //     }
-    // } else {
+        if (Input0->A.EndedDown) {
+            GameState->YOffset += 100;
+        }
+    } else {
 
-    // }
+    }
 
     // @todo: Allow sample offsets for more robust platform options
     // Game_OutputSound(SoundBuffer, GameState->ToneHz);
