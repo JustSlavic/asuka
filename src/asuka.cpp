@@ -89,6 +89,6 @@ void Game_UpdateAndRender(
     }
 
     // @todo: Allow sample offsets for more robust platform options
-    // Game_OutputSound(SoundBuffer, GameState->ToneHz);
+    Game_OutputSound(SoundBuffer, GameState->ToneHz);
     RenderGradient(Buffer, GameState->XOffset, GameState->YOffset);
 }

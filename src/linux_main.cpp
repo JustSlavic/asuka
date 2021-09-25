@@ -12,6 +12,8 @@
 #include <os/memory.hpp>
 #include <os/time.hpp>
 
+#include <alsa/asoundlib.h>
+
 
 #define GAMEPAD_EVENT_BUTTON         0x01    /* button pressed/released */
 #define GAMEPAD_EVENT_AXIS           0x02    /* joystick moved */
@@ -31,8 +33,32 @@ static const char* global_gamepad_device_paths[] = {
 };
 
 
+struct linux_screen_buffer {
+    XImage x_image;
+    void* memory;
+    uint32 width;
+    uint32 height;
+    uint32 bytes_per_pixel;
+};
+
+
+struct linux_sound_output {
+    uint32 samples_per_second;
+    uint32 channels_count;
+    int16* samples;
+};
+
+
 struct linux_gamepad {
     int fd;
+};
+
+
+struct linux_gamepad_event {
+    uint32 time;   /* event timestamp in milliseconds */
+    int16  value;  /* value */
+    uint8  type;   /* event type */
+    uint8  number; /* axis/button number */
 };
 
 
@@ -64,16 +90,8 @@ static bool32 linux_gamepad_lost_connection(linux_gamepad* gamepad) {
 }
 
 
-struct linux_joystick_event {
-    uint32 time;   /* event timestamp in milliseconds */
-    int16  value;  /* value */
-    uint8  type;   /* event type */
-    uint8  number; /* axis/button number */
-};
-
-
-static bool32 linux_gamepad_next_event(linux_gamepad* gamepad, linux_joystick_event* event) {
-    int64 bytes = read(gamepad->fd, event, sizeof(linux_joystick_event));
+static bool32 linux_gamepad_next_event(linux_gamepad* gamepad, linux_gamepad_event* event) {
+    int64 bytes = read(gamepad->fd, event, sizeof(linux_gamepad_event));
     // note: returns -1 when read is not successful
     return bytes > 0;
 }
@@ -87,28 +105,21 @@ static void linux_process_controller_button(Game_ButtonState* Button, int16 Valu
 
 static float32 linux_controller_process_stick(int16 value, int16 deadzone) {
     if (value < -deadzone) {
-        return ((float32)value + (float32)deadzone) / ((float32)32767 - (float32)deadzone);
+        return ((float32)value + (float32)deadzone) / (32767.f - (float32)deadzone);
     } else if (value > deadzone) {
-        return ((float32)value - (float32)deadzone) / ((float32)32767 - (float32)deadzone);
+        return ((float32)value - (float32)deadzone) / (32767.f - (float32)deadzone);
     }
 
     return 0.f;
 }
 
 
-static void linux_process_controller_axis(float* Axis, int16 Value) {
-    if (Value > 0) {
-        *Axis = (float32)Value / INT16_MAX;
-    } else {
-        *Axis = (float32)Value / INT16_MIN;
-    }
-}
-
-
 static float32 linux_process_controller_trigger(int16 value, int16 deadzone) {
-    uint16 value_ = value + 32767;
-    if (value_ > deadzone) {
-        return ((float32)value_ - (float32)deadzone) / ((float32)65534 - (float32)deadzone);
+    // In linux the value of the triggers vary between -32767 and 32767,
+    // so I shift it to be completely positive value.
+    uint16 shifted_value = value + 32767;
+    if (shifted_value > deadzone) {
+        return ((float32)shifted_value - (float32)deadzone) / (65534.f - (float32)deadzone);
     }
 
     return 0.f;
@@ -116,7 +127,7 @@ static float32 linux_process_controller_trigger(int16 value, int16 deadzone) {
 
 
 static void linux_gamepad_process_events(linux_gamepad* device, Game_ControllerInput* Controller) {
-    linux_joystick_event event;
+    linux_gamepad_event event;
     while (linux_gamepad_next_event(device, &event)) {
         if (event.type & GAMEPAD_EVENT_INIT) {
             // These are synthetic events for initialization
@@ -173,15 +184,6 @@ static void linux_gamepad_process_events(linux_gamepad* device, Game_ControllerI
 }
 
 
-struct linux_screen_buffer {
-    XImage x_image;
-    void* memory;
-    uint32 width;
-    uint32 height;
-    uint32 bytes_per_pixel;
-};
-
-
 static void linux_resize_screen_buffer(linux_screen_buffer* buffer, uint32 width, uint32 height) {
     if (buffer->memory) {
         os::free_pages(buffer->memory, buffer->width * buffer->height * buffer->bytes_per_pixel);
@@ -223,6 +225,71 @@ static void linux_copy_buffer_to_window(linux_screen_buffer* buffer, Display* di
 }
 
 
+snd_pcm_t* linux_init_alsa(linux_sound_output* sound_output) {
+    snd_pcm_t* sound_device;
+    snd_pcm_hw_params_t* hw_params;
+
+    uint32 resampling = 1;
+    uint32 channels = sound_output->channels_count;
+    uint32 samples_per_second = sound_output->samples_per_second;
+
+    int dir = -1;
+    int err;
+
+#define ASUKA_CALL_ALSA(FUNCTION, ...) \
+    err = FUNCTION(__VA_ARGS__); \
+    if (err < 0) { \
+        fprintf(stderr, STRINGIFY(FUNCTION) ": %s\n", snd_strerror(err)); \
+        return NULL; \
+    } void(0)
+
+    ASUKA_CALL_ALSA(snd_pcm_open, &sound_device, "plughw:0,0", SND_PCM_STREAM_PLAYBACK, 0);
+
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_malloc, &hw_params);
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_any, sound_device, hw_params);
+
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_rate_resample, sound_device, hw_params, 0);
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_access, sound_device, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_format, sound_device, hw_params, SND_PCM_FORMAT_S16_LE);
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_channels, sound_device, hw_params, 2);
+
+    // ASUKA_CALL_ALSA(snd_pcm_hw_params_set_buffer_time, sound_device, hw_params, 1'000'000, 0);
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_buffer_size, sound_device, hw_params, 48000);
+
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_rate_near, sound_device, hw_params, &samples_per_second, &dir);
+    ASUKA_CALL_ALSA(snd_pcm_hw_params, sound_device, hw_params);
+
+    uint32 time;
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_get_buffer_time, hw_params, &time, &dir);
+    printf("Buffer time: %u (dir: %d)\n", time, dir);
+
+    snd_pcm_uframes_t buffer_size;
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_get_buffer_size, hw_params, &buffer_size);
+    printf("Buffer size: %ld\n", buffer_size);
+
+    uint32 rate;
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_get_rate, hw_params, &rate, &dir);
+    printf("Sampling rate: %u (dir: %d)\n", rate, dir);
+
+    snd_pcm_hw_params_free(hw_params);
+
+    ASUKA_CALL_ALSA(snd_pcm_prepare, sound_device);
+
+#undef ASUKA_CALL_ALSA
+
+    return sound_device;
+}
+
+
+static void linux_send_sound_buffer(snd_pcm_t* sound_device, linux_sound_output* sound_output, uint32 frames_to_write) {
+    int err = snd_pcm_writei(sound_device, sound_output->samples, frames_to_write);
+    if (err < 0) {
+        fprintf(stderr, "snd_pcm_writei: %s\n", snd_strerror(err));
+        return;
+    }
+}
+
+
 int32 main(int32 argc, char** argv) {
     Display* display = XOpenDisplay(NULL);
     if (display == NULL) {
@@ -247,6 +314,18 @@ int32 main(int32 argc, char** argv) {
 
     linux_screen_buffer screen_buffer {};
     linux_resize_screen_buffer(&screen_buffer, window_width, window_height);
+
+    // =========== SOUND =========== //
+    linux_sound_output sound_output;
+    sound_output.samples_per_second = 48000;
+    sound_output.channels_count = 2;
+    sound_output.samples = (int16*) os::allocate_pages(sound_output.samples_per_second * sound_output.channels_count * sizeof(int16));
+
+    snd_pcm_t* sound_device = linux_init_alsa(&sound_output);
+    if (sound_device) {
+        printf("ALSA initialized successfully!\n");
+    }
+    // ============================= //
 
     // Process window close event through event handler so XNextEvent does not fail
     Atom del_window = XInternAtom(display, "WM_DELETE_WINDOW", 0);
@@ -285,7 +364,7 @@ int32 main(int32 argc, char** argv) {
     uint64 last_counter = os::get_wall_clock();
     uint64 last_cycles = os::get_processor_cycles();
 
-    linux_gamepad gamepad_devices[ARRAY_COUNT(global_gamepad_device_paths)];
+    linux_gamepad gamepad_devices[ARRAY_COUNT(global_gamepad_device_paths)] {};
 
     while (global_running) {
         for (int gamepad_index = 0; gamepad_index < ARRAY_COUNT(gamepad_devices); gamepad_index++) {
@@ -299,7 +378,7 @@ int32 main(int32 argc, char** argv) {
 
                 // Success: new gamepad is connected
                 printf("Found new gamepad id: %d\n", gamepad_index);
-
+                Controller->IsAnalog = true;
                 // @todo: Should I read events right away?
             } else {
                 // Checking if already connected gamepad is plugged-off (by the player, by battery running out, or another reason)
@@ -307,6 +386,7 @@ int32 main(int32 argc, char** argv) {
                     // Gamepad is plugged off
                     linux_gamepad_disconnect(device);
                     printf("Gamepad %d plugged off\n", gamepad_index);
+                    Controller->IsAnalog = false;
                 } else {
                     // 2. If gamepad is alive, read events from it:
                     linux_gamepad_process_events(device, Controller);
@@ -319,22 +399,22 @@ int32 main(int32 argc, char** argv) {
             XNextEvent(display, &event);
             switch (event.type) {
                 case MotionNotify: {
-                    int x = event.xmotion.x;
-                    int y = event.xmotion.y;
-                    int x_root = event.xmotion.x_root;
-                    int y_root = event.xmotion.y_root;
+                    // int x = event.xmotion.x;
+                    // int y = event.xmotion.y;
+                    // int x_root = event.xmotion.x_root;
+                    // int y_root = event.xmotion.y_root;
 
-                    printf("Motion event: (%d, %d), root(%d, %d);\n", x, y, x_root, y_root);
+                    // printf("Motion event: (%d, %d), root(%d, %d);\n", x, y, x_root, y_root);
                     break;
                 }
-                case KeyPress:
-                    printf("KeyPress\n"); {
-                    int x = event.xmotion.x;
-                    int y = event.xmotion.y;
-                    int x_root = event.xmotion.x_root;
-                    int y_root = event.xmotion.y_root;
+                case KeyPress: {
+                    // printf("KeyPress\n"); {
+                    // int x = event.xmotion.x;
+                    // int y = event.xmotion.y;
+                    // int x_root = event.xmotion.x_root;
+                    // int y_root = event.xmotion.y_root;
 
-                    printf("Motion event: (%d, %d), root(%d, %d);\n", x, y, x_root, y_root);
+                    // printf("Motion event: (%d, %d), root(%d, %d);\n", x, y, x_root, y_root);
                     break;
                 }
                 case KeyRelease:
@@ -356,21 +436,29 @@ int32 main(int32 argc, char** argv) {
                     int h = event.xexpose.height;
                     // printf("(%d, %d)\n", x + w, y + h);
                     // TODO: get new window buffer size
-                    linux_resize_screen_buffer(&screen_buffer, x + w, y + h);
+                    // linux_resize_screen_buffer(&screen_buffer, x + w, y + h);
                     break;
             }
         }
 
-        Game_OffscreenBuffer graphics_buffer;
-        graphics_buffer.Memory = screen_buffer.memory;
-        graphics_buffer.Width = screen_buffer.width;
-        graphics_buffer.Height = screen_buffer.height;
-        graphics_buffer.Pitch = screen_buffer.width * screen_buffer.bytes_per_pixel;
-        graphics_buffer.BytesPerPixel = screen_buffer.bytes_per_pixel;
+        snd_pcm_sframes_t frames = snd_pcm_avail(sound_device);
 
-        Game_UpdateAndRender(&game_memory, &Input, &graphics_buffer, NULL);
+        Game_SoundOutputBuffer SoundBuffer;
+        SoundBuffer.SamplesPerSecond = sound_output.samples_per_second;
+        SoundBuffer.SampleCount = frames;
+        SoundBuffer.Samples = sound_output.samples;
+
+        Game_OffscreenBuffer GraphicsBuffer;
+        GraphicsBuffer.Memory = screen_buffer.memory;
+        GraphicsBuffer.Width = screen_buffer.width;
+        GraphicsBuffer.Height = screen_buffer.height;
+        GraphicsBuffer.Pitch = screen_buffer.width * screen_buffer.bytes_per_pixel;
+        GraphicsBuffer.BytesPerPixel = screen_buffer.bytes_per_pixel;
+
+        Game_UpdateAndRender(&game_memory, &Input, &GraphicsBuffer, &SoundBuffer);
 
         linux_copy_buffer_to_window(&screen_buffer, display, window, screen);
+        linux_send_sound_buffer(sound_device, &sound_output, frames);
 
         uint64 counter = os::get_wall_clock();
         uint64 cycles = os::get_processor_cycles();

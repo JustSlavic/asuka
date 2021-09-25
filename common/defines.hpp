@@ -62,6 +62,9 @@ typedef long long int64;
 #ifdef ASUKA_OS_MACOS
 #endif // ASUKA_OS_MACOS
 
+#define STRINGIFY2(X) #X
+#define STRINGIFY(X) STRINGIFY2(X)
+
 #define ARRAY_COUNT(ARRAY) (sizeof(ARRAY) / sizeof((ARRAY)[0]))
 
 #define KILOBYTES(VALUE) (((uint64)(VALUE))*1024)
