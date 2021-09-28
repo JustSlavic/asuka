@@ -4,10 +4,6 @@
 namespace os {
 namespace internal {
 
-struct timepoint {
-    uint64 microseconds_from_epoch;
-};
-
 uint64 get_processor_cycles();
 int64 get_wall_clock_frequency();
 timepoint get_wall_clock();
@@ -16,7 +12,7 @@ timepoint get_wall_clock();
 
 inline uint64 get_processor_cycles() { return internal::get_processor_cycles(); }
 inline int64  get_wall_clock_frequency() { return internal::get_wall_clock_frequency(); }
-inline int64  get_wall_clock() { return internal::get_wall_clock().microseconds_from_epoch; }
+inline timepoint get_wall_clock() { return internal::get_wall_clock(); }
 
 } // os
 

@@ -77,7 +77,7 @@ void Game_UpdateAndRender(
 
     Game_ControllerInput* Input0 = &Input->Controllers[0];
     if (Input0->IsAnalog) {
-        GameState->ToneHz = 256 + (256 * Input0->StickLYEnded);
+        GameState->ToneHz = 512 + (256 * Input0->StickLYEnded);
         GameState->XOffset += Input0->StickRXEnded * 10;
         GameState->YOffset += Input0->StickRYEnded * 10;
 

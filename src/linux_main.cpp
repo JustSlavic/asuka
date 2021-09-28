@@ -11,17 +11,26 @@
 #include <asuka.hpp>
 #include <os/memory.hpp>
 #include <os/time.hpp>
+#include <time.h>
 
 #include <alsa/asoundlib.h>
 
+
+#define KEYCODE_ESC                  9
 
 #define GAMEPAD_EVENT_BUTTON         0x01    /* button pressed/released */
 #define GAMEPAD_EVENT_AXIS           0x02    /* joystick moved */
 #define GAMEPAD_EVENT_INIT           0x80    /* initial state of device */
 
+#define GAMEPAD_AXIS_MIN             (-32767)
+#define GAMEPAD_AXIS_MAX             32767
+
 #define GAMEPAD_LEFT_THUMB_DEADZONE  7849
 #define GAMEPAD_RIGHT_THUMB_DEADZONE 8689
 #define GAMEPAD_TRIGGER_DEADZONE     7710
+
+
+using sound_sample_t = int16;
 
 
 static bool global_running;
@@ -45,7 +54,9 @@ struct linux_screen_buffer {
 struct linux_sound_output {
     uint32 samples_per_second;
     uint32 channels_count;
-    int16* samples;
+    uint64 buffer_size;
+    sound_sample_t* samples;
+    snd_pcm_t* sound_device;
 };
 
 
@@ -60,6 +71,16 @@ struct linux_gamepad_event {
     uint8  type;   /* event type */
     uint8  number; /* axis/button number */
 };
+
+
+static void print_binary(uint32 n) {
+    uint32 mask = (0x1 << 31);
+
+    while (mask) {
+        printf("%d", (n & mask) > 0);
+        mask >>= 1;
+    }
+}
 
 
 static bool32 linux_gamepad_connect(linux_gamepad* gamepad, const char* device_path) {
@@ -92,7 +113,7 @@ static bool32 linux_gamepad_lost_connection(linux_gamepad* gamepad) {
 
 static bool32 linux_gamepad_next_event(linux_gamepad* gamepad, linux_gamepad_event* event) {
     int64 bytes = read(gamepad->fd, event, sizeof(linux_gamepad_event));
-    // note: returns -1 when read is not successful
+    // note: bytes == -1 when read is not successful
     return bytes > 0;
 }
 
@@ -225,59 +246,65 @@ static void linux_copy_buffer_to_window(linux_screen_buffer* buffer, Display* di
 }
 
 
-snd_pcm_t* linux_init_alsa(linux_sound_output* sound_output) {
+linux_sound_output linux_init_alsa(uint32 samples_per_second, uint32 channels) {
+    // @todo: try to use snd_pcm_set_params
     snd_pcm_t* sound_device;
     snd_pcm_hw_params_t* hw_params;
 
-    uint32 resampling = 1;
-    uint32 channels = sound_output->channels_count;
-    uint32 samples_per_second = sound_output->samples_per_second;
-
-    int dir = -1;
+    int dir = 0;
     int err;
 
 #define ASUKA_CALL_ALSA(FUNCTION, ...) \
     err = FUNCTION(__VA_ARGS__); \
     if (err < 0) { \
         fprintf(stderr, STRINGIFY(FUNCTION) ": %s\n", snd_strerror(err)); \
-        return NULL; \
+        return linux_sound_output{}; \
     } void(0)
 
-    ASUKA_CALL_ALSA(snd_pcm_open, &sound_device, "plughw:0,0", SND_PCM_STREAM_PLAYBACK, 0);
+    ASUKA_CALL_ALSA(snd_pcm_open, &sound_device, "default", SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
 
-    ASUKA_CALL_ALSA(snd_pcm_hw_params_malloc, &hw_params);
+    snd_pcm_hw_params_alloca(&hw_params);
     ASUKA_CALL_ALSA(snd_pcm_hw_params_any, sound_device, hw_params);
-
     ASUKA_CALL_ALSA(snd_pcm_hw_params_set_rate_resample, sound_device, hw_params, 0);
     ASUKA_CALL_ALSA(snd_pcm_hw_params_set_access, sound_device, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
     ASUKA_CALL_ALSA(snd_pcm_hw_params_set_format, sound_device, hw_params, SND_PCM_FORMAT_S16_LE);
-    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_channels, sound_device, hw_params, 2);
-
-    // ASUKA_CALL_ALSA(snd_pcm_hw_params_set_buffer_time, sound_device, hw_params, 1'000'000, 0);
-    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_buffer_size, sound_device, hw_params, 48000);
-
-    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_rate_near, sound_device, hw_params, &samples_per_second, &dir);
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_channels, sound_device, hw_params, channels);
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_buffer_size, sound_device, hw_params, samples_per_second);
+    ASUKA_CALL_ALSA(snd_pcm_hw_params_set_rate, sound_device, hw_params, samples_per_second, dir);
     ASUKA_CALL_ALSA(snd_pcm_hw_params, sound_device, hw_params);
 
-    uint32 time;
-    ASUKA_CALL_ALSA(snd_pcm_hw_params_get_buffer_time, hw_params, &time, &dir);
-    printf("Buffer time: %u (dir: %d)\n", time, dir);
+    {
+        printf("PCM name: %s\n", snd_pcm_name(sound_device));
+        printf("PCM state: %s\n", snd_pcm_state_name(snd_pcm_state(sound_device)));
 
-    snd_pcm_uframes_t buffer_size;
-    ASUKA_CALL_ALSA(snd_pcm_hw_params_get_buffer_size, hw_params, &buffer_size);
-    printf("Buffer size: %ld\n", buffer_size);
+        uint32 time;
+        ASUKA_CALL_ALSA(snd_pcm_hw_params_get_buffer_time, hw_params, &time, &dir);
+        printf("Buffer time: %u (dir: %d)\n", time, dir);
 
-    uint32 rate;
-    ASUKA_CALL_ALSA(snd_pcm_hw_params_get_rate, hw_params, &rate, &dir);
-    printf("Sampling rate: %u (dir: %d)\n", rate, dir);
+        snd_pcm_uframes_t buffer_size;
+        ASUKA_CALL_ALSA(snd_pcm_hw_params_get_buffer_size, hw_params, &buffer_size);
+        printf("Buffer size: %ld\n", buffer_size);
 
-    snd_pcm_hw_params_free(hw_params);
+        uint32 rate;
+        ASUKA_CALL_ALSA(snd_pcm_hw_params_get_rate, hw_params, &rate, &dir);
+        printf("Sampling rate: %u (dir: %d)\n", rate, dir);
+
+        int32 descriptors_count = snd_pcm_poll_descriptors_count(sound_device);
+        printf("Descriptors count: %d\n", descriptors_count);
+    }
 
     ASUKA_CALL_ALSA(snd_pcm_prepare, sound_device);
 
 #undef ASUKA_CALL_ALSA
 
-    return sound_device;
+    linux_sound_output sound_output;
+    sound_output.samples_per_second = samples_per_second;
+    sound_output.channels_count = channels;
+    sound_output.buffer_size = sound_output.samples_per_second * sound_output.channels_count * sizeof(int16);
+    sound_output.samples = (sound_sample_t*) os::allocate_pages(sound_output.buffer_size);
+    sound_output.sound_device = sound_device;
+
+    return sound_output;
 }
 
 
@@ -299,6 +326,12 @@ int32 main(int32 argc, char** argv) {
 
     int screen = XDefaultScreen(display);
 
+    uint32 process_timer_granularity_ms = 1000 / sysconf(_SC_CLK_TCK);
+    printf("process_timer_granularity_ms = %u\n", process_timer_granularity_ms);
+    uint32 monitor_refresh_hz = 60;
+    uint32 game_update_hz = monitor_refresh_hz / 2;
+    float32 target_seconds_per_frame = 1.0f / (float32) game_update_hz;
+
     uint32 window_width = 1280;
     uint32 window_height = 720;
     Window window = XCreateSimpleWindow(
@@ -315,17 +348,13 @@ int32 main(int32 argc, char** argv) {
     linux_screen_buffer screen_buffer {};
     linux_resize_screen_buffer(&screen_buffer, window_width, window_height);
 
-    // =========== SOUND =========== //
-    linux_sound_output sound_output;
-    sound_output.samples_per_second = 48000;
-    sound_output.channels_count = 2;
-    sound_output.samples = (int16*) os::allocate_pages(sound_output.samples_per_second * sound_output.channels_count * sizeof(int16));
-
-    snd_pcm_t* sound_device = linux_init_alsa(&sound_output);
-    if (sound_device) {
+    linux_sound_output sound_output = linux_init_alsa(48000, 2);
+    if (sound_output.sound_device) {
         printf("ALSA initialized successfully!\n");
+    } else {
+        fprintf(stderr, "Could not initialize ALSA!\n");
+        return 1;
     }
-    // ============================= //
 
     // Process window close event through event handler so XNextEvent does not fail
     Atom del_window = XInternAtom(display, "WM_DELETE_WINDOW", 0);
@@ -349,19 +378,19 @@ int32 main(int32 argc, char** argv) {
     void* base_address = 0;
 #endif
 
-    Game_Memory game_memory{};
+    Game_Memory game_memory {};
     game_memory.PermanentStorageSize = MEGABYTES(64);
     game_memory.TransientStorageSize = GIGABYTES(2);
 
     uint64 total_size = game_memory.PermanentStorageSize + game_memory.TransientStorageSize;
 
-    game_memory.PermanentStorage = os::allocate_pages(total_size);
+    game_memory.PermanentStorage = os::allocate_pages(base_address, total_size);
     game_memory.TransientStorage = (uint8*)game_memory.PermanentStorage + game_memory.PermanentStorageSize;
 
-    Game_Input Input;
+    Game_Input Input {};
 
     global_running = true;
-    uint64 last_counter = os::get_wall_clock();
+    os::timepoint last_counter = os::get_wall_clock();
     uint64 last_cycles = os::get_processor_cycles();
 
     linux_gamepad gamepad_devices[ARRAY_COUNT(global_gamepad_device_paths)] {};
@@ -398,33 +427,41 @@ int32 main(int32 argc, char** argv) {
         while (XPending(display)) {
             XNextEvent(display, &event);
             switch (event.type) {
-                case MotionNotify: {
-                    // int x = event.xmotion.x;
-                    // int y = event.xmotion.y;
-                    // int x_root = event.xmotion.x_root;
-                    // int y_root = event.xmotion.y_root;
+                case MotionNotify:
+                    break;
+                case KeyPress:
+                    break;
+                case KeyRelease: {
+                    auto e = event.xkey;
 
-                    // printf("Motion event: (%d, %d), root(%d, %d);\n", x, y, x_root, y_root);
+                    printf("keycode: %d\n", e.keycode);
+                    // print_binary(e.state);
+                    // printf("\n");
+                    // printf(
+                    //     "[ B1 B2 B3 B4 B5 Shift Lock Control M1 M2 M3 M4 M5 ]\n"
+                    //     "[ %2d %2d %2d %2d %2d %5d %4d %7d %2d %2d %2d %2d %2d ]\n",
+                    //     (e.state & Button1Mask) > 0, // LMB
+                    //     (e.state & Button2Mask) > 0, // MMB
+                    //     (e.state & Button3Mask) > 0, // RMB
+                    //     (e.state & Button4Mask) > 0, //
+                    //     (e.state & Button5Mask) > 0, //
+                    //     (e.state & ShiftMask) > 0,   // Shift
+                    //     (e.state & LockMask) > 0,    // CapsLock
+                    //     (e.state & ControlMask) > 0, //
+                    //     (e.state & Mod1Mask) > 0,    //
+                    //     (e.state & Mod2Mask) > 0,    // NumLock
+                    //     (e.state & Mod3Mask) > 0,    //
+                    //     (e.state & Mod4Mask) > 0,    // Win/Super Key
+                    //     (e.state & Mod5Mask) > 0);   //
+
+                    if (e.keycode == KEYCODE_ESC) {
+                        global_running = false;
+                    }
                     break;
                 }
-                case KeyPress: {
-                    // printf("KeyPress\n"); {
-                    // int x = event.xmotion.x;
-                    // int y = event.xmotion.y;
-                    // int x_root = event.xmotion.x_root;
-                    // int y_root = event.xmotion.y_root;
-
-                    // printf("Motion event: (%d, %d), root(%d, %d);\n", x, y, x_root, y_root);
-                    break;
-                }
-                case KeyRelease:
-                    printf("KeyRelease\n");
-                    break;
                 case ButtonPress:
-                    printf("ButtonPress\n");
                     break;
                 case ButtonRelease:
-                    printf("ButtonRelease\n");
                     break;
                 case ClientMessage:
                     global_running = false;
@@ -434,21 +471,34 @@ int32 main(int32 argc, char** argv) {
                     int y = event.xexpose.y;
                     int w = event.xexpose.width;
                     int h = event.xexpose.height;
-                    // printf("(%d, %d)\n", x + w, y + h);
-                    // TODO: get new window buffer size
+                    // @todo: get new window buffer size
                     // linux_resize_screen_buffer(&screen_buffer, x + w, y + h);
                     break;
             }
         }
 
-        snd_pcm_sframes_t frames = snd_pcm_avail(sound_device);
+        Game_SoundOutputBuffer SoundBuffer {};
 
-        Game_SoundOutputBuffer SoundBuffer;
+        snd_pcm_sframes_t available_sound_frames = snd_pcm_avail(sound_output.sound_device);
+
+        // printf("buffer size: %u frames; available to write: %4ld; free_frames: %4lu\n", maximum_frames, nframes, maximum_frames - nframes);
+
+        // uint32 maximum_samples = sound_output.buffer_size / sound_output.channels_count;
+        uint32 samples_per_frame = sound_output.samples_per_second / 30;
+        available_sound_frames = samples_per_frame;
+        // uint32 already_written_samples = maximum_frames - target_samples_per_frame;
+
+        // How many frames I still need to write?
+        // |-------------------|-------------------|
+        //        ^               ^
+        //       Now         WriteCursor
+        //    PlayCursor
+
         SoundBuffer.SamplesPerSecond = sound_output.samples_per_second;
-        SoundBuffer.SampleCount = frames;
+        SoundBuffer.SampleCount = available_sound_frames;
         SoundBuffer.Samples = sound_output.samples;
 
-        Game_OffscreenBuffer GraphicsBuffer;
+        Game_OffscreenBuffer GraphicsBuffer {};
         GraphicsBuffer.Memory = screen_buffer.memory;
         GraphicsBuffer.Width = screen_buffer.width;
         GraphicsBuffer.Height = screen_buffer.height;
@@ -457,19 +507,57 @@ int32 main(int32 argc, char** argv) {
 
         Game_UpdateAndRender(&game_memory, &Input, &GraphicsBuffer, &SoundBuffer);
 
+        linux_send_sound_buffer(sound_output.sound_device, &sound_output, available_sound_frames);
         linux_copy_buffer_to_window(&screen_buffer, display, window, screen);
-        linux_send_sound_buffer(sound_device, &sound_output, frames);
 
-        uint64 counter = os::get_wall_clock();
-        uint64 cycles = os::get_processor_cycles();
+        os::timepoint counter = os::get_wall_clock();
+        // uint64 cycles = os::get_processor_cycles();
 
-        uint64 microseconds_elapsed = counter - last_counter;
-        uint64 megacycles_elapsed = cycles - last_cycles;
+        os::duration microseconds_elapsed = counter - last_counter;
+        // uint64 megacycles_elapsed = cycles - last_cycles;
+
+        os::duration target_microseconds_elapsed_for_frame { 33333 };
+        os::duration microseconds_elapsed_for_frame = microseconds_elapsed;
+
+        if (microseconds_elapsed_for_frame < target_microseconds_elapsed_for_frame) {
+            // printf("%u us/f\n", microseconds_elapsed_for_frame);
+            while (microseconds_elapsed_for_frame < target_microseconds_elapsed_for_frame) {
+                os::duration sleep_time = target_microseconds_elapsed_for_frame - microseconds_elapsed;
+                // @todo: achieve sleep granularity or just switch to OpenGL's vsync stuff
+                // {
+                //     timespec req {};
+                //     timespec rem {};
+                //     req.tv_nsec = sleep_time.us * 1000;
+                //     nanosleep(&req, &rem);
+                // }
+                // if (sleep_time.us > process_timer_granularity_ms * 1000) {
+                //     usleep(sleep_time.us - process_timer_granularity_ms);
+                // }
+                counter = os::get_wall_clock();
+                microseconds_elapsed_for_frame = counter - last_counter;
+            }
+
+            if (microseconds_elapsed_for_frame < target_microseconds_elapsed_for_frame) {
+                // @note: slept for a good time
+            } else {
+                // @todo: handle missed frame rate!
+                // printf("Missed frame!\n");
+            }
+        } else {
+            // @todo: handle missed frame rate!
+            printf("Missed frame!!!\n");
+        }
+
+        last_counter = counter;
+
+        {
+            // printf("%llu us/f; %6.3f fps\n", microseconds_elapsed_for_frame.us, 1000000.f / microseconds_elapsed_for_frame.us);
+        }
+
+        // last_cycles = os::get_processor_cycles();
 
         // printf("milliseconds elapsed: %5.2f\n", microseconds_elapsed / 1000.f);
 
-        last_cycles = cycles;
-        last_counter = counter;
     }
 
     XDestroyWindow(display, window);
