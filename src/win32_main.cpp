@@ -45,16 +45,31 @@ struct Win32_Window_Dimensions {
 };
 
 
+typedef int16 sound_sample_t;
+
 struct Win32_SoundOutput {
-    int SamplesPerSecond;
-    uint32 RunningSampleIndex;
-    int ChannelCount;
-    int BytesPerSample;
-    int SecondaryBufferSize;
-    int LatencySampleCount;
+    uint32 SamplesPerSecond;
+    uint32 RunningSoundCursor;
+    uint32 ChannelCount;
+    uint32 BytesPerSoundFrame;
+    uint32 SecondaryBufferSize;
+    uint32 LatencySampleCount;
+    uint32 SafetyBytes;
 };
 
-typedef int16 sound_sample;
+
+struct Win32_DebugSoundCursors {
+    uint32 PlayCursor;
+    uint32 WriteCursor;
+
+    uint32 OutputLocationStart;
+    uint32 OutputLocationEnd;
+
+    uint32 PageFlip;
+    uint32 ExpectedNextPageFlip;
+};
+
+
 
 static bool Running;
 static Win32_OffscreenBuffer Global_BackBuffer;
@@ -78,7 +93,7 @@ static Win32_XInputSetStateT* XInputSetState_ = Win32_XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
 
-#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPGUID lpGuid, LPDIRECTSOUND* ppDS, LPUNKNOWN  pUnkOuter )
+#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPGUID lpGuid, LPDIRECTSOUND* ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(Win32_DirectSoundCreateT);
 
 
@@ -153,7 +168,7 @@ static void Win32_InitDirectSound(HWND Window, int32 SamplesPerSecond, int32 Buf
         WAVEFORMATEX WaveFormat {};
         WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
         WaveFormat.nChannels = 2;
-        WaveFormat.wBitsPerSample = 16;
+        WaveFormat.wBitsPerSample = sizeof(sound_sample_t) * 8;
         WaveFormat.nSamplesPerSec = SamplesPerSecond;
         WaveFormat.nBlockAlign = (WaveFormat.nChannels * WaveFormat.wBitsPerSample) / 8;
         WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
@@ -167,7 +182,7 @@ static void Win32_InitDirectSound(HWND Window, int32 SamplesPerSecond, int32 Buf
 
                 LPDIRECTSOUNDBUFFER PrimaryBuffer;
                 if (SUCCEEDED(DirectSound->CreateSoundBuffer(&PrimaryBufferDescription, &PrimaryBuffer, 0))) {
-                        OutputDebugStringA("We successfully created primary buffer!\n");
+                    OutputDebugStringA("We successfully created primary buffer!\n");
                     if (SUCCEEDED(PrimaryBuffer->SetFormat(&WaveFormat))) {
                         // Now we finally set the format!
                         OutputDebugStringA("We successfully set format!\n");
@@ -188,7 +203,7 @@ static void Win32_InitDirectSound(HWND Window, int32 SamplesPerSecond, int32 Buf
                 SecondaryBufferDescription.lpwfxFormat = &WaveFormat;
 
                 if (SUCCEEDED(DirectSound->CreateSoundBuffer(&SecondaryBufferDescription, &Global_SecondaryBuffer, 0))) {
-                        OutputDebugStringA("We successfully created secondary buffer!\n");
+                    OutputDebugStringA("We successfully created secondary buffer!\n");
                 } else {
                     // Diagnostics
                 }
@@ -225,6 +240,7 @@ static void Win32_ResizeDIBSection(Win32_OffscreenBuffer* Buffer, LONG Width, LO
     Buffer->Width = Width;
     Buffer->Height = Height;
     Buffer->Pitch = Width * BytesPerPixel;
+    Buffer->BytesPerPixel = BytesPerPixel;
 
     Buffer->Info.bmiHeader.biSize = sizeof(Buffer->Info.bmiHeader);
     Buffer->Info.bmiHeader.biWidth = Buffer->Width;
@@ -238,11 +254,10 @@ static void Win32_ResizeDIBSection(Win32_OffscreenBuffer* Buffer, LONG Width, LO
 }
 
 
-static void Win32_CopyBufferToWindow(HDC device_context, int WindowWidth, int WindowHeight, Win32_OffscreenBuffer *Buffer) {
-    // TODO: Aspect ratio correction
+static void Win32_CopyBufferToWindow(Win32_OffscreenBuffer *Buffer, HDC device_context, int WindowWidth, int WindowHeight) {
     StretchDIBits(
         device_context,
-        0, 0, WindowWidth, WindowHeight,
+        0, 0, Buffer->Width, Buffer->Height,
         0, 0, Buffer->Width, Buffer->Height,
         Buffer->Memory, &Buffer->Info,
         DIB_RGB_COLORS, SRCCOPY);
@@ -295,27 +310,27 @@ static void Win32_FillSoundBuffer(
         &Region2_Size,
         0)))
     {
-        int16* SourceSamples = SourceBuffer->Samples;
+        sound_sample_t* SourceSamples = SourceBuffer->Samples;
 
         {
-            DWORD SampleCount = Region1_Size / SoundOutput->BytesPerSample;
-            int16* DestSamples = (int16*) Region1;
+            DWORD SampleCount = Region1_Size / SoundOutput->BytesPerSoundFrame;
+            sound_sample_t* DestSamples = (sound_sample_t*) Region1;
 
             for (DWORD SampleIndex = 0; SampleIndex < SampleCount; SampleIndex++) {
                 *DestSamples++ = *SourceSamples++;
                 *DestSamples++ = *SourceSamples++;
-                SoundOutput->RunningSampleIndex++;
+                SoundOutput->RunningSoundCursor += 2 * sizeof(sound_sample_t);
             }
         }
 
         {
-            DWORD SampleCount = Region2_Size / SoundOutput->BytesPerSample;
-            int16* DestSamples = (int16*) Region2;
+            DWORD SampleCount = Region2_Size / SoundOutput->BytesPerSoundFrame;
+            sound_sample_t* DestSamples = (sound_sample_t*) Region2;
 
             for (DWORD SampleIndex = 0; SampleIndex < SampleCount; SampleIndex++) {
                 *DestSamples++ = *SourceSamples++;
                 *DestSamples++ = *SourceSamples++;
-                SoundOutput->RunningSampleIndex++;
+                SoundOutput->RunningSoundCursor += 2 * sizeof(sound_sample_t);
             }
         }
 
@@ -329,25 +344,20 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
 
     switch (message) {
         case WM_SIZE: {
-            OutputDebugStringA("WM_SIZE\n");
             break;
         }
         case WM_MOVE: {
-            OutputDebugStringA("WM_MOVE\n");
             break;
         }
         case WM_CLOSE: {
             Running = false;
-            OutputDebugStringA("WM_CLOSE\n");
             break;
         }
         case WM_DESTROY: {
             Running = false;
-            OutputDebugStringA("WM_DESTROY\n");
             break;
         }
         case WM_ACTIVATEAPP: {
-            OutputDebugStringA("WN_ACTIVATEAPP\n");
             break;
         }
         case WM_SYSKEYDOWN:
@@ -363,7 +373,7 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
             HDC DeviceContext = BeginPaint(Window, &paint);
 
             Win32_Window_Dimensions WindowSize = Win32_GetWindowDimention(Window);
-            Win32_CopyBufferToWindow(DeviceContext, WindowSize.Width, WindowSize.Height, &Global_BackBuffer);
+            Win32_CopyBufferToWindow(&Global_BackBuffer, DeviceContext, WindowSize.Width, WindowSize.Height);
 
             EndPaint(Window, &paint);
 
@@ -390,7 +400,6 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController) {
             case WM_SYSKEYUP:
             case WM_KEYDOWN:
             case WM_KEYUP: {
-                OutputDebugStringA("SYSKEY MY HANDLING\n");
                 uint32 VKCode = (uint32)Message.wParam;
                 bool WasDown = (Message.lParam & (1 << 30)) != 0;
                 bool IsDown = (Message.lParam & (1 << 31)) == 0;
@@ -414,13 +423,13 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController) {
                     } else if (VKCode == 'E') {
                         Win32_ProcessKeyboardEvent(&KeyboardController->ShoulderRight, IsDown);
                     } else if (VKCode == VK_UP) {
-                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadUp, IsDown);
+                        Win32_ProcessKeyboardEvent(&KeyboardController->Y, IsDown);
                     } else if (VKCode == VK_DOWN) {
-                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadDown, IsDown);
+                        Win32_ProcessKeyboardEvent(&KeyboardController->A, IsDown);
                     } else if (VKCode == VK_LEFT) {
-                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadLeft, IsDown);
+                        Win32_ProcessKeyboardEvent(&KeyboardController->X, IsDown);
                     } else if (VKCode == VK_RIGHT) {
-                        Win32_ProcessKeyboardEvent(&KeyboardController->DpadRight, IsDown);
+                        Win32_ProcessKeyboardEvent(&KeyboardController->B, IsDown);
                     }
                 }
                 break;
@@ -432,6 +441,85 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController) {
         }
     }
 }
+
+
+#if ASUKA_DEBUG
+static void Win32_DebugDrawVerticalMark(
+    Win32_OffscreenBuffer* ScreenBuffer,
+    int X,
+    int Top,
+    int Bottom,
+    uint32 Color,
+    bool Dotted = false)
+{
+    uint8* Pixel = (uint8*) ScreenBuffer->Memory
+                 + X*ScreenBuffer->BytesPerPixel
+                 + Top*ScreenBuffer->Pitch;
+
+    if (Dotted) {
+        int DashHeight_InPixels = 4;
+        for (int Y = Top; Y < Bottom; Y += 2*DashHeight_InPixels) {
+            for (int DashY = 0; DashY < DashHeight_InPixels / 2; DashY++) {
+                *(uint32*)Pixel = Color;
+                Pixel += ScreenBuffer->Pitch;
+            }
+            Pixel += ScreenBuffer->Pitch * (DashHeight_InPixels + DashHeight_InPixels / 2 + DashHeight_InPixels % 2);
+        }
+    } else {
+        for (int Y = Top; Y < Bottom; Y++) {
+            *(uint32*)Pixel = Color;
+            Pixel += ScreenBuffer->Pitch;
+        }
+    }
+}
+
+
+static void Win32_DebugSyncDisplay(
+    Win32_OffscreenBuffer* ScreenBuffer,
+    Win32_SoundOutput* SoundOutput,
+    Win32_DebugSoundCursors* Cursors,
+    uint32  CursorCount,
+    uint32  CurrentCursorIndex,
+    float32 SecondsPerFrame)
+{
+    int PadX = 16;
+    int PadY = 16;
+    int LineHeight = 20;
+
+    float32 C = (float32) (ScreenBuffer->Width - 2*PadX) / (float32) SoundOutput->SecondaryBufferSize;
+
+    for (uint32 CursorIndex = 0; CursorIndex < CursorCount; CursorIndex++) {
+        int Top    = PadY + LineHeight*CursorIndex;
+        int Bottom = PadY + LineHeight*(CursorIndex + 1);
+
+        {
+            int X = PadX + (int)(C * (float32)Cursors[CursorIndex].PlayCursor);
+            uint32 Color = CursorIndex == CurrentCursorIndex ? 0xFFFF00FF : 0xFFFFFFFF;
+            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, Color, false);
+        }
+        {
+            int X = PadX + (int)(C * (float32)Cursors[CursorIndex].WriteCursor);
+            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, 0xFFFF0000, false);
+        }
+        {
+            int X = PadX + (int)(C * (float32)Cursors[CursorIndex].OutputLocationStart);
+            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, 0xFF00FF00, false);
+        }
+        {
+            int X = PadX + (int)(C * (float32)Cursors[CursorIndex].OutputLocationEnd);
+            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, 0xFF0000FF, false);
+        }
+        {
+            int X = PadX + (int)(C * (float32)Cursors[CursorIndex].PageFlip);
+            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, 0xFFFFFF00, true);
+        }
+        {
+            int X = PadX + (int)(C * (float32)Cursors[CursorIndex].ExpectedNextPageFlip);
+            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, 0xFF00FFFF, true);
+        }
+    }
+}
+#endif // ASUKA_DEBUG
 
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
@@ -455,6 +543,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     ATOM ClassAtomResult = RegisterClassA(&WindowClass);
     if (!ClassAtomResult) {
         // Handle error
+        return 1;
     }
 
     HWND Window = CreateWindowExA(
@@ -474,16 +563,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     if (!Window) {
         // Handle error
+        return 1;
     }
 
     int MonitorRefreshHz;
     {
         HDC DeviceContext = GetDC(Window);
         MonitorRefreshHz = GetDeviceCaps(DeviceContext, VREFRESH);
+        ReleaseDC(Window, DeviceContext);
     }
 
     int GameUpdateHz = MonitorRefreshHz / 2;
-    float32 TargetSecondsElapsedPerFrame = 1.f / GameUpdateHz;
+    float32 TargetSecondsPerFrame = 1.f / GameUpdateHz;
 
     // @TODO: remove this assert
     // Require this to be 60 Hz for now, this may be different for different monitors, but for testing purposes that's fine
@@ -492,17 +583,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     Win32_SoundOutput SoundOutput {};
 
     SoundOutput.SamplesPerSecond = 48000;
-    SoundOutput.RunningSampleIndex = 0;
+    SoundOutput.RunningSoundCursor = 0;
     SoundOutput.ChannelCount = 2;
-    SoundOutput.BytesPerSample = sizeof(int16) * SoundOutput.ChannelCount;
-    SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
+    SoundOutput.BytesPerSoundFrame = sizeof(sound_sample_t) * SoundOutput.ChannelCount;
+    SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSoundFrame;
     SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 30; // We want to fill buffer up to 1/60th of a second
+    // SafetyBytes are half of a frame worth of bytes
+    // @todo: increase it to the one whole frame, because sometimes sound output experiences itches,
+    //        which make a sound glitch
+    SoundOutput.SafetyBytes = (SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz) / 2;
 
     Win32_InitDirectSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
     Win32_ClearSoundBuffer(&SoundOutput);
     Global_SecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
-    int16* Samples = (int16*) VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    sound_sample_t* Samples = (sound_sample_t*) VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
 #ifdef ASUKA_DEBUG
     LPVOID BaseAddress = (LPVOID)TERABYTES(1);
@@ -522,13 +617,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     int FrameCounter = 0;
     bool SoundIsValid = false;
 
-    int64 LastClockTimepoint = os::get_wall_clock();
-    // uint64 LastCycleCount = os::get_processor_cycles();
+#if ASUKA_DEBUG
+    Win32_DebugSoundCursors Debug_Cursors[30] {};
+    uint32 Debug_SoundCursorIndex = 0;
+#endif
 
     Game_Input Input[2] {};
     Game_Input* OldInput = &Input[0];
     Game_Input* NewInput = &Input[1];
 
+    int64 LastClockTimepoint = os::get_wall_clock();
     while (Running) {
         FrameCounter ++;
 
@@ -677,18 +775,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         DWORD TargetCursor = 0;
         DWORD BytesToWrite = 0;
 
+        DWORD Debug_PageFlip_PlayCursor = 0;
+        DWORD Debug_PageFlip_WriteCursor = 0;
+
+        DWORD AudioLatencyBytes = 0;
+        float32 AudioLatencySeconds = 0;
+
         if (SUCCEEDED(Global_SecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
         {
-            if (SoundIsValid) {
-                ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
-            } else {
-                ByteToLock = WriteCursor;
-                SoundOutput.RunningSampleIndex = WriteCursor / SoundOutput.BytesPerSample;
+            if (PlayCursor <= SoundOutput.RunningSoundCursor && SoundOutput.RunningSoundCursor <= WriteCursor) {
+                // This might be the result of the underrun. Correct the writing position.
+                SoundOutput.RunningSoundCursor = WriteCursor;
             }
 
-            // TargetCursor = (PlayCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize;
-            // BytesToWrite = 0;
-            TargetCursor = (WriteCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize;
+            // DWORD UnwrappedWriteCursor = WriteCursor;
+            // if (UnwrappedWriteCursor < PlayCursor) {
+            //     UnwrappedWriteCursor += SoundOutput.SecondaryBufferSize;
+            // }
+
+            // AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
+            // AudioLatencySeconds = ((float32)AudioLatencyBytes / (float32)SoundOutput.BytesPerSoundFrame) / (float32) SoundOutput.SamplesPerSecond;
+
+            DWORD Expected_PageFlip_WriteCursor = WriteCursor +
+                (DWORD)(
+                    (float32)SoundOutput.BytesPerSoundFrame *
+                    (float32)SoundOutput.SamplesPerSecond / GameUpdateHz);
+
+            ByteToLock = SoundOutput.RunningSoundCursor % SoundOutput.SecondaryBufferSize;
+            TargetCursor = (Expected_PageFlip_WriteCursor + SoundOutput.SafetyBytes) % SoundOutput.SecondaryBufferSize;
 
             if (ByteToLock > TargetCursor) {
                 BytesToWrite = SoundOutput.SecondaryBufferSize - ByteToLock;
@@ -701,14 +815,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
 
         // char print_buffer[1024];
-        // sprintf(print_buffer, "PC: %d\nWC: %d\nBL: %d\nBW: %d\n\n", PlayCursor, WriteCursor, ByteToLock, BytesToWrite);
+        // sprintf(print_buffer, "Between cursors: %d; Audio latency %f; SafetyBytes: %d\n",
+        //     AudioLatencyBytes, AudioLatencySeconds, SoundOutput.SafetyBytes);
         // OutputDebugString(print_buffer);
 
-        // if (FrameCounter == 10) Running = false;
+        ASSERT(BytesToWrite <= SoundOutput.SecondaryBufferSize);
 
         Game_SoundOutputBuffer SoundBuffer {};
         SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
-        SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
+        SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSoundFrame;
         SoundBuffer.Samples = Samples;
 
         Game_OffscreenBuffer ScreenBuffer;
@@ -724,62 +839,85 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
         }
 
-        int64 EndClockTimepoint = os::get_wall_clock();
-
-        float32 SecondsElapsedForWork = (float32)(EndClockTimepoint - LastClockTimepoint) / WallClockFrequency;
+        int64 WorkCounter = os::get_wall_clock();
+        float32 SecondsElapsedForWork = (float32)(WorkCounter - LastClockTimepoint) / WallClockFrequency;
 
         float32 SecondsElapsedForFrame = SecondsElapsedForWork;
-        if (SecondsElapsedForFrame < TargetSecondsElapsedPerFrame) {
-            while (SecondsElapsedForFrame < TargetSecondsElapsedPerFrame) {
-                if (SleepIsGranular) {
-                    float32 SleepMS = 1000.f * (TargetSecondsElapsedPerFrame - SecondsElapsedForFrame);
-                    Sleep(truncate_cast_to_uint32(SleepMS));
+        if (SecondsElapsedForFrame < TargetSecondsPerFrame) {
+            if (SleepIsGranular) {
+                DWORD SleepMS = truncate_cast_to_uint32(1000.f * (TargetSecondsPerFrame - SecondsElapsedForFrame));
+                if (SleepMS > 0) {
+                    // @todo
+                    // Sleep(SleepMS);
                 }
-                SecondsElapsedForFrame = (float32)(os::get_wall_clock() - LastClockTimepoint) / WallClockFrequency;
             }
 
-            if (SecondsElapsedForFrame < TargetSecondsElapsedPerFrame) {
+            while (SecondsElapsedForFrame < TargetSecondsPerFrame) {
+                SecondsElapsedForFrame = (float32)(os::get_wall_clock() - LastClockTimepoint) / (float32)WallClockFrequency;
+            }
+
+            if (SecondsElapsedForFrame < TargetSecondsPerFrame) {
                 // @TODO: Slept for good time!
             } else {
-                OutputDebugStringA("MISSED FRAME!\n");
+                // OutputDebugStringA("MISSED FRAME!\n");
                 // @TODO: handle missed frame rate!
             }
         } else {
-            OutputDebugStringA("MISSED FRAME!\n");
+            // OutputDebugStringA("MISSED FRAME!\n");
             // @TODO: handle missed frame rate!
         }
+
+        LastClockTimepoint = os::get_wall_clock();
+
+#if ASUKA_DEBUG
+        {
+            if (SoundIsValid) {
+                Global_SecondaryBuffer->GetCurrentPosition(&Debug_PageFlip_PlayCursor, &Debug_PageFlip_WriteCursor);
+
+                Debug_Cursors[Debug_SoundCursorIndex].PlayCursor = PlayCursor;
+                Debug_Cursors[Debug_SoundCursorIndex].WriteCursor = WriteCursor;
+
+                Debug_Cursors[Debug_SoundCursorIndex].OutputLocationStart = ByteToLock;
+                Debug_Cursors[Debug_SoundCursorIndex].OutputLocationEnd = (ByteToLock + BytesToWrite) % SoundOutput.SecondaryBufferSize;
+
+                Debug_Cursors[Debug_SoundCursorIndex].PageFlip = Debug_PageFlip_PlayCursor;
+                Debug_Cursors[Debug_SoundCursorIndex].ExpectedNextPageFlip = Debug_PageFlip_PlayCursor +
+                    (SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz);
+
+                Win32_DebugSyncDisplay(
+                    &Global_BackBuffer,
+                    &SoundOutput,
+                    Debug_Cursors,
+                    ARRAY_COUNT(Debug_Cursors),
+                    Debug_SoundCursorIndex,
+                    TargetSecondsPerFrame);
+
+                Debug_SoundCursorIndex = (Debug_SoundCursorIndex + 1) % ARRAY_COUNT(Debug_Cursors);
+            }
+        }
+#endif
 
         {
             HDC DeviceContext = GetDC(Window);
 
             Win32_Window_Dimensions WindowSize = Win32_GetWindowDimention(Window);
-            Win32_CopyBufferToWindow(DeviceContext, WindowSize.Width, WindowSize.Height, &Global_BackBuffer);
+            Win32_CopyBufferToWindow(&Global_BackBuffer, DeviceContext, WindowSize.Width, WindowSize.Height);
 
             ReleaseDC(Window, DeviceContext);
         }
 
         {
-            // float32 MilliSecondsElapsed = (1000.f * WallTimeElapsed) / WallClockFrequency;
-            // float32 MegaCyclesElapsed = (float32)CyclesElapsed / 1'000'000.f;
+            float32 MilliSecondsElapsed = 1000.f * SecondsElapsedForFrame;
             float32 FPS = (float32)1.f / SecondsElapsedForFrame;
 
-            char Buffer[256];
-            sprintf(Buffer, "FPS: %f\n", FPS);
-            // sprintf(Buffer, "MegaCycles / frame: %f\nMilliseconds / frame: %fms\nFPS: %f\n", MegaCyclesElapsed, MilliSecondsElapsed, FPS);
-
-            OutputDebugStringA(Buffer);
+            // char Buffer[256];
+            // sprintf(Buffer, "FPS: %f\n", FPS);
+            // OutputDebugStringA(Buffer);
         }
 
         Game_Input* TmpInput = NewInput;
         NewInput = OldInput;
         OldInput = TmpInput;
-
-        LastClockTimepoint = os::get_wall_clock();
-
-        // uint64 EndCycleCount = os::get_processor_cycles();
-        // uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
-
-        // LastCycleCount = os::get_processor_cycles();
     }
 
     return 0;
