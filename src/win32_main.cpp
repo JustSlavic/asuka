@@ -615,7 +615,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     Running = true;
     int FrameCounter = 0;
-    bool SoundIsValid = false;
 
 #if ASUKA_DEBUG
     Win32_DebugSoundCursors Debug_Cursors[30] {};
@@ -649,7 +648,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
 
         for (DWORD GamepadXInputIndex = 0; GamepadXInputIndex < MaxControllerCount; GamepadXInputIndex++ ) {
-            DWORD GamepadIndex = GamepadXInputIndex + 1; // 0-th Controller is Gamepad controller
+            DWORD GamepadIndex = GamepadXInputIndex + 1; // 0-th Controller is Keyboard controller
 
             XINPUT_STATE InputState;
             auto CONTROLLER_STATE_EC = XInputGetState(0, &InputState);
@@ -766,23 +765,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             }
         }
 
-        // RenderGradient(&Global_BackBuffer, XOffset++, YOffset);
-
         DWORD PlayCursor = 0;
         DWORD WriteCursor = 0;
 
         DWORD ByteToLock = 0;
-        DWORD TargetCursor = 0;
         DWORD BytesToWrite = 0;
 
-        DWORD Debug_PageFlip_PlayCursor = 0;
-        DWORD Debug_PageFlip_WriteCursor = 0;
-
-        DWORD AudioLatencyBytes = 0;
-        float32 AudioLatencySeconds = 0;
+        // DWORD AudioLatencyBytes = 0;
+        // float32 AudioLatencySeconds = 0;
 
         if (SUCCEEDED(Global_SecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
         {
+            SoundOutput.RunningSoundCursor = SoundOutput.RunningSoundCursor % SoundOutput.SecondaryBufferSize;
             if (PlayCursor <= SoundOutput.RunningSoundCursor && SoundOutput.RunningSoundCursor <= WriteCursor) {
                 // This might be the result of the underrun. Correct the writing position.
                 SoundOutput.RunningSoundCursor = WriteCursor;
@@ -796,13 +790,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             // AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
             // AudioLatencySeconds = ((float32)AudioLatencyBytes / (float32)SoundOutput.BytesPerSoundFrame) / (float32) SoundOutput.SamplesPerSecond;
 
-            DWORD Expected_PageFlip_WriteCursor = WriteCursor +
-                (DWORD)(
-                    (float32)SoundOutput.BytesPerSoundFrame *
-                    (float32)SoundOutput.SamplesPerSecond / GameUpdateHz);
-
+            DWORD SoundBytesPerFrame = (DWORD)(SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz);
+            DWORD TargetCursor = (WriteCursor + SoundBytesPerFrame + SoundOutput.SafetyBytes) % SoundOutput.SecondaryBufferSize;
             ByteToLock = SoundOutput.RunningSoundCursor % SoundOutput.SecondaryBufferSize;
-            TargetCursor = (Expected_PageFlip_WriteCursor + SoundOutput.SafetyBytes) % SoundOutput.SecondaryBufferSize;
 
             if (ByteToLock > TargetCursor) {
                 BytesToWrite = SoundOutput.SecondaryBufferSize - ByteToLock;
@@ -810,8 +800,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             } else {
                 BytesToWrite = TargetCursor - ByteToLock;
             }
-
-            SoundIsValid = true;
         }
 
         // char print_buffer[1024];
@@ -835,9 +823,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         Game_UpdateAndRender(&GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
 
-        if (SoundIsValid) {
-            Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
-        }
+        Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
 
         int64 WorkCounter = os::get_wall_clock();
         float32 SecondsElapsedForWork = (float32)(WorkCounter - LastClockTimepoint) / WallClockFrequency;
@@ -871,29 +857,30 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 #if ASUKA_DEBUG
         {
-            if (SoundIsValid) {
-                Global_SecondaryBuffer->GetCurrentPosition(&Debug_PageFlip_PlayCursor, &Debug_PageFlip_WriteCursor);
+            DWORD Debug_PageFlip_PlayCursor = 0;
+            DWORD Debug_PageFlip_WriteCursor = 0;
 
-                Debug_Cursors[Debug_SoundCursorIndex].PlayCursor = PlayCursor;
-                Debug_Cursors[Debug_SoundCursorIndex].WriteCursor = WriteCursor;
+            Global_SecondaryBuffer->GetCurrentPosition(&Debug_PageFlip_PlayCursor, &Debug_PageFlip_WriteCursor);
 
-                Debug_Cursors[Debug_SoundCursorIndex].OutputLocationStart = ByteToLock;
-                Debug_Cursors[Debug_SoundCursorIndex].OutputLocationEnd = (ByteToLock + BytesToWrite) % SoundOutput.SecondaryBufferSize;
+            Debug_Cursors[Debug_SoundCursorIndex].PlayCursor = PlayCursor;
+            Debug_Cursors[Debug_SoundCursorIndex].WriteCursor = WriteCursor;
 
-                Debug_Cursors[Debug_SoundCursorIndex].PageFlip = Debug_PageFlip_PlayCursor;
-                Debug_Cursors[Debug_SoundCursorIndex].ExpectedNextPageFlip = Debug_PageFlip_PlayCursor +
-                    (SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz);
+            Debug_Cursors[Debug_SoundCursorIndex].OutputLocationStart = ByteToLock;
+            Debug_Cursors[Debug_SoundCursorIndex].OutputLocationEnd = (ByteToLock + BytesToWrite) % SoundOutput.SecondaryBufferSize;
 
-                Win32_DebugSyncDisplay(
-                    &Global_BackBuffer,
-                    &SoundOutput,
-                    Debug_Cursors,
-                    ARRAY_COUNT(Debug_Cursors),
-                    Debug_SoundCursorIndex,
-                    TargetSecondsPerFrame);
+            Debug_Cursors[Debug_SoundCursorIndex].PageFlip = Debug_PageFlip_PlayCursor;
+            Debug_Cursors[Debug_SoundCursorIndex].ExpectedNextPageFlip = Debug_PageFlip_PlayCursor +
+                (SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz);
 
-                Debug_SoundCursorIndex = (Debug_SoundCursorIndex + 1) % ARRAY_COUNT(Debug_Cursors);
-            }
+            Win32_DebugSyncDisplay(
+                &Global_BackBuffer,
+                &SoundOutput,
+                Debug_Cursors,
+                ARRAY_COUNT(Debug_Cursors),
+                Debug_SoundCursorIndex,
+                TargetSecondsPerFrame);
+
+            Debug_SoundCursorIndex = (Debug_SoundCursorIndex + 1) % ARRAY_COUNT(Debug_Cursors);
         }
 #endif
 
