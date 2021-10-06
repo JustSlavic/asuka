@@ -63,6 +63,7 @@ struct Game_ControllerInput {
     float32 TriggerRightEnded;
 };
 
+
 struct Game_Input {
     // 0 - Keyboard controller
     // 1-5 - Gamepad controllers
@@ -85,6 +86,7 @@ struct Game_OffscreenBuffer {
     int BytesPerPixel;
 };
 
+
 struct Game_SoundOutputBuffer {
     int16*  Samples;
     int32   SampleCount;
@@ -102,24 +104,29 @@ struct Game_Memory {
 };
 
 struct Game_State {
+    float32 SineTime;
     int XOffset;
     int YOffset;
     int ToneHz;
 };
+
 
 // IN:
 // 1. control input
 // 2. bitmap buffer to fill
 // 3. sound buffer to fill
 // 4. timing
-void Game_UpdateAndRender(
-    Game_Memory* Memory,
-    Game_Input* Input,
-    Game_OffscreenBuffer* Buffer,
-    Game_SoundOutputBuffer* SoundBuffer);
+#define GAME_UPDATE_AND_RENDER(name) void name(Game_Memory* Memory, Game_Input* Input, Game_OffscreenBuffer* Buffer, Game_SoundOutputBuffer* SoundBuffer)
+typedef GAME_UPDATE_AND_RENDER(Game_UpdateAndRenderT);
+GAME_UPDATE_AND_RENDER(Game_UpdateAndRenderStub) {}
 
 
-#ifdef UNITY_BUILD
+extern "C" {
+ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
+}
+
+
+#if defined(UNITY_BUILD) && !defined(ASUKA_DLL_BUILD)
 #include "asuka.cpp"
 #endif
 

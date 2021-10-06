@@ -1,7 +1,17 @@
+# Build directory
+build/
+
 # Visual Studio
 .vs/
+
 *.pdb
 *.sln
 *.ilk
+*.exp
+*.map
+
+# Binaries
+*.lib
 *.obj
 *.exe
+*.dll

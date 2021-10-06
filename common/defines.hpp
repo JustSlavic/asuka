@@ -25,6 +25,12 @@ typedef unsigned __int64 uint64;
 
 #define ASUKA_DEBUG_BREAK __debugbreak
 
+#if defined(ASUKA_DLL_BUILD)
+#define ASUKA_DLL_EXPORT  __declspec(dllexport)
+#else
+#define ASUKA_DLL_EXPORT
+#endif
+
 #endif // ASUKA_COMPILER_MICROSOFT
 
 #ifdef ASUKA_COMPILER_GNU
@@ -40,6 +46,12 @@ typedef unsigned int       int32;
 typedef unsigned long long int64;
 
 #define ASUKA_DEBUG_BREAK __builtin_trap
+
+#if defined(ASUKA_DLL_BUILD)
+#define ASUKA_DLL_EXPORT  __attribute__((dllexport))
+#else
+#define ASUKA_DLL_EXPORT
+#endif
 
 #endif // ASUKA_COMPILER_GNU
 

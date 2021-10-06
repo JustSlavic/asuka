@@ -4,24 +4,25 @@
 #include <debug/casts.hpp>
 
 
-void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, int ToneHz) {
-    static float32 tSine;
+typedef int16 sound_sample_t;
 
+
+void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, Game_State* GameState) {
     int16 ToneVolume = 2000;
-    int16 WavePeriod = ToneHz != 0 ? truncate_cast_to_int16(SoundBuffer->SamplesPerSecond / ToneHz) : 1;
-    int16* SampleOut = SoundBuffer->Samples;
+    int16 WavePeriod = GameState->ToneHz != 0 ? truncate_cast_to_int16(SoundBuffer->SamplesPerSecond / GameState->ToneHz) : 1;
+    sound_sample_t* SampleOut = SoundBuffer->Samples;
 
     for (int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
 
-        float32 SineValue = sinf(tSine);
-        int16 SampleValue = truncate_cast_to_int16(SineValue * ToneVolume);
+        float32 SineValue = sinf(GameState->SineTime);
+        sound_sample_t SampleValue = truncate_cast_to_int16(SineValue * ToneVolume);
 
         *SampleOut++ = SampleValue;
         *SampleOut++ = SampleValue;
 
-        tSine += 2.f * math::consts<float32>::pi() / WavePeriod;
-        if (tSine > 2.f * math::consts<float32>::pi()) {
-            tSine -= 2.f * math::consts<float32>::pi();
+        GameState->SineTime += 2.f * math::consts<float32>::pi() / WavePeriod;
+        if (GameState->SineTime > 2.f * math::consts<float32>::pi()) {
+            GameState->SineTime -= 2.f * math::consts<float32>::pi();
         }
     }
 }
@@ -58,17 +59,14 @@ static void RenderGradient(Game_OffscreenBuffer* Buffer, int XOffset, int YOffse
 }
 
 
-void Game_UpdateAndRender(
-    Game_Memory* Memory,
-    Game_Input* Input,
-    Game_OffscreenBuffer* Buffer,
-    Game_SoundOutputBuffer* SoundBuffer)
+GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 {
     ASSERT(sizeof(Game_State) <= Memory->PermanentStorageSize);
 
     Game_State* GameState = (Game_State*)Memory->PermanentStorage;
 
     if (!Memory->IsInitialized) {
+        GameState->SineTime = 0.f;
         GameState->ToneHz = 256;
         GameState->XOffset = 0;
         GameState->YOffset = 0;
@@ -94,6 +92,6 @@ void Game_UpdateAndRender(
 
 
     // @todo: Allow sample offsets for more robust platform options
-    Game_OutputSound(SoundBuffer, GameState->ToneHz);
+    Game_OutputSound(SoundBuffer, GameState);
     RenderGradient(Buffer, GameState->XOffset, GameState->YOffset);
 }

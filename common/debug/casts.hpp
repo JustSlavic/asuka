@@ -10,4 +10,5 @@ inline uint16 truncate_cast_to_uint16 (float32 value) { return (uint16) value; }
 inline  int32 truncate_cast_to_int32  (float32 value) { return (int32)  value; }
 inline uint32 truncate_cast_to_uint32 (float32 value) { return (uint32) value; }
 
+
 #endif // ASUKA_COMMON_DEBUG_CASTS_HPP

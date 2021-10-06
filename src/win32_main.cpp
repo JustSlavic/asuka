@@ -21,11 +21,21 @@
 #include <defines.hpp>
 #include "asuka.hpp"
 #include <os/time.hpp>
+#include <debug/casts.hpp>
 
 #include <windows.h>
 #include <xinput.h>
 #include <dsound.h>
 #include <stdio.h>
+
+
+struct Win32_GameDLL {
+    HMODULE GameDLL;
+    Game_UpdateAndRenderT* UpdateAndRender;
+    FILETIME Timestamp;
+
+    bool32 IsValid;
+};
 
 
 struct Win32_OffscreenBuffer {
@@ -58,6 +68,7 @@ struct Win32_SoundOutput {
 };
 
 
+#ifdef ASUKA_DEBUG
 struct Win32_DebugSoundCursors {
     uint32 PlayCursor;
     uint32 WriteCursor;
@@ -68,7 +79,7 @@ struct Win32_DebugSoundCursors {
     uint32 PageFlip;
     uint32 ExpectedNextPageFlip;
 };
-
+#endif // ASUKA_DEBUG
 
 
 static bool Running;
@@ -83,6 +94,7 @@ X_INPUT_GET_STATE(Win32_XInputGetStateStub) {
 }
 static Win32_XInputGetStateT* XInputGetState_ = Win32_XInputGetStateStub;
 #define XInputGetState XInputGetState_
+
 
 #define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
 typedef X_INPUT_SET_STATE(Win32_XInputSetStateT);
@@ -119,11 +131,76 @@ static void Win32_LoadXInputFunctions() {
 }
 
 
+static FILETIME Win32_GetFileTimestamp(const char* Filename) {
+    FILETIME Result {};
+
+    WIN32_FIND_DATA FindData {};
+    HANDLE FindHandle = FindFirstFileA(Filename, &FindData);
+    if (FindHandle != INVALID_HANDLE_VALUE) {
+        FindClose(FindHandle);
+        Result = FindData.ftLastWriteTime;
+    }
+
+    return Result;
+}
+
+
+static Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath) {
+#if defined(ASUKA_DLL_BUILD)
+    Win32_GameDLL Result {};
+
+    Result.Timestamp = Win32_GetFileTimestamp(DllPath);
+
+    CopyFile(DllPath, TempDllPath, FALSE);
+
+    auto TP1 = os::get_wall_clock();
+    Result.GameDLL = LoadLibraryA(TempDllPath);
+    auto TP2 = os::get_wall_clock();
+
+    char Buffer[256];
+    sprintf(Buffer, "LoadLibraryA: %f ms\n", 1000.f * (float32)(TP2-TP1) / os::get_wall_clock_frequency());
+    OutputDebugStringA(Buffer);
+
+    if (Result.GameDLL) {
+        Result.UpdateAndRender = (Game_UpdateAndRenderT*)GetProcAddress(Result.GameDLL, "Game_UpdateAndRender");
+
+        Result.IsValid = (Result.UpdateAndRender != NULL);
+    }
+
+    if (!Result.IsValid) {
+        Result.UpdateAndRender = Game_UpdateAndRenderStub;
+    }
+
+    return Result;
+#else
+    Win32_GameDLL Result {};
+    Result.IsValid = true;
+    Result.UpdateAndRender = Game_UpdateAndRender;
+
+    return Result;
+#endif
+}
+
+
+static void Win32_UnloadGameDLL(Win32_GameDLL* GameCode) {
+#if defined(ASUKA_DLL_BUILD)
+    if (GameCode->GameDLL) {
+        FreeLibrary(GameCode->GameDLL);
+        GameCode->GameDLL = 0;
+    }
+
+    GameCode->IsValid = false;
+    GameCode->UpdateAndRender = Game_UpdateAndRenderStub;
+#endif
+}
+
+
 static void Win32_ProcessKeyboardEvent(Game_ButtonState* NewState, bool32 IsDown) {
     ASSERT(NewState->EndedDown != IsDown);
     NewState->EndedDown = IsDown;
     NewState->HalfTransitionCount++;
 }
+
 
 static void Win32_ProcessXInputButton(
     Game_ButtonState* OldState,
@@ -358,6 +435,13 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
             break;
         }
         case WM_ACTIVATEAPP: {
+            if (wParam == TRUE) {
+                LONG_PTR SetExtendedStyleResult = SetWindowLongPtrA(Window, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED);
+                SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 255, LWA_ALPHA);
+            } else {
+                LONG_PTR SetExtendedStyleResult = SetWindowLongPtrA(Window, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT);
+                SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 64, LWA_ALPHA);
+            }
             break;
         }
         case WM_SYSKEYDOWN:
@@ -522,10 +606,43 @@ static void Win32_DebugSyncDisplay(
 #endif // ASUKA_DEBUG
 
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+static void Win32_DebugCatStrings(
+    char* Source1, DWORD Source1Size,
+    char* Source2, DWORD Source2Size,
+    char* Dest, DWORD DestSize)
+{
+    for (DWORD CharIndex = 0; CharIndex < Source1Size; CharIndex++) {
+        *Dest++ = Source1[CharIndex];
+    }
+    for (DWORD CharIndex = 0; CharIndex < Source2Size; CharIndex++) {
+        *Dest++ = Source2[CharIndex];
+    }
+    *Dest = 0;
+}
+
+
+int WINAPI WinMain(
+    HINSTANCE hInstance,
+    HINSTANCE hPrevInstance,
+    LPSTR lpCmdLine,
+    int nCmdShow)
+{
     UINT DesiredSchedulerGranularityMS = 1; // ms
     MMRESULT TimeBeginPeriodResult = timeBeginPeriod(DesiredSchedulerGranularityMS); // Set this so that sleep granularity
     bool32 SleepIsGranular = TimeBeginPeriodResult == TIMERR_NOERROR;
+
+
+    char ProgramPath [256] {};
+    DWORD ProgramPathSize = GetModuleFileNameA(hInstance, ProgramPath, 256);
+
+    DWORD IndexOfLastSlash = 0;
+    for (DWORD CharIndex = 0; CharIndex < ProgramPathSize; CharIndex++) {
+        if (ProgramPath[CharIndex] == '\\') {
+            IndexOfLastSlash = CharIndex;
+        }
+    }
+    DWORD ProgramPathNoFilenameSize = IndexOfLastSlash + 1;
+
 
     Win32_LoadXInputFunctions();
     WNDCLASSA WindowClass{};
@@ -547,19 +664,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     HWND Window = CreateWindowExA(
-        0, // DWORD dwExStyle,
-        WindowClass.lpszClassName, // LPCSTR lpClassName,
-        "AsukaWindow", // LPCSTR lpWindowName,
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE, // DWORD dwStyle,
+        WS_EX_TOPMOST | WS_EX_LAYERED,
+        WindowClass.lpszClassName,
+        "AsukaWindow",
+        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
         CW_USEDEFAULT, // int X,
         CW_USEDEFAULT, // int Y,
         CW_USEDEFAULT, // int nWidth,
         CW_USEDEFAULT, // int nHeight,
-        0, // HWND hWndParent,
-        0, // HMENU hMenu,
-        hInstance, // HINSTANCE hInstance,
-        0 // LPVOID lpParam
-    );
+        0, 0, hInstance, 0);
 
     if (!Window) {
         // Handle error
@@ -588,10 +701,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     SoundOutput.BytesPerSoundFrame = sizeof(sound_sample_t) * SoundOutput.ChannelCount;
     SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSoundFrame;
     SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 30; // We want to fill buffer up to 1/60th of a second
-    // SafetyBytes are half of a frame worth of bytes
-    // @todo: increase it to the one whole frame, because sometimes sound output experiences itches,
-    //        which make a sound glitch
-    SoundOutput.SafetyBytes = (SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz) / 2;
+    SoundOutput.SafetyBytes = (SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz);
 
     Win32_InitDirectSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
     Win32_ClearSoundBuffer(&SoundOutput);
@@ -625,9 +735,32 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     Game_Input* OldInput = &Input[0];
     Game_Input* NewInput = &Input[1];
 
+    char GameDllFilename[] = "asuka.dll";
+    char GameTempDllFilename[] = "asuka_running.dll";
+
+    char GameDllFilepath [256];
+    char GameTempDllFilepath [256];
+
+    Win32_DebugCatStrings(
+        ProgramPath, ProgramPathNoFilenameSize,
+        GameDllFilename, sizeof(GameDllFilename),
+        GameDllFilepath, sizeof(GameDllFilepath));
+    Win32_DebugCatStrings(
+        ProgramPath, ProgramPathNoFilenameSize,
+        GameTempDllFilename, sizeof(GameTempDllFilename),
+        GameTempDllFilepath, sizeof(GameTempDllFilepath));
+
+    Win32_GameDLL Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath);
+
     int64 LastClockTimepoint = os::get_wall_clock();
     while (Running) {
-        FrameCounter ++;
+        FrameCounter += 1;
+
+        FILETIME GameDllTimestamp = Win32_GetFileTimestamp(GameDllFilepath);
+        if (CompareFileTime(&GameDllTimestamp, &Game.Timestamp) != 0) {
+            Win32_UnloadGameDLL(&Game);
+            Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath);
+        }
 
         Game_ControllerInput* OldKeyboardController = GetController(OldInput, 0);
         Game_ControllerInput* NewKeyboardController = GetController(NewInput, 0);
@@ -776,8 +909,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         if (SUCCEEDED(Global_SecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
         {
-            SoundOutput.RunningSoundCursor = SoundOutput.RunningSoundCursor % SoundOutput.SecondaryBufferSize;
-            if (PlayCursor <= SoundOutput.RunningSoundCursor && SoundOutput.RunningSoundCursor <= WriteCursor) {
+            if (SoundOutput.RunningSoundCursor <= WriteCursor) {
                 // This might be the result of the underrun. Correct the writing position.
                 SoundOutput.RunningSoundCursor = WriteCursor;
             }
@@ -821,7 +953,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         ScreenBuffer.Pitch  = Global_BackBuffer.Pitch;
         ScreenBuffer.BytesPerPixel = Global_BackBuffer.BytesPerPixel;
 
-        Game_UpdateAndRender(&GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
+        Game.UpdateAndRender(&GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
 
         Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
 
@@ -897,9 +1029,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             float32 MilliSecondsElapsed = 1000.f * SecondsElapsedForFrame;
             float32 FPS = (float32)1.f / SecondsElapsedForFrame;
 
-            // char Buffer[256];
-            // sprintf(Buffer, "FPS: %f\n", FPS);
-            // OutputDebugStringA(Buffer);
+            char Buffer[256];
+            sprintf(Buffer, "%f ms/f; FPS: %f\n", MilliSecondsElapsed, FPS);
+            OutputDebugStringA(Buffer);
         }
 
         Game_Input* TmpInput = NewInput;
