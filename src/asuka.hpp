@@ -108,6 +108,15 @@ struct Game_State {
     int XOffset;
     int YOffset;
     int ToneHz;
+
+#ifdef ASUKA_DEBUG
+    int CharacterPositionX;
+    int CharacterPositionY;
+
+    uint32 BorderColor;
+    uint32 BorderWidth;
+    bool32 BorderVisible;
+#endif
 };
 
 

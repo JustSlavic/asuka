@@ -79,6 +79,25 @@ struct Win32_DebugSoundCursors {
     uint32 PageFlip;
     uint32 ExpectedNextPageFlip;
 };
+
+
+enum Win32_DebugInputRecordingState {
+    INPUT_RECORDING_IDLE,
+    INPUT_RECORDING_RECORD,
+    INPUT_RECORDING_PLAYBACK,
+};
+
+
+struct Win32_DebugInputRecording {
+    Game_State InitialGameState;
+    uint64 InputRecordingSize;
+    void * InputRecording;
+    uint64 RecordedInputsCount;
+    uint64 CurrentPlaybackInputIndex;
+    Win32_DebugInputRecordingState RecordingState;
+};
+
+static Win32_DebugInputRecording Global_DebugInputRecording;
 #endif // ASUKA_DEBUG
 
 
@@ -514,6 +533,29 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController) {
                         Win32_ProcessKeyboardEvent(&KeyboardController->X, IsDown);
                     } else if (VKCode == VK_RIGHT) {
                         Win32_ProcessKeyboardEvent(&KeyboardController->B, IsDown);
+#ifdef ASUKA_DEBUG
+                    } else if (VKCode == 'L') {
+                        if (IsDown == FALSE) {
+                            if (Global_DebugInputRecording.RecordingState == INPUT_RECORDING_IDLE) {
+                                Global_DebugInputRecording.RecordedInputsCount = 0;
+                                Global_DebugInputRecording.RecordingState = INPUT_RECORDING_RECORD;
+                            } else if (Global_DebugInputRecording.RecordingState == INPUT_RECORDING_RECORD) {
+                                Global_DebugInputRecording.CurrentPlaybackInputIndex = 0;
+                                Global_DebugInputRecording.RecordingState = INPUT_RECORDING_PLAYBACK;
+                            } else if (Global_DebugInputRecording.RecordingState == INPUT_RECORDING_PLAYBACK) {
+                                Global_DebugInputRecording.RecordingState = INPUT_RECORDING_IDLE;
+                            }
+                        }
+                    } else if (VKCode == 'K') {
+                        if (IsDown == FALSE) {
+                            if (Global_DebugInputRecording.RecordingState == INPUT_RECORDING_IDLE) {
+                                Global_DebugInputRecording.CurrentPlaybackInputIndex = 0;
+                                Global_DebugInputRecording.RecordingState = INPUT_RECORDING_PLAYBACK;
+                            } else if (Global_DebugInputRecording.RecordingState == INPUT_RECORDING_PLAYBACK) {
+                                Global_DebugInputRecording.RecordingState = INPUT_RECORDING_IDLE;
+                            }
+                        }
+#endif
                     }
                 }
                 break;
@@ -723,13 +765,19 @@ int WINAPI WinMain(
     GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, (size_t)TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     GameMemory.TransientStorage = (uint8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
 
-    Running = true;
-    int FrameCounter = 0;
-
 #if ASUKA_DEBUG
+    Global_DebugInputRecording.InputRecordingSize = MEGABYTES(200);
+    Global_DebugInputRecording.InputRecording = VirtualAlloc((uint8*)GameMemory.PermanentStorage + TotalSize, Global_DebugInputRecording.InputRecordingSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    Global_DebugInputRecording.RecordedInputsCount = 0;
+    Global_DebugInputRecording.CurrentPlaybackInputIndex = 0;
+    Global_DebugInputRecording.RecordingState = INPUT_RECORDING_IDLE;
+
     Win32_DebugSoundCursors Debug_Cursors[30] {};
     uint32 Debug_SoundCursorIndex = 0;
 #endif
+
+    Running = true;
+    int FrameCounter = 0;
 
     Game_Input Input[2] {};
     Game_Input* OldInput = &Input[0];
@@ -952,6 +1000,47 @@ int WINAPI WinMain(
         ScreenBuffer.Height = Global_BackBuffer.Height;
         ScreenBuffer.Pitch  = Global_BackBuffer.Pitch;
         ScreenBuffer.BytesPerPixel = Global_BackBuffer.BytesPerPixel;
+
+#ifdef ASUKA_DEBUG
+        Game_State* GameState = (Game_State*) GameMemory.PermanentStorage;
+        if (Global_DebugInputRecording.RecordingState == INPUT_RECORDING_IDLE) {
+            GameState->BorderVisible = false;
+
+        } else if (Global_DebugInputRecording.RecordingState == INPUT_RECORDING_RECORD) {
+            if (Global_DebugInputRecording.RecordedInputsCount == 0) {
+                Global_DebugInputRecording.InitialGameState = *GameState;
+            }
+
+            if (((Global_DebugInputRecording.RecordedInputsCount + 1) * sizeof(Game_Input)) < Global_DebugInputRecording.InputRecordingSize) {
+                Game_Input* RecordedInputs = (Game_Input*)Global_DebugInputRecording.InputRecording;
+                RecordedInputs[Global_DebugInputRecording.RecordedInputsCount++] = *NewInput;
+            }
+
+            GameState->BorderVisible = true;
+            GameState->BorderColor = 0xFF'FF'FF'00;
+
+        } else if (Global_DebugInputRecording.RecordingState == INPUT_RECORDING_PLAYBACK) {
+            if (Global_DebugInputRecording.CurrentPlaybackInputIndex == 0) {
+                *GameState = Global_DebugInputRecording.InitialGameState;
+            }
+
+            Game_Input* RecordedInputs = (Game_Input*)Global_DebugInputRecording.InputRecording;
+            *NewInput = RecordedInputs[Global_DebugInputRecording.CurrentPlaybackInputIndex++];
+
+            if (Global_DebugInputRecording.CurrentPlaybackInputIndex == Global_DebugInputRecording.RecordedInputsCount) {
+                Global_DebugInputRecording.CurrentPlaybackInputIndex = 0;
+            }
+
+            GameState->BorderVisible = true;
+            GameState->BorderColor = 0xFF'00'FF'00;
+
+            char Buffer[256];
+            sprintf(Buffer, "Playback uses: %llu out of %llu bytes\n",
+                Global_DebugInputRecording.RecordedInputsCount * sizeof(Game_Input),
+                Global_DebugInputRecording.InputRecordingSize);
+            OutputDebugStringA(Buffer);
+        }
+#endif
 
         Game.UpdateAndRender(&GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
 
