@@ -4,9 +4,16 @@
 #include "defines.hpp"
 
 
+struct ThreadContext {
+};
+
+
 //
 // Services that the platform layer provides to the game.
 //
+
+// Include ThreadContext into Debug_PlatformReadEntireFile(),
+// Debug_PlatfromWriteEntireFile() and Debug_PlatformFreeFileMemory()
 
 //
 // Services that the game provides to the platform layer.
@@ -64,7 +71,27 @@ struct Game_ControllerInput {
 };
 
 
+struct Game_MouseState {
+    // Coordinates in client area coordinate space
+    uint32 X;
+    uint32 Y;
+    int32 Wheel;
+
+    union {
+        Game_ButtonState Buttons[5];
+        struct {
+            Game_ButtonState LMB;
+            Game_ButtonState MMB;
+            Game_ButtonState RMB;
+            Game_ButtonState MB_1;
+            Game_ButtonState MB_2;
+        };
+    };
+};
+
+
 struct Game_Input {
+    Game_MouseState Mouse;
     // 0 - Keyboard controller
     // 1-5 - Gamepad controllers
     Game_ControllerInput Controllers[5];
@@ -103,6 +130,7 @@ struct Game_Memory {
     bool32 IsInitialized;
 };
 
+
 struct Game_State {
     float32 SineTime;
     int XOffset;
@@ -125,9 +153,8 @@ struct Game_State {
 // 2. bitmap buffer to fill
 // 3. sound buffer to fill
 // 4. timing
-#define GAME_UPDATE_AND_RENDER(name) void name(Game_Memory* Memory, Game_Input* Input, Game_OffscreenBuffer* Buffer, Game_SoundOutputBuffer* SoundBuffer)
+#define GAME_UPDATE_AND_RENDER(name) void name(ThreadContext* Thread, Game_Memory* Memory, Game_Input* Input, Game_OffscreenBuffer* Buffer, Game_SoundOutputBuffer* SoundBuffer)
 typedef GAME_UPDATE_AND_RENDER(Game_UpdateAndRenderT);
-GAME_UPDATE_AND_RENDER(Game_UpdateAndRenderStub) {}
 
 
 extern "C" {

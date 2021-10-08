@@ -65,6 +65,7 @@ typedef unsigned long long int64;
 #else // ASUKA_DEBUG
 #define ASSERT(COND)
 #define ASSERT_MSG(COND, MSG)
+#define ASSERT_FAIL(MSG)
 #endif // ASUKA_DEBUG
 
 #ifdef ASUKA_OS_LINUX

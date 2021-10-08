@@ -57,14 +57,15 @@ struct Win32_Window_Dimensions {
 
 typedef int16 sound_sample_t;
 
+
 struct Win32_SoundOutput {
     uint32 SamplesPerSecond;
     uint32 RunningSoundCursor;
     uint32 ChannelCount;
     uint32 BytesPerSoundFrame;
     uint32 SecondaryBufferSize;
-    uint32 LatencySampleCount;
     uint32 SafetyBytes;
+    sound_sample_t* Samples;
 };
 
 
@@ -153,12 +154,9 @@ static void Win32_LoadXInputFunctions() {
 static FILETIME Win32_GetFileTimestamp(const char* Filename) {
     FILETIME Result {};
 
-    WIN32_FIND_DATA FindData {};
-    HANDLE FindHandle = FindFirstFileA(Filename, &FindData);
-    if (FindHandle != INVALID_HANDLE_VALUE) {
-        FindClose(FindHandle);
-        Result = FindData.ftLastWriteTime;
-    }
+    WIN32_FILE_ATTRIBUTE_DATA FileData;
+    GetFileAttributesExA(Filename, GetFileExInfoStandard, &FileData);
+    Result = FileData.ftLastWriteTime;
 
     return Result;
 }
@@ -169,25 +167,13 @@ static Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllP
     Win32_GameDLL Result {};
 
     Result.Timestamp = Win32_GetFileTimestamp(DllPath);
-
     CopyFile(DllPath, TempDllPath, FALSE);
-
-    auto TP1 = os::get_wall_clock();
     Result.GameDLL = LoadLibraryA(TempDllPath);
-    auto TP2 = os::get_wall_clock();
-
-    char Buffer[256];
-    sprintf(Buffer, "LoadLibraryA: %f ms\n", 1000.f * (float32)(TP2-TP1) / os::get_wall_clock_frequency());
-    OutputDebugStringA(Buffer);
 
     if (Result.GameDLL) {
         Result.UpdateAndRender = (Game_UpdateAndRenderT*)GetProcAddress(Result.GameDLL, "Game_UpdateAndRender");
 
         Result.IsValid = (Result.UpdateAndRender != NULL);
-    }
-
-    if (!Result.IsValid) {
-        Result.UpdateAndRender = Game_UpdateAndRenderStub;
     }
 
     return Result;
@@ -205,11 +191,11 @@ static void Win32_UnloadGameDLL(Win32_GameDLL* GameCode) {
 #if defined(ASUKA_DLL_BUILD)
     if (GameCode->GameDLL) {
         FreeLibrary(GameCode->GameDLL);
-        GameCode->GameDLL = 0;
+        GameCode->GameDLL = NULL;
     }
 
     GameCode->IsValid = false;
-    GameCode->UpdateAndRender = Game_UpdateAndRenderStub;
+    GameCode->UpdateAndRender = NULL;
 #endif
 }
 
@@ -492,13 +478,18 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
 }
 
 
-void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController) {
+void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game_MouseState* Mouse) {
     MSG Message;
     while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
         if (Message.message == WM_QUIT) Running = false;
         TranslateMessage(&Message);
 
         switch (Message.message) {
+            case WM_MOUSEMOVE: {
+                Mouse->X = (Message.lParam & 0x0000FFFF);
+                Mouse->Y = (Message.lParam & 0xFFFF0000) >> 16;
+                break;
+            }
             case WM_SYSKEYDOWN:
             case WM_SYSKEYUP:
             case WM_KEYDOWN:
@@ -555,7 +546,7 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController) {
                                 Global_DebugInputRecording.RecordingState = INPUT_RECORDING_IDLE;
                             }
                         }
-#endif
+#endif // ASUKA_DEBUG
                     }
                 }
                 break;
@@ -600,7 +591,7 @@ static void Win32_DebugDrawVerticalMark(
 }
 
 
-static void Win32_DebugSyncDisplay(
+static void Win32_DebugSoundDisplay(
     Win32_OffscreenBuffer* ScreenBuffer,
     Win32_SoundOutput* SoundOutput,
     Win32_DebugSoundCursors* Cursors,
@@ -706,7 +697,7 @@ int WINAPI WinMain(
     }
 
     HWND Window = CreateWindowExA(
-        WS_EX_TOPMOST | WS_EX_LAYERED,
+        0, // WS_EX_TOPMOST | WS_EX_LAYERED,
         WindowClass.lpszClassName,
         "AsukaWindow",
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
@@ -742,14 +733,13 @@ int WINAPI WinMain(
     SoundOutput.ChannelCount = 2;
     SoundOutput.BytesPerSoundFrame = sizeof(sound_sample_t) * SoundOutput.ChannelCount;
     SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSoundFrame;
-    SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 30; // We want to fill buffer up to 1/60th of a second
     SoundOutput.SafetyBytes = (SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz);
 
     Win32_InitDirectSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
     Win32_ClearSoundBuffer(&SoundOutput);
     Global_SecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
-    sound_sample_t* Samples = (sound_sample_t*) VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    SoundOutput.Samples = (sound_sample_t*) VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
 #ifdef ASUKA_DEBUG
     LPVOID BaseAddress = (LPVOID)TERABYTES(1);
@@ -766,7 +756,7 @@ int WINAPI WinMain(
     GameMemory.TransientStorage = (uint8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
 
 #if ASUKA_DEBUG
-    Global_DebugInputRecording.InputRecordingSize = MEGABYTES(200);
+    Global_DebugInputRecording.InputRecordingSize = MEGABYTES(1);
     Global_DebugInputRecording.InputRecording = VirtualAlloc((uint8*)GameMemory.PermanentStorage + TotalSize, Global_DebugInputRecording.InputRecordingSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     Global_DebugInputRecording.RecordedInputsCount = 0;
     Global_DebugInputRecording.CurrentPlaybackInputIndex = 0;
@@ -774,10 +764,12 @@ int WINAPI WinMain(
 
     Win32_DebugSoundCursors Debug_Cursors[30] {};
     uint32 Debug_SoundCursorIndex = 0;
-#endif
+#endif // ASUKA_DEBUG
 
     Running = true;
     int FrameCounter = 0;
+
+    ThreadContext GameThread {};
 
     Game_Input Input[2] {};
     Game_Input* OldInput = &Input[0];
@@ -821,7 +813,8 @@ int WINAPI WinMain(
             NewKeyboardController->Buttons[ButtonIndex].EndedDown = OldKeyboardController->Buttons[ButtonIndex].EndedDown;
         }
 
-        Win32_ProcessPendingMessages(NewKeyboardController);
+        Win32_ProcessPendingMessages(NewKeyboardController, &NewInput->Mouse);
+        OldInput->Mouse = NewInput->Mouse;
 
         DWORD MaxControllerCount = XUSER_MAX_COUNT;
         if (MaxControllerCount > ARRAY_COUNT(Input[0].Controllers) - 1) {
@@ -840,6 +833,7 @@ int WINAPI WinMain(
                 Game_ControllerInput* NewGamepadInput = GetController(NewInput, GamepadIndex);
 
                 NewGamepadInput->IsAnalog = true;
+                OldGamepadInput->IsAnalog = true;
 
                 Win32_ProcessXInputButton(&OldGamepadInput->A, &NewGamepadInput->A, Gamepad.wButtons, XINPUT_GAMEPAD_A);
                 Win32_ProcessXInputButton(&OldGamepadInput->B, &NewGamepadInput->B, Gamepad.wButtons, XINPUT_GAMEPAD_B);
@@ -992,7 +986,7 @@ int WINAPI WinMain(
         Game_SoundOutputBuffer SoundBuffer {};
         SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
         SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSoundFrame;
-        SoundBuffer.Samples = Samples;
+        SoundBuffer.Samples = SoundOutput.Samples;
 
         Game_OffscreenBuffer ScreenBuffer;
         ScreenBuffer.Memory = Global_BackBuffer.Memory;
@@ -1011,9 +1005,12 @@ int WINAPI WinMain(
                 Global_DebugInputRecording.InitialGameState = *GameState;
             }
 
+            // Checking if there's room for one more Game_Input
             if (((Global_DebugInputRecording.RecordedInputsCount + 1) * sizeof(Game_Input)) < Global_DebugInputRecording.InputRecordingSize) {
                 Game_Input* RecordedInputs = (Game_Input*)Global_DebugInputRecording.InputRecording;
                 RecordedInputs[Global_DebugInputRecording.RecordedInputsCount++] = *NewInput;
+            } else {
+                ASSERT_FAIL("The space for storing input is ran out. Increase it in code above (it's debug code, nobody cares)\n");
             }
 
             GameState->BorderVisible = true;
@@ -1033,16 +1030,12 @@ int WINAPI WinMain(
 
             GameState->BorderVisible = true;
             GameState->BorderColor = 0xFF'00'FF'00;
-
-            char Buffer[256];
-            sprintf(Buffer, "Playback uses: %llu out of %llu bytes\n",
-                Global_DebugInputRecording.RecordedInputsCount * sizeof(Game_Input),
-                Global_DebugInputRecording.InputRecordingSize);
-            OutputDebugStringA(Buffer);
         }
-#endif
+#endif // ASUKA_DEBUG
 
-        Game.UpdateAndRender(&GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
+        if (Game.UpdateAndRender) {
+            Game.UpdateAndRender(&GameThread, &GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
+        }
 
         Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
 
@@ -1093,7 +1086,7 @@ int WINAPI WinMain(
             Debug_Cursors[Debug_SoundCursorIndex].ExpectedNextPageFlip = Debug_PageFlip_PlayCursor +
                 (SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz);
 
-            Win32_DebugSyncDisplay(
+            Win32_DebugSoundDisplay(
                 &Global_BackBuffer,
                 &SoundOutput,
                 Debug_Cursors,

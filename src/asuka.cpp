@@ -171,6 +171,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
 #ifdef ASUKA_DEBUG
     RenderCharacter(Buffer, GameState->CharacterPositionX, GameState->CharacterPositionY);
+    RenderCharacter(Buffer, Input->Mouse.X, Input->Mouse.Y);
     if (GameState->BorderVisible) {
         RenderBorder(Buffer, GameState->BorderWidth, GameState->BorderColor);
     }
