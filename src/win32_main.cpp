@@ -441,11 +441,11 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
         }
         case WM_ACTIVATEAPP: {
             if (wParam == TRUE) {
-                LONG_PTR SetExtendedStyleResult = SetWindowLongPtrA(Window, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED);
-                SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 255, LWA_ALPHA);
+                // LONG_PTR SetExtendedStyleResult = SetWindowLongPtrA(Window, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED);
+                // SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 255, LWA_ALPHA);
             } else {
-                LONG_PTR SetExtendedStyleResult = SetWindowLongPtrA(Window, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT);
-                SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 64, LWA_ALPHA);
+                // LONG_PTR SetExtendedStyleResult = SetWindowLongPtrA(Window, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT);
+                // SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 64, LWA_ALPHA);
             }
             break;
         }
@@ -560,7 +560,7 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
 }
 
 
-#if ASUKA_DEBUG
+#if 0 // ASUKA_DEBUG
 static void Win32_DebugDrawVerticalMark(
     Win32_OffscreenBuffer* ScreenBuffer,
     int X,
@@ -680,7 +680,7 @@ int WINAPI WinMain(
     Win32_LoadXInputFunctions();
     WNDCLASSA WindowClass{};
 
-    Win32_ResizeDIBSection(&Global_BackBuffer, 1200, 720);
+    Win32_ResizeDIBSection(&Global_BackBuffer, 960, 540);
 
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = MainWindowCallback;
@@ -775,6 +775,9 @@ int WINAPI WinMain(
     Game_Input* OldInput = &Input[0];
     Game_Input* NewInput = &Input[1];
 
+    OldInput->dt = TargetSecondsPerFrame;
+    NewInput->dt = TargetSecondsPerFrame;
+
     char GameDllFilename[] = "asuka.dll";
     char GameTempDllFilename[] = "asuka_running.dll";
 
@@ -802,8 +805,8 @@ int WINAPI WinMain(
             Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath);
         }
 
-        Game_ControllerInput* OldKeyboardController = GetController(OldInput, 0);
-        Game_ControllerInput* NewKeyboardController = GetController(NewInput, 0);
+        Game_ControllerInput* OldKeyboardController = &OldInput->KeyboardController;
+        Game_ControllerInput* NewKeyboardController = &NewInput->KeyboardController;
 
         Game_ControllerInput ZeroController{};
         *NewKeyboardController = ZeroController;
@@ -817,12 +820,12 @@ int WINAPI WinMain(
         OldInput->Mouse = NewInput->Mouse;
 
         DWORD MaxControllerCount = XUSER_MAX_COUNT;
-        if (MaxControllerCount > ARRAY_COUNT(Input[0].Controllers) - 1) {
-            MaxControllerCount = ARRAY_COUNT(Input[0].Controllers) - 1;
+        if (MaxControllerCount > ARRAY_COUNT(Input[0].Controllers)) {
+            MaxControllerCount = ARRAY_COUNT(Input[0].Controllers);
         }
 
         for (DWORD GamepadXInputIndex = 0; GamepadXInputIndex < MaxControllerCount; GamepadXInputIndex++ ) {
-            DWORD GamepadIndex = GamepadXInputIndex + 1; // 0-th Controller is Keyboard controller
+            DWORD GamepadIndex = GamepadXInputIndex;
 
             XINPUT_STATE InputState;
             auto CONTROLLER_STATE_EC = XInputGetState(0, &InputState);
@@ -831,9 +834,6 @@ int WINAPI WinMain(
 
                 Game_ControllerInput* OldGamepadInput = GetController(OldInput, GamepadIndex);
                 Game_ControllerInput* NewGamepadInput = GetController(NewInput, GamepadIndex);
-
-                NewGamepadInput->IsAnalog = true;
-                OldGamepadInput->IsAnalog = true;
 
                 Win32_ProcessXInputButton(&OldGamepadInput->A, &NewGamepadInput->A, Gamepad.wButtons, XINPUT_GAMEPAD_A);
                 Win32_ProcessXInputButton(&OldGamepadInput->B, &NewGamepadInput->B, Gamepad.wButtons, XINPUT_GAMEPAD_B);
@@ -871,50 +871,6 @@ int WINAPI WinMain(
 
                 NewGamepadInput->TriggerRightStarted = OldGamepadInput->TriggerRightEnded;
                 NewGamepadInput->TriggerRightEnded = Win32_ProcessXInputTrigger(Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);
-
-                // XINPUT_BATTERY_INFORMATION BatteryInformation;
-                // if (PrintBatteryInformation) {
-                //     if (XInputGetBatteryInformation(0, BATTERY_DEVTYPE_GAMEPAD, &BatteryInformation) == ERROR_SUCCESS) {
-                //         switch (BatteryInformation.BatteryType) {
-                //             case BATTERY_TYPE_DISCONNECTED: {
-                //                 OutputDebugStringA("BATTERY DISCONNECTED\n");
-                //             }
-                //             break;
-                //             case BATTERY_TYPE_WIRED:
-                //                 OutputDebugStringA("BATTERY WIRED: ");
-                //             break;
-                //             case BATTERY_TYPE_ALKALINE:
-                //                 OutputDebugStringA("BATTERY ALKALINE: ");
-                //             break;
-                //             case BATTERY_TYPE_NIMH:
-                //                 OutputDebugStringA("BATTERY NIMH: ");
-                //             break;
-                //             case BATTERY_TYPE_UNKNOWN:
-                //             break;
-                //         }
-
-                //         switch (BatteryInformation.BatteryLevel) {
-                //             case BATTERY_LEVEL_EMPTY: {
-                //                 OutputDebugStringA("BATTERY EMPTY\n");
-                //             }
-                //             break;
-                //             case BATTERY_LEVEL_LOW: {
-                //                 OutputDebugStringA("BATTERY LOW\n");
-                //             }
-                //             break;
-                //             case BATTERY_LEVEL_MEDIUM: {
-                //                 OutputDebugStringA("BATTERY MEDIUM\n");
-                //             }
-                //             break;
-                //             case BATTERY_LEVEL_FULL: {
-                //                 OutputDebugStringA("BATTERY FULL\n");
-                //             }
-                //             break;
-                //         }
-                //     } else {
-                //         // Diagnostics
-                //     }
-                // }
 
                 // if (TestGamepadVibration) {
                 //     if (FrameCounter % 100 == 0 && FrameCounter % 200 == 0) {
@@ -1014,7 +970,7 @@ int WINAPI WinMain(
             }
 
             GameState->BorderVisible = true;
-            GameState->BorderColor = 0xFF'FF'FF'00;
+            GameState->BorderColor = math::color24{ 1.f, 1.f, 0.f };
 
         } else if (Global_DebugInputRecording.RecordingState == INPUT_RECORDING_PLAYBACK) {
             if (Global_DebugInputRecording.CurrentPlaybackInputIndex == 0) {
@@ -1029,7 +985,7 @@ int WINAPI WinMain(
             }
 
             GameState->BorderVisible = true;
-            GameState->BorderColor = 0xFF'00'FF'00;
+            GameState->BorderColor = math::color24{ 0.f, 1.f, 0.f };
         }
 #endif // ASUKA_DEBUG
 
@@ -1069,6 +1025,7 @@ int WINAPI WinMain(
 
         LastClockTimepoint = os::get_wall_clock();
 
+#if 0
 #if ASUKA_DEBUG
         {
             DWORD Debug_PageFlip_PlayCursor = 0;
@@ -1096,6 +1053,7 @@ int WINAPI WinMain(
 
             Debug_SoundCursorIndex = (Debug_SoundCursorIndex + 1) % ARRAY_COUNT(Debug_Cursors);
         }
+#endif
 #endif
 
         {

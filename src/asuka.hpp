@@ -2,6 +2,7 @@
 #define ASUKA_ASUKA_HPP
 
 #include "defines.hpp"
+#include <math.hpp>
 
 
 struct ThreadContext {
@@ -29,8 +30,6 @@ struct Game_AxisState {
 };
 
 struct Game_ControllerInput {
-    bool32 IsAnalog;
-
     union {
         Game_ButtonState Buttons[14];
         struct {
@@ -92,9 +91,13 @@ struct Game_MouseState {
 
 struct Game_Input {
     Game_MouseState Mouse;
+    Game_ControllerInput KeyboardController;
     // 0 - Keyboard controller
     // 1-5 - Gamepad controllers
-    Game_ControllerInput Controllers[5];
+    Game_ControllerInput Controllers[4];
+
+    // Probably should go to a game no in controller input?
+    float32 dt;
 };
 
 
@@ -132,16 +135,10 @@ struct Game_Memory {
 
 
 struct Game_State {
-    float32 SineTime;
-    int XOffset;
-    int YOffset;
-    int ToneHz;
+    math::vector2 character_position;
 
 #ifdef ASUKA_DEBUG
-    int CharacterPositionX;
-    int CharacterPositionY;
-
-    uint32 BorderColor;
+    math::color24 BorderColor;
     uint32 BorderWidth;
     bool32 BorderVisible;
 #endif
