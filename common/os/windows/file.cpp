@@ -36,7 +36,7 @@ file_read_result load_entire_file(const char* filename) {
     void* Memory = VirtualAlloc(0, FileSize.QuadPart, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
     DWORD BytesRead;
-    BOOL ReadFileResult = ReadFile(FileHandle, Memory, FileSize.QuadPart, &BytesRead, NULL);
+    BOOL ReadFileResult = ReadFile(FileHandle, Memory, (DWORD)FileSize.QuadPart, &BytesRead, NULL);
 
     CloseHandle(FileHandle);
 
@@ -66,8 +66,8 @@ bool write_file(const char* filename, file_read_result file) {
         return false;
     }
 
-    DWORD BytesWritten;
-    BOOL WriteFile(FileHandle, file.memory, file.size, &BytesWritten, NULL);
+    DWORD BytesWritten = 0;
+    // WriteFile(FileHandle, file.memory, file.size, &BytesWritten, NULL);
 
     CloseHandle(FileHandle);
 

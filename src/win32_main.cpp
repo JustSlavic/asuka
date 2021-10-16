@@ -681,13 +681,16 @@ static void Win32_DebugCatStrings(
     *Dest = 0;
 }
 
-
+#include <wav.hpp>
 int WINAPI WinMain(
     HINSTANCE hInstance,
     HINSTANCE hPrevInstance,
     LPSTR lpCmdLine,
     int nCmdShow)
 {
+    const char *WAV_Filename = "file_example_WAV_1MG.wav";
+    auto wav = load_wav_file(WAV_Filename);
+
     UINT DesiredSchedulerGranularityMS = 1; // ms
     MMRESULT TimeBeginPeriodResult = timeBeginPeriod(DesiredSchedulerGranularityMS); // Set this so that sleep granularity
     bool32 SleepIsGranular = TimeBeginPeriodResult == TIMERR_NOERROR;
@@ -1033,7 +1036,15 @@ int WINAPI WinMain(
             Game.UpdateAndRender(&GameThread, &GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
         }
 
+        // Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
+
+        static DWORD CurrentWAVCursor = 0;
+        SoundBuffer.SamplesPerSecond = wav.samples_per_second * wav.channels;
+        SoundBuffer.SampleCount = (int32)wav.samples_count;
+        SoundBuffer.Samples = wav.samples + CurrentWAVCursor;
+
         Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
+        CurrentWAVCursor += BytesToWrite;
 
         int64 WorkCounter = os::get_wall_clock();
         float32 SecondsElapsedForWork = (float32)(WorkCounter - LastClockTimepoint) / WallClockFrequency;
