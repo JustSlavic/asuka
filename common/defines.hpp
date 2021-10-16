@@ -40,10 +40,10 @@ typedef unsigned short     uint16;
 typedef unsigned int       uint32;
 typedef unsigned long long uint64;
 
-typedef unsigned char      int8;
-typedef unsigned short     int16;
-typedef unsigned int       int32;
-typedef unsigned long long int64;
+typedef signed char        int8;
+typedef signed short       int16;
+typedef signed int         int32;
+typedef signed long long   int64;
 
 #define ASUKA_DEBUG_BREAK __builtin_trap
 
@@ -67,6 +67,8 @@ typedef unsigned long long int64;
 #define ASSERT_MSG(COND, MSG)
 #define ASSERT_FAIL(MSG)
 #endif // ASUKA_DEBUG
+
+#define ASUKA_PLAYBACK_LOOP ASUKA_DEBUG
 
 #ifdef ASUKA_OS_LINUX
 #endif // ASUKA_OS_LINUX
@@ -93,14 +95,17 @@ typedef unsigned long long int64;
 #define UINT16_MIN (0)
 #define UINT16_MAX (0xFFFF)
 
-#define INT32_MIN (0x80000000)
-#define INT32_MAX (0x7FFFFFFF)
+#define INT32_MIN (0x8000'0000)
+#define INT32_MAX (0x7FFF'FFFF)
 
 #define UINT32_MIN (0)
-#define UINT32_MAX (0xFFFFFFFF)
+#define UINT32_MAX (0xFFFF'FFFF)
+
+#define INT64_MIN  (0x8000'0000'0000'0000)
+#define INT64_MAX  (0x7FFF'FFFF'FFFF'FFFF)
 
 #define UINT64_MIN (0)
-#define UINT64_MAX (0xFFFFFFFFFFFFFFFF)
+#define UINT64_MAX (0xFFFF'FFFF'FFFF'FFFF)
 
 
 typedef int32  bool32;

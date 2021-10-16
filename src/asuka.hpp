@@ -89,6 +89,15 @@ struct Game_MouseState {
 };
 
 
+#ifdef ASUKA_PLAYBACK_LOOP
+enum Debug_PlaybackLoopState {
+    PLAYBACK_LOOP_IDLE,
+    PLAYBACK_LOOP_RECORDING,
+    PLAYBACK_LOOP_PLAYBACK,
+};
+#endif // ASUKA_PLAYBACK_LOOP
+
+
 struct Game_Input {
     Game_MouseState Mouse;
     Game_ControllerInput KeyboardController;
@@ -98,6 +107,10 @@ struct Game_Input {
 
     // Probably should go to a game no in controller input?
     float32 dt;
+
+#ifdef ASUKA_PLAYBACK_LOOP
+    Debug_PlaybackLoopState PlaybackLoopState;
+#endif // ASUKA_PLAYBACK_LOOP
 };
 
 
@@ -134,14 +147,53 @@ struct Game_Memory {
 };
 
 
-struct Game_State {
-    math::vector2 character_position;
+struct WorldPosition {
+    // Coordinates of the tilemap
+    int32 tilemap_x;
+    int32 tilemap_y;
 
-#ifdef ASUKA_DEBUG
-    math::color24 BorderColor;
-    uint32 BorderWidth;
-    bool32 BorderVisible;
-#endif
+    // In pixels from top-left corner of tilemap
+    float32 x;
+    float32 y;
+};
+
+
+struct NormalizedWorldPosition {
+    // Coordinates of the tilemap
+    int32 tilemap_x;
+    int32 tilemap_y;
+
+    int32 tile_x;
+    int32 tile_y;
+
+    // In pixels inside a tile
+    float32 x;
+    float32 y;
+};
+
+
+struct Tilemap {
+    int32 *tiles;
+};
+
+
+struct Worldmap {
+    float32 tile_width;
+    float32 tile_height;
+
+    int32 tile_count_x;
+    int32 tile_count_y;
+
+    int32 tilemap_count_x;
+    int32 tilemap_count_y;
+
+    Tilemap* tilemaps;
+};
+
+
+struct Game_State {
+    math::vector2i character_tilemap;
+    math::vector2 character_position;
 };
 
 

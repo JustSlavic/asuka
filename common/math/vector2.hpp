@@ -99,6 +99,11 @@ inline vector2i round_vector2(vector2 v) {
 }
 
 
+inline vector2i truncate_to_vector2i(vector2 v) {
+    return vector2i{ truncate_to_int32(v.x), truncate_to_int32(v.y) };
+}
+
+
 } // math
 
 

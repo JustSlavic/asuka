@@ -20,17 +20,27 @@ template <> struct consts<f32> {
 };
 
 
-int32 round_to_i32(float32 x) {
+inline int32 round_to_i32(float32 x) {
     return (int32) (x + 0.5f);
 }
 
 
-uint32 round_to_u32(float32 x) {
+inline uint32 round_to_u32(float32 x) {
     return (int32) (x + 0.5f);
 }
 
 
-float32 sqrt(float32 x) {
+inline int32 truncate_to_int32(float32 x) {
+    return (int32) x;
+}
+
+
+inline int32 floor_to_int32(float32 x) {
+    return (int32) floorf(x);
+}
+
+
+inline float32 sqrt(float32 x) {
     ASSERT(x >= 0);
 
     return ::sqrtf(x);
