@@ -149,26 +149,13 @@ struct Game_Memory {
 
 struct WorldPosition {
     // Coordinates of the tilemap
-    int32 tilemap_x;
-    int32 tilemap_y;
+    math::vector2i tilemap;
 
-    // In pixels from top-left corner of tilemap
-    float32 x;
-    float32 y;
-};
-
-
-struct NormalizedWorldPosition {
-    // Coordinates of the tilemap
-    int32 tilemap_x;
-    int32 tilemap_y;
-
-    int32 tile_x;
-    int32 tile_y;
+    // Coordinates of the tile
+    math::vector2i tile;
 
     // In pixels inside a tile
-    float32 x;
-    float32 y;
+    math::vector2 position;
 };
 
 
@@ -178,8 +165,11 @@ struct Tilemap {
 
 
 struct Worldmap {
-    float32 tile_width;
-    float32 tile_height;
+    uint32 tile_width_in_pixels;
+    uint32 tile_height_in_pixels;
+
+    float32 tile_width_in_meters;
+    float32 tile_height_in_meters;
 
     int32 tile_count_x;
     int32 tile_count_y;
@@ -192,8 +182,7 @@ struct Worldmap {
 
 
 struct Game_State {
-    math::vector2i character_tilemap;
-    math::vector2 character_position;
+    WorldPosition character_position;
 };
 
 

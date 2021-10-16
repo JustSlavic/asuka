@@ -58,21 +58,21 @@ static void RenderBorder(Game_OffscreenBuffer* Buffer, uint32 Width, math::color
 #endif
 
 
-inline Tilemap* GetTilemap(Worldmap* world, int32 tilemap_x, int32 tilemap_y) {
+inline Tilemap* GetTilemap(Worldmap* world, math::vector2i tilemap_coords) {
     Tilemap* result = 0;
 
-    if (tilemap_x >= 0 && tilemap_x < world->tilemap_count_x &&
-        tilemap_y >= 0 && tilemap_y < world->tilemap_count_y)
+    if (tilemap_coords.x >= 0 && tilemap_coords.x < world->tilemap_count_x &&
+        tilemap_coords.y >= 0 && tilemap_coords.y < world->tilemap_count_y)
     {
-        result = &world->tilemaps[tilemap_y * world->tilemap_count_x + tilemap_x];
+        result = &world->tilemaps[tilemap_coords.y * world->tilemap_count_x + tilemap_coords.x];
     }
 
     return result;
 }
 
 
-inline int32 GetTileValue_Unchecked(Worldmap* world, Tilemap* tilemap, int32 tile_x, int32 tile_y) {
-    int32 result = tilemap->tiles[tile_y*world->tile_count_x + tile_x];
+inline int32 GetTileValue_Unchecked(Worldmap* world, Tilemap* tilemap, math::vector2i tile) {
+    int32 result = tilemap->tiles[tile.y*world->tile_count_x + tile.x];
     return result;
 }
 
@@ -81,14 +81,14 @@ static bool32 IsTilemapPointEmpty(Worldmap* world, Tilemap *tilemap, float32 x, 
     bool32 result = false;
 
     if ((world != NULL) && (tilemap != NULL)) {
-        int32 tile_x = truncate_cast_to_int32(x / world->tile_width);
-        int32 tile_y = truncate_cast_to_int32(y / world->tile_height);
+        int32 tile_x = truncate_cast_to_int32(x / world->tile_width_in_pixels);
+        int32 tile_y = truncate_cast_to_int32(y / world->tile_height_in_pixels);
 
         if (x >= 0 && y >= 0 &&
             tile_x >= 0 && tile_x < world->tile_count_x &&
             tile_y >= 0 && tile_y < world->tile_count_y)
         {
-            int32 tile_value = GetTileValue_Unchecked(world, tilemap, tile_x, tile_y);
+            int32 tile_value = GetTileValue_Unchecked(world, tilemap, {tile_x, tile_y});
             result = (tile_value == 0);
         }
     }
@@ -97,54 +97,59 @@ static bool32 IsTilemapPointEmpty(Worldmap* world, Tilemap *tilemap, float32 x, 
 }
 
 
-static NormalizedWorldPosition NormalizeWorldPosition(Worldmap* world, WorldPosition position) {
-    NormalizedWorldPosition result {};
+static WorldPosition NormalizeWorldPosition(Worldmap* world, WorldPosition position) {
+    WorldPosition result = position;
 
-    result.tilemap_x = position.tilemap_x;
-    result.tilemap_y = position.tilemap_y;
+    if (result.position.x < 0) {
+        result.position.x += world->tile_width_in_pixels;
+        result.tile.x -= 1;
 
-    result.tile_x = math::floor_to_int32(position.x / world->tile_width);
-    result.tile_y = math::floor_to_int32(position.y / world->tile_height);
-
-    result.x = position.x - result.tile_x * world->tile_width;
-    result.y = position.y - result.tile_y * world->tile_height;
-
-    if (result.tile_x < 0) {
-        result.tile_x += world->tile_count_x;
-        result.tilemap_x = position.tilemap_x - 1;
+        if (result.tile.x < 0) {
+            result.tile.x += world->tile_count_x;
+            result.tilemap.x -= 1;
+        }
     }
 
-    if (result.tile_y < 0) {
-        result.tile_y += world->tile_count_y;
-        result.tilemap_y = position.tilemap_y - 1;
+    if (result.position.y < 0) {
+        result.position.y += world->tile_height_in_pixels;
+        result.tile.y -= 1;
+
+        if (result.tile.y < 0) {
+            result.tile.y += world->tile_count_y;
+            result.tilemap.y -= 1;
+        }
     }
 
-    if (result.tile_x >= world->tile_count_x) {
-        result.tile_x -= world->tile_count_x;
-        result.tilemap_x = position.tilemap_x + 1;
+    if (result.position.x > world->tile_width_in_pixels) {
+        result.position.x -= world->tile_width_in_pixels;
+        result.tile.x += 1;
+
+        if (result.tile.x >= world->tile_count_x) {
+            result.tile.x -= world->tile_count_x;
+            result.tilemap.x += 1;
+        }
     }
 
-    if (result.tile_y >= world->tile_count_y) {
-        result.tile_y -= world->tile_count_y;
-        result.tilemap_y = position.tilemap_y + 1;
-    }
+    if (result.position.y > world->tile_height_in_pixels) {
+        result.position.y -= world->tile_height_in_pixels;
+        result.tile.y += 1;
 
-    if (result.tilemap_y == 2) {
-        int x = 0;
+        if (result.tile.y >= world->tile_count_y) {
+            result.tile.y -= world->tile_count_y;
+            result.tilemap.y += 1;
+        }
     }
 
     return result;
 }
 
 
-static bool32 IsWorldPointEmpty(Worldmap *world, WorldPosition position) {
+static bool32 IsWorldPointEmpty(Worldmap *world, WorldPosition norm_position) {
     bool32 result = false;
 
-    NormalizedWorldPosition norm_position = NormalizeWorldPosition(world, position);
-
-    Tilemap* tilemap = GetTilemap(world, norm_position.tilemap_x, norm_position.tilemap_y);
+    Tilemap* tilemap = GetTilemap(world, norm_position.tilemap);
     if (tilemap) {
-        int32 tile_value = GetTileValue_Unchecked(world, tilemap, norm_position.tile_x, norm_position.tile_y);
+        int32 tile_value = GetTileValue_Unchecked(world, tilemap, norm_position.tile);
 
         result = (tile_value == 0);
     }
@@ -231,8 +236,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
 
     Worldmap world;
-    world.tile_width = 60; // [pixels]
-    world.tile_height = 60; // [pixels]
+    world.tile_width_in_pixels = 60; // [pixels]
+    world.tile_height_in_pixels = 60; // [pixels]
+
+    world.tile_width_in_meters = 1; // [meters]
+    world.tile_height_in_meters = 1; // [meters];
+
     world.tile_count_x = TILEMAP_TILES_X;
     world.tile_count_y = TILEMAP_TILES_Y;
     world.tilemap_count_x = 2;
@@ -242,8 +251,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     Game_State* GameState = (Game_State*)Memory->PermanentStorage;
 
     if (!Memory->IsInitialized) {
-        GameState->character_tilemap = { 0, 0 };
-        GameState->character_position = { 100, 100 }; // in pixels
+        GameState->character_position.tilemap = { 0, 0 };
+        GameState->character_position.tile = { 3, 3 };
+        GameState->character_position.position = { 10, 10 }; // in pixels relative to the tile
 
         Memory->IsInitialized = true;
     }
@@ -273,7 +283,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     }
 #endif // ASUKA_PLAYBACK_LOOP
 
-    Tilemap* current_tilemap = GetTilemap(&world, GameState->character_tilemap.x, GameState->character_tilemap.y);
+    Tilemap* current_tilemap = GetTilemap(&world, GameState->character_position.tilemap);
     ASSERT(current_tilemap);
 
     float32 character_width = 30;  // [pixels]
@@ -282,36 +292,31 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     {
         Game_ControllerInput* Input0 = GetController(Input, 0);
+        Input0 = &Input->KeyboardController;
 
-        float32 new_position_x = GameState->character_position.x + truncate_cast_to_int32(Input0->StickLXEnded * character_speed * Input->dt);
-        float32 new_position_y = GameState->character_position.y - truncate_cast_to_int32(Input0->StickLYEnded * character_speed * Input->dt);
+        float32 new_position_x = GameState->character_position.position.x + truncate_cast_to_int32(Input0->StickLXEnded * character_speed * Input->dt);
+        float32 new_position_y = GameState->character_position.position.y - truncate_cast_to_int32(Input0->StickLYEnded * character_speed * Input->dt);
 
-        WorldPosition player_position = {
-            GameState->character_tilemap.x,
-            GameState->character_tilemap.y,
-            new_position_x,
-            new_position_y,
-        };
+        WorldPosition temp_player_position = GameState->character_position;
+        temp_player_position.position.x = new_position_x;
+        temp_player_position.position.y = new_position_y;
 
-        WorldPosition player_left_corner = player_position;
-        player_left_corner.x -= character_width*0.5f;
+        WorldPosition player_left_corner = temp_player_position;
+        player_left_corner.position.x -= character_width*0.5f;
 
-        WorldPosition player_right_corner = player_position;
-        player_right_corner.x += character_width*0.5f;
+        WorldPosition player_right_corner = temp_player_position;
+        player_right_corner.position.x += character_width*0.5f;
 
-        NormalizedWorldPosition normalized_player_position = NormalizeWorldPosition(&world, player_position);
+        WorldPosition normalized_player_position = NormalizeWorldPosition(&world, temp_player_position);
+        WorldPosition normalized_left_corner     = NormalizeWorldPosition(&world, player_left_corner);
+        WorldPosition normalized_right_corner    = NormalizeWorldPosition(&world, player_right_corner);
 
         bool32 tile_is_valid = true;
-        tile_is_valid &= IsWorldPointEmpty(&world, player_left_corner);
-        tile_is_valid &= IsWorldPointEmpty(&world, player_right_corner);
+        tile_is_valid &= IsWorldPointEmpty(&world, normalized_left_corner);
+        tile_is_valid &= IsWorldPointEmpty(&world, normalized_right_corner);
 
         if (tile_is_valid) {
-            GameState->character_position = {
-                normalized_player_position.tile_x * world.tile_width + normalized_player_position.x,
-                normalized_player_position.tile_y * world.tile_height + normalized_player_position.y,
-            };
-            GameState->character_tilemap.x = normalized_player_position.tilemap_x;
-            GameState->character_tilemap.y = normalized_player_position.tilemap_y;
+            GameState->character_position = normalized_player_position;
         }
     }
 
@@ -319,14 +324,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     RenderRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Buffer->Height}, {1.f, 0.f, 1.f});
 
-    int32 character_tile_x = truncate_cast_to_int32(GameState->character_position.x / world.tile_width);
-    int32 character_tile_y = truncate_cast_to_int32(GameState->character_position.y / world.tile_height);
+    int32 character_tile_x = GameState->character_position.tile.x;
+    int32 character_tile_y = GameState->character_position.tile.y;
     for (int Column = 0; Column < TILEMAP_TILES_Y; Column++) {
         for (int Row = 0; Row < TILEMAP_TILES_X; Row++) {
-            int32 TileId = GetTileValue_Unchecked(&world, current_tilemap, Row, Column);
+            int32 TileId = GetTileValue_Unchecked(&world, current_tilemap, { Row, Column });
 
-            float TileX = ((float32)Row)*world.tile_width;
-            float TileY = ((float32)Column)*world.tile_height;
+            float TileX = ((float32)Row)*world.tile_width_in_pixels;
+            float TileY = ((float32)Column)*world.tile_height_in_pixels;
 
             auto TileColor = math::color24{ 0.5f, 0.5f, 0.5f };
             if (TileId == 1) {
@@ -337,14 +342,24 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 TileColor = math::color24{ 0.8f, 0.4f, 0.0f };
             }
 
-            RenderRectangle(Buffer, {TileX, TileY}, {TileX + world.tile_width, TileY + world.tile_height}, TileColor);
+            RenderRectangle(Buffer, {TileX, TileY}, {TileX + world.tile_width_in_pixels, TileY + world.tile_height_in_pixels}, TileColor);
         }
     }
 
+    math::vector2 player_top_left_corner_in_pixels {
+        GameState->character_position.tile.x * (float32)world.tile_width_in_pixels + GameState->character_position.position.x - 0.5f*character_width,
+        GameState->character_position.tile.y * (float32)world.tile_height_in_pixels + GameState->character_position.position.y - character_height
+    };
+
+    math::vector2 player_bottom_right_corner_in_pixels {
+        GameState->character_position.tile.x * (float32)world.tile_width_in_pixels + GameState->character_position.position.x + 0.5f*character_width,
+        GameState->character_position.tile.y * (float32)world.tile_height_in_pixels + GameState->character_position.position.y
+    };
+
     RenderRectangle(
         Buffer,
-        GameState->character_position - math::vector2{character_width*0.5f, character_height},
-        GameState->character_position + math::vector2{character_width*0.5f, 0.f},
+        player_top_left_corner_in_pixels,
+        player_bottom_right_corner_in_pixels,
         math::color24{0.9f, 0.9f, 0.2f});
 
 #ifdef ASUKA_PLAYBACK_LOOP
