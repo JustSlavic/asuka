@@ -1,8 +1,9 @@
 #ifndef ASUKA_ASUKA_HPP
 #define ASUKA_ASUKA_HPP
 
-#include "defines.hpp"
+#include <defines.hpp>
 #include <math.hpp>
+#include "memory_arena.hpp"
 
 
 struct ThreadContext {
@@ -154,8 +155,11 @@ struct WorldPosition {
     // Coordinates of the tile
     math::vector2i tile;
 
+    // uint32 tile_x;
+    // uint32 tile_y;
+
     // In pixels inside a tile
-    math::vector2 position;
+    math::vector2 relative_position_on_tile;
 };
 
 
@@ -165,11 +169,7 @@ struct Tilemap {
 
 
 struct Worldmap {
-    uint32 tile_width_in_pixels;
-    uint32 tile_height_in_pixels;
-
-    float32 tile_width_in_meters;
-    float32 tile_height_in_meters;
+    float32 tile_side_in_meters;
 
     int32 tile_count_x;
     int32 tile_count_y;
@@ -183,6 +183,7 @@ struct Worldmap {
 
 struct Game_State {
     WorldPosition character_position;
+    memory_arena world_arena;
 };
 
 

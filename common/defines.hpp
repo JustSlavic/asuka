@@ -76,6 +76,11 @@ typedef signed long long   int64;
 #ifdef ASUKA_OS_MACOS
 #endif // ASUKA_OS_MACOS
 
+#define INTERNAL_FUNCTION static
+#define IN_CLASS_FUNCTION static
+#define STATIC_VARIABLE static
+#define GLOBAL_VARIABLE static
+
 #define ARRAY_COUNT(ARRAY) (sizeof(ARRAY) / sizeof((ARRAY)[0]))
 
 #define KILOBYTES(VALUE) (((uint64)(VALUE))*1024)

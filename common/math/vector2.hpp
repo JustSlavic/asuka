@@ -94,13 +94,18 @@ inline vector2 lerp (vector2 a, vector2 b, f32 t) {
 }
 
 
-inline vector2i round_vector2(vector2 v) {
+inline vector2i round_to_vector2i(vector2 v) {
     return vector2i{ round_to_i32(v.x), round_to_i32(v.y) };
 }
 
 
 inline vector2i truncate_to_vector2i(vector2 v) {
     return vector2i{ truncate_to_int32(v.x), truncate_to_int32(v.y) };
+}
+
+
+inline vector2 upcast_to_vector2(vector2i v) {
+    return vector2 { (float32) v.x, (float32) v.y };
 }
 
 

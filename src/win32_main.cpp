@@ -99,13 +99,13 @@ struct Win32_DebugInputRecording {
     Debug_PlaybackLoopState PlaybackLoopState;
 };
 
-static Win32_DebugInputRecording Global_DebugInputRecording;
+GLOBAL_VARIABLE Win32_DebugInputRecording Global_DebugInputRecording;
 #endif // ASUKA_PLAYBACK_LOOP
 
 
-static bool Running;
-static Win32_OffscreenBuffer Global_BackBuffer;
-static LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
+GLOBAL_VARIABLE bool Running;
+GLOBAL_VARIABLE Win32_OffscreenBuffer Global_BackBuffer;
+GLOBAL_VARIABLE LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
 
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -113,7 +113,7 @@ typedef X_INPUT_GET_STATE(Win32_XInputGetStateT);
 X_INPUT_GET_STATE(Win32_XInputGetStateStub) {
     return ERROR_DEVICE_NOT_CONNECTED;
 }
-static Win32_XInputGetStateT* XInputGetState_ = Win32_XInputGetStateStub;
+GLOBAL_VARIABLE Win32_XInputGetStateT* XInputGetState_ = Win32_XInputGetStateStub;
 #define XInputGetState XInputGetState_
 
 
@@ -122,7 +122,7 @@ typedef X_INPUT_SET_STATE(Win32_XInputSetStateT);
 X_INPUT_SET_STATE(Win32_XInputSetStateStub) {
     return ERROR_DEVICE_NOT_CONNECTED;
 }
-static Win32_XInputSetStateT* XInputSetState_ = Win32_XInputSetStateStub;
+GLOBAL_VARIABLE Win32_XInputSetStateT* XInputSetState_ = Win32_XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
 
@@ -130,7 +130,8 @@ static Win32_XInputSetStateT* XInputSetState_ = Win32_XInputSetStateStub;
 typedef DIRECT_SOUND_CREATE(Win32_DirectSoundCreateT);
 
 
-static void Win32_LoadXInputFunctions() {
+INTERNAL_FUNCTION
+void Win32_LoadXInputFunctions() {
     HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
 
     if (!XInputLibrary) {
@@ -152,7 +153,8 @@ static void Win32_LoadXInputFunctions() {
 }
 
 
-static FILETIME Win32_GetFileTimestamp(const char* Filename) {
+INTERNAL_FUNCTION
+FILETIME Win32_GetFileTimestamp(const char* Filename) {
     FILETIME Result {};
 
     WIN32_FILE_ATTRIBUTE_DATA FileData;
@@ -163,7 +165,8 @@ static FILETIME Win32_GetFileTimestamp(const char* Filename) {
 }
 
 
-static Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath) {
+INTERNAL_FUNCTION
+Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath) {
 #if defined(ASUKA_DLL_BUILD)
     Win32_GameDLL Result {};
 
@@ -188,7 +191,8 @@ static Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllP
 }
 
 
-static void Win32_UnloadGameDLL(Win32_GameDLL* GameCode) {
+INTERNAL_FUNCTION
+void Win32_UnloadGameDLL(Win32_GameDLL* GameCode) {
 #if defined(ASUKA_DLL_BUILD)
     if (GameCode->GameDLL) {
         FreeLibrary(GameCode->GameDLL);
@@ -201,14 +205,16 @@ static void Win32_UnloadGameDLL(Win32_GameDLL* GameCode) {
 }
 
 
-static void Win32_ProcessKeyboardEvent(Game_ButtonState* NewState, bool32 IsDown) {
+INTERNAL_FUNCTION
+void Win32_ProcessKeyboardEvent(Game_ButtonState* NewState, bool32 IsDown) {
     ASSERT(NewState->EndedDown != IsDown);
     NewState->EndedDown = IsDown;
     NewState->HalfTransitionCount++;
 }
 
 
-static void Win32_ProcessXInputButton(
+INTERNAL_FUNCTION
+void Win32_ProcessXInputButton(
     Game_ButtonState* OldState,
     Game_ButtonState* NewState,
     DWORD XInputButtonState,
@@ -219,7 +225,8 @@ static void Win32_ProcessXInputButton(
 }
 
 
-static float32 Win32_ProcessXInputStick(int16 value, int16 deadzone) {
+INTERNAL_FUNCTION
+float32 Win32_ProcessXInputStick(int16 value, int16 deadzone) {
     if (value < -deadzone) {
         return (float32)(value + deadzone) / (float32)(32768 - deadzone);
     } else if (value > deadzone) {
@@ -230,7 +237,8 @@ static float32 Win32_ProcessXInputStick(int16 value, int16 deadzone) {
 }
 
 
-static float32 Win32_ProcessXInputTrigger(uint8 value, uint8 deadzone) {
+INTERNAL_FUNCTION
+float32 Win32_ProcessXInputTrigger(uint8 value, uint8 deadzone) {
     if (value < deadzone) {
         return (float32)(value + deadzone) / (float32)(255 - deadzone);
     }
@@ -239,7 +247,8 @@ static float32 Win32_ProcessXInputTrigger(uint8 value, uint8 deadzone) {
 }
 
 
-static void Win32_InitDirectSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize) {
+INTERNAL_FUNCTION
+void Win32_InitDirectSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize) {
     // Load the library
     HMODULE DirectSoundLibrary = LoadLibraryA("dsound.dll");
 
@@ -300,7 +309,8 @@ static void Win32_InitDirectSound(HWND Window, int32 SamplesPerSecond, int32 Buf
 }
 
 
-static Win32_Window_Dimensions Win32_GetWindowDimention(HWND Window) {
+INTERNAL_FUNCTION
+Win32_Window_Dimensions Win32_GetWindowDimention(HWND Window) {
     Win32_Window_Dimensions Result;
 
     RECT ClientRectangle;
@@ -313,7 +323,8 @@ static Win32_Window_Dimensions Win32_GetWindowDimention(HWND Window) {
 }
 
 
-static void Win32_ResizeDIBSection(Win32_OffscreenBuffer* Buffer, LONG Width, LONG Height) {
+INTERNAL_FUNCTION
+void Win32_ResizeDIBSection(Win32_OffscreenBuffer* Buffer, LONG Width, LONG Height) {
     if (Buffer->Memory) {
         VirtualFree(Buffer->Memory, 0, MEM_RELEASE);
     }
@@ -337,7 +348,8 @@ static void Win32_ResizeDIBSection(Win32_OffscreenBuffer* Buffer, LONG Width, LO
 }
 
 
-static void Win32_CopyBufferToWindow(Win32_OffscreenBuffer *Buffer, HDC device_context, int WindowWidth, int WindowHeight) {
+INTERNAL_FUNCTION
+void Win32_CopyBufferToWindow(Win32_OffscreenBuffer *Buffer, HDC device_context, int WindowWidth, int WindowHeight) {
     PatBlt(
         device_context,
         Buffer->Width, 0,
@@ -358,7 +370,8 @@ static void Win32_CopyBufferToWindow(Win32_OffscreenBuffer *Buffer, HDC device_c
 }
 
 
-static void Win32_ClearSoundBuffer(Win32_SoundOutput* SoundOutput) {
+INTERNAL_FUNCTION
+void Win32_ClearSoundBuffer(Win32_SoundOutput* SoundOutput) {
     VOID* Region1;
     DWORD Region1_Size;
     VOID* Region2;
@@ -385,7 +398,8 @@ static void Win32_ClearSoundBuffer(Win32_SoundOutput* SoundOutput) {
 }
 
 
-static void Win32_FillSoundBuffer(
+INTERNAL_FUNCTION
+void Win32_FillSoundBuffer(
     Win32_SoundOutput* SoundOutput, DWORD BytesToLock, DWORD BytesToWrite,
     Game_SoundOutputBuffer* SourceBuffer)
 {
@@ -589,7 +603,8 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
 
 
 #if 0 // ASUKA_DEBUG
-static void Win32_DebugDrawVerticalMark(
+INTERNAL_FUNCTION
+void Win32_DebugDrawVerticalMark(
     Win32_OffscreenBuffer* ScreenBuffer,
     int X,
     int Top,
@@ -618,8 +633,8 @@ static void Win32_DebugDrawVerticalMark(
     }
 }
 
-
-static void Win32_DebugSoundDisplay(
+INTERNAL_FUNCTION
+void Win32_DebugSoundDisplay(
     Win32_OffscreenBuffer* ScreenBuffer,
     Win32_SoundOutput* SoundOutput,
     Win32_DebugSoundCursors* Cursors,
@@ -667,7 +682,8 @@ static void Win32_DebugSoundDisplay(
 #endif // ASUKA_DEBUG
 
 
-static void Win32_DebugCatStrings(
+INTERNAL_FUNCTION
+void Win32_DebugCatStrings(
     char* Source1, DWORD Source1Size,
     char* Source2, DWORD Source2Size,
     char* Dest, DWORD DestSize)
@@ -784,14 +800,16 @@ int WINAPI WinMain(
     GameMemory.TransientStorage = (uint8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
 
 #ifdef ASUKA_PLAYBACK_LOOP
-    Global_DebugInputRecording.InitialGameMemorySize = TotalSize;
+    uint64 InitialGameMemorySize = GameMemory.PermanentStorageSize;
+
+    Global_DebugInputRecording.InitialGameMemorySize = InitialGameMemorySize;
     Global_DebugInputRecording.InputRecordingSize = MEGABYTES(1);
 
     Global_DebugInputRecording.InitialGameMemory = VirtualAlloc(
         (uint8*)GameMemory.PermanentStorage + TotalSize,
-        TotalSize + Global_DebugInputRecording.InputRecordingSize, // GameMemory size + size of the recorded inputs
+        InitialGameMemorySize + Global_DebugInputRecording.InputRecordingSize, // GameMemory size + size of the recorded inputs
         MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    Global_DebugInputRecording.InputRecording = (uint8 *)Global_DebugInputRecording.InitialGameMemory + TotalSize;
+    Global_DebugInputRecording.InputRecording = (uint8 *)Global_DebugInputRecording.InitialGameMemory + InitialGameMemorySize;
 
     Global_DebugInputRecording.RecordedInputsCount = 0;
     Global_DebugInputRecording.CurrentPlaybackInputIndex = 0;

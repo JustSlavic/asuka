@@ -16,7 +16,8 @@ struct consts {};
 template <> struct consts<f32> {
     using self = f32;
 
-    static constexpr self pi () noexcept { return 3.14159265358979323846f; }
+    IN_CLASS_FUNCTION
+    constexpr self pi () noexcept { return 3.14159265358979323846f; }
 };
 
 
