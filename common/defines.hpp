@@ -112,8 +112,18 @@ typedef signed long long   int64;
 #define UINT64_MIN (0)
 #define UINT64_MAX (0xFFFF'FFFF'FFFF'FFFF)
 
-
 typedef int32  bool32;
+
+typedef int8   i8;
+typedef int16  i16;
+typedef int32  i32;
+typedef int64  i64;
+
+typedef uint8  u8;
+typedef uint16 u16;
+typedef uint32 u32;
+typedef uint64 u64;
+
 typedef float  float32;
 typedef float  f32;
 typedef double float64;
