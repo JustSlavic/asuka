@@ -21,7 +21,8 @@ INTERNAL_FUNCTION
 void RenderRectangle(
     Game_OffscreenBuffer* buffer,
     vector2 top_left, vector2 bottom_right,
-    color24 color)
+    color24 color,
+    bool32 stroke = false)
 {
     vector2i tl = round_to_vector2i(top_left);
     vector2i br = round_to_vector2i(bottom_right);
@@ -39,7 +40,11 @@ void RenderRectangle(
         uint32* Pixel = (uint32*) Row;
 
         for (int x = 0; x < dimensions.x; x++) {
-            *Pixel = pack_to_uint32(color);
+            if (stroke && (x == 0 || y == 0)) {
+                *Pixel = 0;
+            } else {
+                *Pixel = pack_to_uint32(color);
+            }
             Pixel++;
         }
 
@@ -82,7 +87,13 @@ INTERNAL_FUNCTION
 WorldPosition NormalizeWorldPosition(Worldmap* world, WorldPosition position) {
     WorldPosition result = position;
 
-    if (result.relative_position_on_tile.x < 0) {
+    float32 tile_top   = -0.5f * world->tile_side_in_meters;
+    float32 tile_bottom = 0.5f * world->tile_side_in_meters;
+
+    float32 tile_left = -0.5f * world->tile_side_in_meters;
+    float32 tile_right = 0.5f * world->tile_side_in_meters;
+
+    if (result.relative_position_on_tile.x < tile_left) {
         result.relative_position_on_tile.x += world->tile_side_in_meters;
         result.tile.x -= 1;
 
@@ -92,7 +103,7 @@ WorldPosition NormalizeWorldPosition(Worldmap* world, WorldPosition position) {
         }
     }
 
-    if (result.relative_position_on_tile.y < 0) {
+    if (result.relative_position_on_tile.y < tile_top) {
         result.relative_position_on_tile.y += world->tile_side_in_meters;
         result.tile.y -= 1;
 
@@ -102,7 +113,7 @@ WorldPosition NormalizeWorldPosition(Worldmap* world, WorldPosition position) {
         }
     }
 
-    if (result.relative_position_on_tile.x >= world->tile_side_in_meters) {
+    if (result.relative_position_on_tile.x >= tile_right) {
         result.relative_position_on_tile.x -= world->tile_side_in_meters;
         result.tile.x += 1;
 
@@ -112,7 +123,7 @@ WorldPosition NormalizeWorldPosition(Worldmap* world, WorldPosition position) {
         }
     }
 
-    if (result.relative_position_on_tile.y >= world->tile_side_in_meters) {
+    if (result.relative_position_on_tile.y >= tile_bottom) {
         result.relative_position_on_tile.y -= world->tile_side_in_meters;
         result.tile.y += 1;
 
@@ -125,8 +136,8 @@ WorldPosition NormalizeWorldPosition(Worldmap* world, WorldPosition position) {
     ASSERT((0 <= result.tile.x) && (result.tile.x < world->tile_count_x));
     ASSERT((0 <= result.tile.y) && (result.tile.y < world->tile_count_y));
 
-    ASSERT((0 <= result.relative_position_on_tile.x) && (result.relative_position_on_tile.x < world->tile_side_in_meters));
-    ASSERT((0 <= result.relative_position_on_tile.y) && (result.relative_position_on_tile.y < world->tile_side_in_meters));
+    ASSERT((tile_left <= result.relative_position_on_tile.x) && (result.relative_position_on_tile.x < tile_right));
+    ASSERT((tile_top  <= result.relative_position_on_tile.y) && (result.relative_position_on_tile.y < tile_bottom));
 
     return result;
 }
@@ -149,6 +160,8 @@ bool32 IsWorldPointEmpty(Worldmap *world, WorldPosition norm_position) {
 GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 {
     ASSERT(sizeof(Game_State) <= Memory->PermanentStorageSize);
+
+    float32 dt = Input->dt;
 
 #define TILEMAP_TILES_X 16
 #define TILEMAP_TILES_Y 9
@@ -235,9 +248,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     Game_State* GameState = (Game_State*)Memory->PermanentStorage;
 
     if (!Memory->IsInitialized) {
-        GameState->character_position.tilemap = { 0, 0 };
-        GameState->character_position.tile = { 3, 3 };
-        GameState->character_position.relative_position_on_tile = { 0.0f, 0.0f }; // in meters relative to the tile
+        GameState->player_position.tilemap = { 0, 0 };
+        GameState->player_position.tile = { 3, 3 };
+        GameState->player_position.relative_position_on_tile = { 0.0f, 0.0f }; // in meters relative to the tile
 
         Memory->IsInitialized = true;
     }
@@ -265,7 +278,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     }
 #endif // ASUKA_PLAYBACK_LOOP
 
-    Tilemap* current_tilemap = GetTilemap(&world, GameState->character_position.tilemap);
+    Tilemap* current_tilemap = GetTilemap(&world, GameState->player_position.tilemap);
     ASSERT(current_tilemap);
 
     float32 pixels_per_meter = 60.f;
@@ -277,15 +290,27 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         Game_ControllerInput* Input0 = GetController(Input, 0);
         Input0 = &Input->KeyboardController;
 
-        // [meters]
-        float32 new_position_x =
-            GameState->character_position.relative_position_on_tile.x + Input0->StickLXEnded * character_speed * Input->dt;
-        float32 new_position_y =
-            GameState->character_position.relative_position_on_tile.y + Input0->StickLYEnded * character_speed * Input->dt;
+        // [units]
+        v2 input_direction = v2{ Input0->StickLXEnded, Input0->StickLYEnded }.normalized();
 
-        WorldPosition temp_player_position = GameState->character_position;
-        temp_player_position.relative_position_on_tile.x = new_position_x;
-        temp_player_position.relative_position_on_tile.y = new_position_y;
+        // [m/s^2]
+        float32 acceleration_coefficient = 30.0f;
+        v2 acceleration = acceleration_coefficient * input_direction;
+
+        // [m/s^2] = [m/s] ???
+        f32 friction_coefficient = 5.0f;
+        v2 friction_acceleration = friction_coefficient * GameState->player_velocity;
+
+        // [m/s] = [m/s] + ([m/s^2] - [m/s^2]) * [s]
+        GameState->player_velocity = GameState->player_velocity + (acceleration - friction_acceleration) * dt;
+
+        // [m] = [m] + [m/s] * [s]
+        v2 new_position =
+            GameState->player_position.relative_position_on_tile +
+            GameState->player_velocity * dt;
+
+        WorldPosition temp_player_position = GameState->player_position;
+        temp_player_position.relative_position_on_tile = new_position;
 
         WorldPosition player_left_corner = temp_player_position;
         player_left_corner.relative_position_on_tile.x -= character_dimensions.x * 0.5f;
@@ -298,20 +323,22 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         WorldPosition normalized_right_corner    = NormalizeWorldPosition(&world, player_right_corner);
 
         bool32 tile_is_valid = true;
+        tile_is_valid &= IsWorldPointEmpty(&world, temp_player_position);
         tile_is_valid &= IsWorldPointEmpty(&world, normalized_left_corner);
         tile_is_valid &= IsWorldPointEmpty(&world, normalized_right_corner);
 
         if (tile_is_valid) {
-            GameState->character_position = normalized_player_position;
+            GameState->player_position = normalized_player_position;
         }
     }
 
     Game_OutputSound(SoundBuffer, GameState);
 
+    // Rendering pink background to really see if there are some pixels I didn't drew
     RenderRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Buffer->Height}, {1.f, 0.f, 1.f});
 
-    int32 character_tile_x = GameState->character_position.tile.x;
-    int32 character_tile_y = GameState->character_position.tile.y;
+    int32 character_tile_x = GameState->player_position.tile.x;
+    int32 character_tile_y = GameState->player_position.tile.y;
     for (int Row = 0; Row < world.tile_count_y; Row++) {
         for (int Column = 0; Column < world.tile_count_x; Column++) {
             int32 TileId = GetTileValue_Unchecked(&world, current_tilemap, { Column, Row });
@@ -322,12 +349,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             vector2 TileUpperLeft {
                 TileBottomLeftX,
                 TileBottomLeftY - world.tile_side_in_meters * pixels_per_meter,
-                // (float32) Row    * world.tile_side_in_meters * pixels_per_meter,
-                // (float32) Column * world.tile_side_in_meters * pixels_per_meter,
             };
 
             vector2 TileBottomRight {
-                TileUpperLeft.x + world.tile_side_in_meters  * pixels_per_meter,
+                TileUpperLeft.x + world.tile_side_in_meters * pixels_per_meter,
                 TileUpperLeft.y + world.tile_side_in_meters * pixels_per_meter,
             };
 
@@ -344,29 +369,37 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 Buffer,
                 TileUpperLeft,
                 TileBottomRight,
-                TileColor);
+                TileColor, true);
         }
     }
 
-    vector2 bottom_left =
-        upcast_to_vector2(GameState->character_position.tile) * (float32)world.tile_side_in_meters +
-        GameState->character_position.relative_position_on_tile +
-        mul_per_axis(vector2{ -0.5f, -1.0f }, character_dimensions);
-    bottom_left *= pixels_per_meter;
-    bottom_left.y = Buffer->Height - bottom_left.y;
+    vector2 relative_player_position =
+        upcast_to_vector2(GameState->player_position.tile) * world.tile_side_in_meters +
+        GameState->player_position.relative_position_on_tile + vector2{ 0.5f, 0.5f } * world.tile_side_in_meters;
 
-    vector2 top_right =
-        upcast_to_vector2(GameState->character_position.tile) * (float32)world.tile_side_in_meters +
-        GameState->character_position.relative_position_on_tile +
-        mul_per_axis(vector2{ 0.5f, 0.f }, character_dimensions);
-    top_right *= pixels_per_meter;
-    top_right.y = Buffer->Height - top_right.y;
+    relative_player_position.y = world.tile_count_y * world.tile_side_in_meters - relative_player_position.y;
+
+    vector2 top_left = {
+        relative_player_position.x - 0.5f * character_dimensions.x,
+        relative_player_position.y - 1.0f * character_dimensions.y,
+    };
+
+    vector2 bottom_right = {
+        relative_player_position.x + 0.5f * character_dimensions.x,
+        relative_player_position.y
+    };
 
     RenderRectangle(
         Buffer,
-        vector2{ bottom_left.x, top_right.y - world.tile_side_in_meters * pixels_per_meter },
-        top_right,
+        top_left * pixels_per_meter,
+        bottom_right * pixels_per_meter,
         color24{ 0.9f, 0.9f, 0.2f });
+
+    RenderRectangle(
+        Buffer,
+        relative_player_position * pixels_per_meter - vector2{ 3.f, 3.f },
+        relative_player_position * pixels_per_meter + vector2{ 3.f, 3.f },
+        color24{ 0.f, 0.f, 0.f });
 
 #ifdef ASUKA_PLAYBACK_LOOP
     if (BorderVisible) {

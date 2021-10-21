@@ -33,7 +33,16 @@ struct vector2 {
     inline float32 length_2 () { return x*x + y*y; }
     inline float32 length () { return math::sqrt(length_2()); }
     inline float32 norm () { return length(); }
-    inline vector2 normalized () { auto n = norm(); return { x / n, y / n }; }
+    inline vector2 normalized () {
+        vector2 result {};
+
+        float32 n = norm();
+        if (n > 0) {
+            result = vector2{ x / n, y / n };
+        }
+
+        return result;
+    }
 
     inline vector2& operator += (vector2 other) {
         x += other.x;

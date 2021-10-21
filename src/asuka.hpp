@@ -182,7 +182,9 @@ struct Worldmap {
 
 
 struct Game_State {
-    WorldPosition character_position;
+    WorldPosition player_position;
+    vector2 player_velocity;
+
     memory_arena world_arena;
 };
 
