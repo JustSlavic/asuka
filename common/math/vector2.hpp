@@ -5,14 +5,15 @@
 #include "float.hpp"
 
 
-namespace math {
-
-
 struct vector2i {
     union {
         struct { int32  x, y; };
     };
 };
+
+
+typedef vector2i vec2i;
+typedef vector2i v2i;
 
 
 inline vector2i operator - (vector2i a, vector2i b) {
@@ -52,6 +53,10 @@ struct vector2 {
         return *this;
     }
 };
+
+
+typedef vector2 vec2;
+typedef vector2 v2;
 
 
 inline vector2 operator - (vector2 a) {
@@ -100,17 +105,17 @@ inline f32 dot (vector2 a, vector2 b) {
 }
 
 inline vector2 lerp (vector2 a, vector2 b, f32 t) {
-    vector2 result = vector2{ lerp(a.x, b.x, t), lerp(a.y, b.y, t) };
+    vector2 result = vector2{ math::lerp(a.x, b.x, t), math::lerp(a.y, b.y, t) };
     return result;
 }
 
 inline vector2i round_to_vector2i(vector2 v) {
-    vector2i result = vector2i{ round_to_i32(v.x), round_to_i32(v.y) };
+    vector2i result = vector2i{ math::round_to_i32(v.x), math::round_to_i32(v.y) };
     return result;
 }
 
 inline vector2i truncate_to_vector2i(vector2 v) {
-    vector2i result = vector2i{ truncate_to_int32(v.x), truncate_to_int32(v.y) };
+    vector2i result = vector2i{ math::truncate_to_int32(v.x), math::truncate_to_int32(v.y) };
     return result;
 }
 
@@ -123,9 +128,6 @@ inline vector2 mul_per_axis(vector2 a, vector2 b) {
     vector2 result = vector2{ a.x * b.x, a.y * b.y };
     return result;
 }
-
-
-} // math
 
 
 #endif // ASUKA_COMMON_MATH_VECTOR2_HPP

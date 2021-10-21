@@ -20,18 +20,18 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, Game_State* GameState
 INTERNAL_FUNCTION
 void RenderRectangle(
     Game_OffscreenBuffer* buffer,
-    math::vector2 top_left, math::vector2 bottom_right,
-    math::color24 color)
+    vector2 top_left, vector2 bottom_right,
+    color24 color)
 {
-    math::vector2i tl = round_to_vector2i(top_left);
-    math::vector2i br = round_to_vector2i(bottom_right);
+    vector2i tl = round_to_vector2i(top_left);
+    vector2i br = round_to_vector2i(bottom_right);
 
     if (tl.x < 0) tl.x = 0;
     if (tl.y < 0) tl.y = 0;
     if (br.x > buffer->Width)  br.x = buffer->Width;
     if (br.y > buffer->Height) br.y = buffer->Height;
 
-    math::vector2i dimensions = br - tl;
+    vector2i dimensions = br - tl;
 
     uint8* Row = (uint8*)buffer->Memory + tl.y*buffer->Pitch + tl.x*buffer->BytesPerPixel;
 
@@ -50,7 +50,7 @@ void RenderRectangle(
 
 #ifdef ASUKA_DEBUG
 INTERNAL_FUNCTION
-void RenderBorder(Game_OffscreenBuffer* Buffer, uint32 Width, math::color24 Color) {
+void RenderBorder(Game_OffscreenBuffer* Buffer, uint32 Width, color24 Color) {
     RenderRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Width}, Color);
     RenderRectangle(Buffer, {0, (float32)Width}, {(float32)Width, (float32)Buffer->Height - Width}, Color);
     RenderRectangle(Buffer, {(float32)Buffer->Width - Width, (float32)Width}, {(float32)Buffer->Width, (float32)Buffer->Height - Width}, Color);
@@ -59,7 +59,7 @@ void RenderBorder(Game_OffscreenBuffer* Buffer, uint32 Width, math::color24 Colo
 #endif
 
 
-inline Tilemap* GetTilemap(Worldmap* world, math::vector2i tilemap_coords) {
+inline Tilemap* GetTilemap(Worldmap* world, vector2i tilemap_coords) {
     Tilemap* result = 0;
 
     if (tilemap_coords.x >= 0 && tilemap_coords.x < world->tilemap_count_x &&
@@ -72,7 +72,7 @@ inline Tilemap* GetTilemap(Worldmap* world, math::vector2i tilemap_coords) {
 }
 
 
-inline int32 GetTileValue_Unchecked(Worldmap* world, Tilemap* tilemap, math::vector2i tile) {
+inline int32 GetTileValue_Unchecked(Worldmap* world, Tilemap* tilemap, vector2i tile) {
     int32 result = tilemap->tiles[tile.y*world->tile_count_x + tile.x];
     return result;
 }
@@ -225,7 +225,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     Worldmap world;
     world.tile_side_in_meters = 1; // [meters]
-    world.tile_side_in_meters = 1; // [meters];
 
     world.tile_count_x = TILEMAP_TILES_X;
     world.tile_count_y = TILEMAP_TILES_Y;
@@ -238,14 +237,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     if (!Memory->IsInitialized) {
         GameState->character_position.tilemap = { 0, 0 };
         GameState->character_position.tile = { 3, 3 };
-        GameState->character_position.relative_position_on_tile = { 0.5f, 0.5f }; // in meters relative to the tile
+        GameState->character_position.relative_position_on_tile = { 0.0f, 0.0f }; // in meters relative to the tile
 
         Memory->IsInitialized = true;
     }
 
 #ifdef ASUKA_PLAYBACK_LOOP
-    math::color24 BorderColor {};
-    uint32 BorderWidth {};
+    color24 BorderColor {};
+    uint32 BorderWidth = 5;
     bool32 BorderVisible {};
 
     switch (Input->PlaybackLoopState) {
@@ -255,14 +254,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
         case PLAYBACK_LOOP_RECORDING: {
             BorderVisible = true;
-            BorderWidth = 10;
-            BorderColor = math::color24{1.f, 1.f, 0.f};
+            BorderColor = color24{ 1.f, 244.f / 255.f, 43.f / 255.f };
             break;
         }
         case PLAYBACK_LOOP_PLAYBACK: {
             BorderVisible = true;
-            BorderWidth = 10;
-            BorderColor = math::color24{0.f, 1.f, 0.f};
+            BorderColor = color24{ 29.f / 255.f, 166.f / 255.f, 8.f / 255.f };
             break;
         }
     }
@@ -273,7 +270,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     float32 pixels_per_meter = 60.f;
 
-    math::vector2 character_dimensions = { 0.75f, 1.0f }; // [meters x meters]
+    vector2 character_dimensions = { 0.75f, 1.0f }; // [meters x meters]
     float32 character_speed = 2.5f; // [meters/second]
 
     {
@@ -322,25 +319,25 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             float32 TileBottomLeftX = (float32) Column * world.tile_side_in_meters * pixels_per_meter;
             float32 TileBottomLeftY = (float32) Buffer->Height - (float32) Row * world.tile_side_in_meters * pixels_per_meter;
 
-            math::vector2 TileUpperLeft {
+            vector2 TileUpperLeft {
                 TileBottomLeftX,
                 TileBottomLeftY - world.tile_side_in_meters * pixels_per_meter,
                 // (float32) Row    * world.tile_side_in_meters * pixels_per_meter,
                 // (float32) Column * world.tile_side_in_meters * pixels_per_meter,
             };
 
-            math::vector2 TileBottomRight {
+            vector2 TileBottomRight {
                 TileUpperLeft.x + world.tile_side_in_meters  * pixels_per_meter,
                 TileUpperLeft.y + world.tile_side_in_meters * pixels_per_meter,
             };
 
-            auto TileColor = math::color24{ 0.5f, 0.5f, 0.5f };
+            auto TileColor = color24{ 0.5f, 0.5f, 0.5f };
             if (TileId == 1) {
-                TileColor = math::color24{ 0.2f, 0.3f, 0.2f };
+                TileColor = color24{ 0.2f, 0.3f, 0.2f };
             }
 
             if (Row == character_tile_y && Column == character_tile_x) {
-                TileColor = math::color24{ 0.8f, 0.4f, 0.0f };
+                TileColor = color24{ 0.8f, 0.4f, 0.0f };
             }
 
             RenderRectangle(
@@ -351,27 +348,25 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
     }
 
-    math::vector2 player_bottom_left_corner_in_pixels {
-        GameState->character_position.tile.x * (float32)world.tile_side_in_meters +
-            GameState->character_position.relative_position_on_tile.x - 0.5f*character_dimensions.x,
-        GameState->character_position.tile.y * (float32)world.tile_side_in_meters +
-            GameState->character_position.relative_position_on_tile.y - character_dimensions.y
-    };
-    player_bottom_left_corner_in_pixels *= pixels_per_meter;
-    player_bottom_left_corner_in_pixels.y = Buffer->Height - player_bottom_left_corner_in_pixels.y;
+    vector2 bottom_left =
+        upcast_to_vector2(GameState->character_position.tile) * (float32)world.tile_side_in_meters +
+        GameState->character_position.relative_position_on_tile +
+        mul_per_axis(vector2{ -0.5f, -1.0f }, character_dimensions);
+    bottom_left *= pixels_per_meter;
+    bottom_left.y = Buffer->Height - bottom_left.y;
 
-    math::vector2 player_top_right_corner_in_pixels {
-        GameState->character_position.tile.x * (float32)world.tile_side_in_meters + GameState->character_position.relative_position_on_tile.x + 0.5f*character_dimensions.x,
-        GameState->character_position.tile.y * (float32)world.tile_side_in_meters + GameState->character_position.relative_position_on_tile.y
-    };
-    player_top_right_corner_in_pixels *= pixels_per_meter;
-    player_top_right_corner_in_pixels.y = Buffer->Height - player_top_right_corner_in_pixels.y;
+    vector2 top_right =
+        upcast_to_vector2(GameState->character_position.tile) * (float32)world.tile_side_in_meters +
+        GameState->character_position.relative_position_on_tile +
+        mul_per_axis(vector2{ 0.5f, 0.f }, character_dimensions);
+    top_right *= pixels_per_meter;
+    top_right.y = Buffer->Height - top_right.y;
 
     RenderRectangle(
         Buffer,
-        { player_bottom_left_corner_in_pixels.x, player_top_right_corner_in_pixels.y - world.tile_side_in_meters * pixels_per_meter },
-        player_top_right_corner_in_pixels,
-        math::color24{ 0.9f, 0.9f, 0.2f });
+        vector2{ bottom_left.x, top_right.y - world.tile_side_in_meters * pixels_per_meter },
+        top_right,
+        color24{ 0.9f, 0.9f, 0.2f });
 
 #ifdef ASUKA_PLAYBACK_LOOP
     if (BorderVisible) {

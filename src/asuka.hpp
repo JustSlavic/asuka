@@ -150,16 +150,16 @@ struct Game_Memory {
 
 struct WorldPosition {
     // Coordinates of the tilemap
-    math::vector2i tilemap;
+    vector2i tilemap;
 
     // Coordinates of the tile
-    math::vector2i tile;
+    vector2i tile;
 
     // uint32 tile_x;
     // uint32 tile_y;
 
     // In pixels inside a tile
-    math::vector2 relative_position_on_tile;
+    vector2 relative_position_on_tile;
 };
 
 
