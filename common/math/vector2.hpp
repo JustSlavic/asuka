@@ -16,7 +16,8 @@ struct vector2i {
 
 
 inline vector2i operator - (vector2i a, vector2i b) {
-    return vector2i{ a.x - b.x, a.y - b.y };
+    vector2i result = vector2i{ a.x - b.x, a.y - b.y };
+    return result;
 }
 
 
@@ -54,58 +55,73 @@ struct vector2 {
 
 
 inline vector2 operator - (vector2 a) {
-    return vector2{ -a.x, -a.y };
+    vector2 result = vector2{ -a.x, -a.y };
+    return result;
 }
 
 inline vector2 operator + (vector2 a, vector2 b) {
-    return vector2{ a.x + b.x, a.y + b.y };
+    vector2 result = vector2{ a.x + b.x, a.y + b.y };
+    return result;
 }
 
 inline vector2 operator - (vector2 a, vector2 b) {
-    return vector2{ a.x - b.x, a.y - b.y };
+    vector2 result = vector2{ a.x - b.x, a.y - b.y };
+    return result;
 }
 
 inline vector2 operator * (vector2 a, f32 c) {
-    return vector2{ c * a.x, c * a.y };
+    vector2 result = vector2{ c * a.x, c * a.y };
+    return result;
 }
 
 inline vector2 operator * (f32 c, vector2 a) {
-    return vector2{ c * a.x, c * a.y };
+    vector2 result = vector2{ c * a.x, c * a.y };
+    return result;
 }
 
 inline vector2 operator / (vector2 a, f32 c) {
-    return vector2{ a.x / c, a.y / c };
+    vector2 result = vector2{ a.x / c, a.y / c };
+    return result;
 }
 
 inline bool operator == (vector2 a, vector2 b) {
-    return (a.x == b.x) && (a.y == b.y);
+    bool result = (a.x == b.x) && (a.y == b.y);
+    return result;
 }
 
 inline bool operator != (vector2 a, vector2 b) {
-    return !(a == b);
+    bool result = !(a == b);
+    return result;
 }
 
 inline f32 dot (vector2 a, vector2 b) {
-    return a.x * b.x + a.y * b.y;
+    f32 result = a.x * b.x + a.y * b.y;
+    return result;
 }
 
 inline vector2 lerp (vector2 a, vector2 b, f32 t) {
-    return { lerp(a.x, b.x, t), lerp(a.y, b.y, t) };
+    vector2 result = vector2{ lerp(a.x, b.x, t), lerp(a.y, b.y, t) };
+    return result;
 }
-
 
 inline vector2i round_to_vector2i(vector2 v) {
-    return vector2i{ round_to_i32(v.x), round_to_i32(v.y) };
+    vector2i result = vector2i{ round_to_i32(v.x), round_to_i32(v.y) };
+    return result;
 }
-
 
 inline vector2i truncate_to_vector2i(vector2 v) {
-    return vector2i{ truncate_to_int32(v.x), truncate_to_int32(v.y) };
+    vector2i result = vector2i{ truncate_to_int32(v.x), truncate_to_int32(v.y) };
+    return result;
 }
 
-
 inline vector2 upcast_to_vector2(vector2i v) {
-    return vector2 { (float32) v.x, (float32) v.y };
+    vector2 result = vector2{ (float32) v.x, (float32) v.y };
+    return result;
+}
+
+inline vector2 mul_per_axis(vector2 a, vector2 b) {
+    vector2 result = vector2{ a.x * b.x, a.y * b.y };
+    return result;
 }
 
 
