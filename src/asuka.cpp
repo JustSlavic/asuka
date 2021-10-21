@@ -281,10 +281,13 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     Tilemap* current_tilemap = GetTilemap(&world, GameState->player_position.tilemap);
     ASSERT(current_tilemap);
 
-    float32 pixels_per_meter = 60.f;
+    float32 pixels_per_meter = 60.f; // [pixels/m]
 
-    vector2 character_dimensions = { 0.75f, 1.0f }; // [meters x meters]
-    float32 character_speed = 2.5f; // [meters/second]
+    v2  character_dimensions = { 0.75f, 1.0f }; // [m; m]
+    f32 character_speed = 2.5f; // [m/s]
+    f32 character_mass = 80.0f; // [kg]
+    f32 gravity_acceleration = 9.8f; // [m/s^2]
+    f32 friction_coefficient = 1.0f;
 
     {
         Game_ControllerInput* Input0 = GetController(Input, 0);
@@ -297,9 +300,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         float32 acceleration_coefficient = 30.0f;
         v2 acceleration = acceleration_coefficient * input_direction;
 
-        // [m/s^2] = [m/s] ???
-        f32 friction_coefficient = 5.0f;
-        v2 friction_acceleration = friction_coefficient * GameState->player_velocity;
+        // [m/s^2] = [m/s] * [units] * [m/s^2]
+        // @todo: why units do not add up?
+        v2 friction_acceleration = (GameState->player_velocity) * friction_coefficient * gravity_acceleration;
 
         // [m/s] = [m/s] + ([m/s^2] - [m/s^2]) * [s]
         GameState->player_velocity = GameState->player_velocity + (acceleration - friction_acceleration) * dt;
