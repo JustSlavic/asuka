@@ -1051,7 +1051,7 @@ int WINAPI WinMain(
         SoundBuffer.Samples = wav.samples + CurrentWAVCursor;
 
         Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
-        CurrentWAVCursor += BytesToWrite;
+        CurrentWAVCursor = (CurrentWAVCursor + BytesToWrite) % wav.samples_count;
 
         int64 WorkCounter = os::get_wall_clock();
         float32 SecondsElapsedForWork = (float32)(WorkCounter - LastClockTimepoint) / WallClockFrequency;
