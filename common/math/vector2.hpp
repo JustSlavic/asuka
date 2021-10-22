@@ -31,7 +31,7 @@ struct vector2 {
     };
 
     inline float32 length_2 () { return x*x + y*y; }
-    inline float32 length () { return math::sqrt(length_2()); }
+    inline float32 length () { return sqrt(length_2()); }
     inline float32 norm () { return length(); }
     inline vector2 normalized () {
         vector2 result {};
@@ -114,17 +114,17 @@ inline f32 dot (vector2 a, vector2 b) {
 }
 
 inline vector2 lerp (vector2 a, vector2 b, f32 t) {
-    vector2 result = vector2{ math::lerp(a.x, b.x, t), math::lerp(a.y, b.y, t) };
+    vector2 result = vector2{ lerp(a.x, b.x, t), lerp(a.y, b.y, t) };
     return result;
 }
 
 inline vector2i round_to_vector2i(vector2 v) {
-    vector2i result = vector2i{ math::round_to_i32(v.x), math::round_to_i32(v.y) };
+    vector2i result = vector2i{ round_to_i32(v.x), round_to_i32(v.y) };
     return result;
 }
 
 inline vector2i truncate_to_vector2i(vector2 v) {
-    vector2i result = vector2i{ math::truncate_to_int32(v.x), math::truncate_to_int32(v.y) };
+    vector2i result = vector2i{ truncate_to_int32(v.x), truncate_to_int32(v.y) };
     return result;
 }
 
