@@ -112,6 +112,8 @@ typedef signed long long   int64;
 #define UINT64_MIN (0)
 #define UINT64_MAX (0xFFFF'FFFF'FFFF'FFFF)
 
+typedef int16 sound_sample_t;
+
 typedef int32  bool32;
 
 typedef int8   i8;

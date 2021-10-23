@@ -3,6 +3,7 @@
 
 #include <defines.hpp>
 #include <math.hpp>
+#include <wav.hpp>
 #include "memory_arena.hpp"
 
 
@@ -186,6 +187,9 @@ struct Game_State {
     vector2 player_velocity;
 
     memory_arena world_arena;
+
+    wav_file_contents test_wav_file;
+    uint32 test_current_sound_cursor;
 };
 
 

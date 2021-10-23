@@ -29,6 +29,9 @@
 #include <stdio.h>
 
 
+#define DRAW_DEBUG_SOUND_CURSORS (0 && ASUKA_DEBUG)
+
+
 struct Win32_GameDLL {
     HMODULE GameDLL;
     Game_UpdateAndRenderT* UpdateAndRender;
@@ -55,9 +58,6 @@ struct Win32_Window_Dimensions {
 };
 
 
-typedef int16 sound_sample_t;
-
-
 struct Win32_SoundOutput {
     uint32 SamplesPerSecond;
     uint32 RunningSoundCursor;
@@ -69,7 +69,7 @@ struct Win32_SoundOutput {
 };
 
 
-#ifdef ASUKA_DEBUG
+#ifdef DRAW_DEBUG_SOUND_CURSORS
 struct Win32_DebugSoundCursors {
     uint32 PlayCursor;
     uint32 WriteCursor;
@@ -80,7 +80,7 @@ struct Win32_DebugSoundCursors {
     uint32 PageFlip;
     uint32 ExpectedNextPageFlip;
 };
-#endif // ASUKA_DEBUG
+#endif // DRAW_DEBUG_SOUND_CURSORS
 
 #ifdef ASUKA_PLAYBACK_LOOP
 struct Win32_DebugInputRecording {
@@ -602,7 +602,7 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
 }
 
 
-#if 0 // ASUKA_DEBUG
+#if DRAW_DEBUG_SOUND_CURSORS
 INTERNAL_FUNCTION
 void Win32_DebugDrawVerticalMark(
     Win32_OffscreenBuffer* ScreenBuffer,
@@ -612,6 +612,10 @@ void Win32_DebugDrawVerticalMark(
     uint32 Color,
     bool Dotted = false)
 {
+    if (Bottom >= ScreenBuffer->Height) {
+        Bottom = ScreenBuffer->Height;
+    }
+
     uint8* Pixel = (uint8*) ScreenBuffer->Memory
                  + X*ScreenBuffer->BytesPerPixel
                  + Top*ScreenBuffer->Pitch;
@@ -679,7 +683,7 @@ void Win32_DebugSoundDisplay(
         }
     }
 }
-#endif // ASUKA_DEBUG
+#endif // DRAW_DEBUG_SOUND_CURSORS
 
 
 INTERNAL_FUNCTION
@@ -697,7 +701,7 @@ void Win32_DebugCatStrings(
     *Dest = 0;
 }
 
-
+#include <wav.hpp>
 int WINAPI WinMain(
     HINSTANCE hInstance,
     HINSTANCE hPrevInstance,
@@ -816,10 +820,10 @@ int WINAPI WinMain(
     Global_DebugInputRecording.PlaybackLoopState = PLAYBACK_LOOP_IDLE;
 #endif // ASUKA_PLAYBACK_LOOP
 
-#if ASUKA_DEBUG
+#if DRAW_DEBUG_SOUND_CURSORS
     Win32_DebugSoundCursors Debug_Cursors[30] {};
     uint32 Debug_SoundCursorIndex = 0;
-#endif // ASUKA_DEBUG
+#endif // DRAW_DEBUG_SOUND_CURSORS
 
     Running = true;
     int FrameCounter = 0;
@@ -1083,8 +1087,7 @@ int WINAPI WinMain(
 
         LastClockTimepoint = os::get_wall_clock();
 
-#if 0
-#if ASUKA_DEBUG
+#if DRAW_DEBUG_SOUND_CURSORS
         {
             DWORD Debug_PageFlip_PlayCursor = 0;
             DWORD Debug_PageFlip_WriteCursor = 0;
@@ -1111,7 +1114,6 @@ int WINAPI WinMain(
 
             Debug_SoundCursorIndex = (Debug_SoundCursorIndex + 1) % ARRAY_COUNT(Debug_Cursors);
         }
-#endif
 #endif
 
         {
