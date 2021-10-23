@@ -7,11 +7,16 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, Game_State* GameState
     sound_sample_t* SampleOut = SoundBuffer->Samples;
 
     for (int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
-        sound_sample_t LeftSample = GameState->test_wav_file.samples[(GameState->test_current_sound_cursor++) % GameState->test_wav_file.samples_count];
-        sound_sample_t RightSample = GameState->test_wav_file.samples[(GameState->test_current_sound_cursor++) % GameState->test_wav_file.samples_count];
+        uint64 left_idx = (GameState->test_current_sound_cursor++) % GameState->test_wav_file.samples_count;
+        uint64 right_idx = (GameState->test_current_sound_cursor++) % GameState->test_wav_file.samples_count;
 
-        *SampleOut++ = LeftSample;
-        *SampleOut++ = RightSample;
+        sound_sample_t LeftSample =  GameState->test_wav_file.samples[left_idx];
+        sound_sample_t RightSample = GameState->test_wav_file.samples[right_idx];
+
+        f32 volume = 0.05f;
+
+        *SampleOut++ = (sound_sample_t)(LeftSample  * volume);
+        *SampleOut++ = (sound_sample_t)(RightSample * volume);
     }
 }
 
@@ -324,7 +329,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
     }
 
-    Game_OutputSound(SoundBuffer, GameState);
+    // Game_OutputSound(SoundBuffer, GameState);
 
     // Rendering pink background to really see if there are some pixels I didn't drew
     RenderRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Buffer->Height}, {1.f, 0.f, 1.f});

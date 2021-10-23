@@ -133,9 +133,9 @@ struct Game_OffscreenBuffer {
 
 
 struct Game_SoundOutputBuffer {
-    int16*  Samples;
-    int32   SampleCount;
-    int32   SamplesPerSecond;
+    sound_sample_t* Samples;
+    int32 SampleCount;
+    int32 SamplesPerSecond;
 };
 
 struct Game_Memory {

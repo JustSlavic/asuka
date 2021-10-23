@@ -1,10 +1,12 @@
 #ifndef ASUKA_COMMON_WAV_HPP
 #define ASUKA_COMMON_WAV_HPP
 
+#include <defines.hpp>
+
 
 struct wav_file_contents {
-    int32  samples_per_second;
-    int32  channels;
+    int32 samples_per_second;
+    int32 channels;
     sound_sample_t* samples;
     uint64 samples_count;
 };

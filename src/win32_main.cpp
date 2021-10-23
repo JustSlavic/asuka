@@ -701,7 +701,7 @@ void Win32_DebugCatStrings(
     *Dest = 0;
 }
 
-#include <wav.hpp>
+
 int WINAPI WinMain(
     HINSTANCE hInstance,
     HINSTANCE hPrevInstance,
@@ -781,7 +781,7 @@ int WINAPI WinMain(
     SoundOutput.ChannelCount = 2;
     SoundOutput.BytesPerSoundFrame = sizeof(sound_sample_t) * SoundOutput.ChannelCount;
     SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSoundFrame;
-    SoundOutput.SafetyBytes = (SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz);
+    SoundOutput.SafetyBytes = (uint32) (1.5f * SoundOutput.BytesPerSoundFrame * SoundOutput.SamplesPerSecond / GameUpdateHz);
 
     Win32_InitDirectSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
     Win32_ClearSoundBuffer(&SoundOutput);
