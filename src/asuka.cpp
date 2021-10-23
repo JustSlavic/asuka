@@ -62,7 +62,7 @@ void RenderBorder(Game_OffscreenBuffer* Buffer, uint32 Width, color24 Color) {
 #endif
 
 
-inline Tilemap* GetTilemap(Worldmap* world, vector2i tilemap_coords) {
+inline Tilemap* GetTilemap(World* world, vector2i tilemap_coords) {
     Tilemap* result = 0;
 
     if (tilemap_coords.x >= 0 && tilemap_coords.x < world->tilemap_count_x &&
@@ -75,14 +75,38 @@ inline Tilemap* GetTilemap(Worldmap* world, vector2i tilemap_coords) {
 }
 
 
-inline int32 GetTileValue_Unchecked(Worldmap* world, Tilemap* tilemap, vector2i tile) {
+inline int32 GetTileValue_Unchecked(World* world, Tilemap* tilemap, vector2i tile) {
     int32 result = tilemap->tiles[tile.y*world->tile_count_x + tile.x];
     return result;
 }
 
 
 INTERNAL_FUNCTION
-WorldPosition NormalizeWorldPosition(Worldmap* world, WorldPosition position) {
+void NormalizeCoordinate(World *world, i32 *tilemap, i32 *tile, f32 *relative_coord, i32 tile_max) {
+    f32 coord = *relative_coord + 0.5f;
+    i32 offset = floor_to_int32(coord / world->tile_side_in_meters);
+
+    *tile += offset;
+    *relative_coord -= offset * world->tile_side_in_meters;
+
+    if (*tile < 0) {
+        *tilemap -= 1;
+        *tile += tile_max;
+    }
+
+    if (*tile >= tile_max) {
+        *tilemap += 1;
+        *tile -= tile_max;
+    }
+
+    ASSERT(*tile >= 0);
+    ASSERT(*relative_coord <=  (0.5f * world->tile_side_in_meters));
+    ASSERT(*relative_coord >= -(0.5f * world->tile_side_in_meters));
+}
+
+
+INTERNAL_FUNCTION
+WorldPosition NormalizeWorldPosition(World* world, WorldPosition position) {
     WorldPosition result = position;
 
     float32 tile_top   = -0.5f * world->tile_side_in_meters;
@@ -91,45 +115,8 @@ WorldPosition NormalizeWorldPosition(Worldmap* world, WorldPosition position) {
     float32 tile_left = -0.5f * world->tile_side_in_meters;
     float32 tile_right = 0.5f * world->tile_side_in_meters;
 
-    if (result.relative_position_on_tile.x < tile_left) {
-        result.relative_position_on_tile.x += world->tile_side_in_meters;
-        result.tile.x -= 1;
-
-        if (result.tile.x < 0) {
-            result.tile.x += world->tile_count_x;
-            result.tilemap.x -= 1;
-        }
-    }
-
-    if (result.relative_position_on_tile.y < tile_top) {
-        result.relative_position_on_tile.y += world->tile_side_in_meters;
-        result.tile.y -= 1;
-
-        if (result.tile.y < 0) {
-            result.tile.y += world->tile_count_y;
-            result.tilemap.y -= 1;
-        }
-    }
-
-    if (result.relative_position_on_tile.x >= tile_right) {
-        result.relative_position_on_tile.x -= world->tile_side_in_meters;
-        result.tile.x += 1;
-
-        if (result.tile.x >= world->tile_count_x) {
-            result.tile.x -= world->tile_count_x;
-            result.tilemap.x += 1;
-        }
-    }
-
-    if (result.relative_position_on_tile.y >= tile_bottom) {
-        result.relative_position_on_tile.y -= world->tile_side_in_meters;
-        result.tile.y += 1;
-
-        if (result.tile.y >= world->tile_count_y) {
-            result.tile.y -= world->tile_count_y;
-            result.tilemap.y += 1;
-        }
-    }
+    NormalizeCoordinate(world, &result.tilemap.x, &result.tile.x, &result.relative_position_on_tile.x, world->tile_count_x);
+    NormalizeCoordinate(world, &result.tilemap.y, &result.tile.y, &result.relative_position_on_tile.y, world->tile_count_y);
 
     ASSERT((0 <= result.tile.x) && (result.tile.x < world->tile_count_x));
     ASSERT((0 <= result.tile.y) && (result.tile.y < world->tile_count_y));
@@ -141,7 +128,7 @@ WorldPosition NormalizeWorldPosition(Worldmap* world, WorldPosition position) {
 }
 
 INTERNAL_FUNCTION
-bool32 IsWorldPointEmpty(Worldmap *world, WorldPosition norm_position) {
+bool32 IsWorldPointEmpty(World *world, WorldPosition norm_position) {
     bool32 result = false;
 
     Tilemap* tilemap = GetTilemap(world, norm_position.tilemap);
@@ -234,7 +221,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     tilemaps[1][1].tiles = (int32 *) tiles_11;
 
 
-    Worldmap world;
+    World world;
     world.tile_side_in_meters = 1; // [meters]
 
     world.tile_count_x = TILEMAP_TILES_X;

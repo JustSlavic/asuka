@@ -169,7 +169,7 @@ struct Tilemap {
 };
 
 
-struct Worldmap {
+struct World {
     float32 tile_side_in_meters;
 
     int32 tile_count_x;
