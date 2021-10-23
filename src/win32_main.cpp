@@ -58,9 +58,6 @@ struct Win32_Window_Dimensions {
 };
 
 
-typedef int16 sound_sample_t;
-
-
 struct Win32_SoundOutput {
     uint32 SamplesPerSecond;
     uint32 RunningSoundCursor;
@@ -695,9 +692,6 @@ int WINAPI WinMain(
     LPSTR lpCmdLine,
     int nCmdShow)
 {
-    const char *WAV_Filename = "piano2.wav";
-    auto wav = load_wav_file(WAV_Filename);
-
     UINT DesiredSchedulerGranularityMS = 1; // ms
     MMRESULT TimeBeginPeriodResult = timeBeginPeriod(DesiredSchedulerGranularityMS); // Set this so that sleep granularity
     bool32 SleepIsGranular = TimeBeginPeriodResult == TIMERR_NOERROR;
@@ -1043,15 +1037,7 @@ int WINAPI WinMain(
             Game.UpdateAndRender(&GameThread, &GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
         }
 
-        // Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
-
-        static DWORD CurrentWAVCursor = 0;
-        SoundBuffer.SamplesPerSecond = wav.samples_per_second * wav.channels;
-        SoundBuffer.SampleCount = (int32)wav.samples_count;
-        SoundBuffer.Samples = wav.samples + CurrentWAVCursor;
-
         Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
-        CurrentWAVCursor = (CurrentWAVCursor + BytesToWrite) % wav.samples_count;
 
         int64 WorkCounter = os::get_wall_clock();
         float32 SecondsElapsedForWork = (float32)(WorkCounter - LastClockTimepoint) / WallClockFrequency;

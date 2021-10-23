@@ -68,12 +68,15 @@ wav_file_contents load_wav_file(const char* filename) {
         return result;
     }
 
-    int16* samples = (int16 *) (data + sizeof(RIFF_Header) + sizeof(WAV_Format) + sizeof(WAV_Data));
+    sound_sample_t* samples = (int16 *) (data + sizeof(RIFF_Header) + sizeof(WAV_Format) + sizeof(WAV_Data));
 
     result.samples_per_second = wav_format->SampleRate;
     result.channels = wav_format->NumChannels;
     result.samples = samples;
     result.samples_count = wav_data->Subchunk2Size * 8 / wav_format->BitsPerSample;
+
+    ASSERT(result.samples_per_second == 48000);
+    ASSERT(result.channels == 2);
 
     return result;
 }

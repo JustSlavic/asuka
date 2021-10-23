@@ -3,17 +3,15 @@
 #include <debug/casts.hpp>
 
 
-typedef int16 sound_sample_t;
-
-
 void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, Game_State* GameState) {
     sound_sample_t* SampleOut = SoundBuffer->Samples;
 
     for (int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
-        sound_sample_t SampleValue = 0;
+        sound_sample_t LeftSample = GameState->test_wav_file.samples[(GameState->test_current_sound_cursor++) % GameState->test_wav_file.samples_count];
+        sound_sample_t RightSample = GameState->test_wav_file.samples[(GameState->test_current_sound_cursor++) % GameState->test_wav_file.samples_count];
 
-        *SampleOut++ = SampleValue;
-        *SampleOut++ = SampleValue;
+        *SampleOut++ = LeftSample;
+        *SampleOut++ = RightSample;
     }
 }
 
@@ -254,6 +252,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         GameState->character_position.tilemap = { 0, 0 };
         GameState->character_position.tile = { 3, 3 };
         GameState->character_position.position = { 10, 10 }; // in pixels relative to the tile
+
+        const char *wav_filename = "piano2.wav";
+        GameState->test_wav_file = load_wav_file(wav_filename);
+        GameState->test_current_sound_cursor = 0;
 
         Memory->IsInitialized = true;
     }

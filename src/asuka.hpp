@@ -3,6 +3,7 @@
 
 #include "defines.hpp"
 #include <math.hpp>
+#include <wav.hpp>
 
 
 struct ThreadContext {
@@ -183,6 +184,9 @@ struct Worldmap {
 
 struct Game_State {
     WorldPosition character_position;
+
+    wav_file_contents test_wav_file;
+    uint32 test_current_sound_cursor;
 };
 
 
