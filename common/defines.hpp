@@ -121,6 +121,7 @@ typedef signed long long   int64;
 typedef int16 sound_sample_t;
 
 typedef int32  bool32;
+typedef size_t usize;
 
 typedef int8   i8;
 typedef int16  i16;

@@ -152,7 +152,7 @@ struct Game_Memory {
 
 
 
-struct world {
+struct game_world {
     tile_map tilemap;
 };
 
@@ -160,6 +160,8 @@ struct world {
 struct game_state {
     tile_map_position player_position;
     vector2 player_velocity;
+
+    game_world *world;
 
     memory_arena world_arena;
 

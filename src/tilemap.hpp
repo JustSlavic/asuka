@@ -6,7 +6,6 @@ struct tile_chunk {
     int32 *tiles;
 };
 
-
 struct tile_chunk_position {
     // Allow chunks grow from the center of a map in any direction
     int32 tilechunk_x;
@@ -16,7 +15,6 @@ struct tile_chunk_position {
     uint32 chunk_relative_x;
     uint32 chunk_relative_y;
 };
-
 
 struct tile_map {
     float32 tile_side_in_meters;
@@ -62,7 +60,7 @@ tile_chunk_position GetChunkPosition(tile_map *map, int32 abs_tile_x, int32 abs_
 int32 GetTileValue(tile_map* map, int32 abs_tile_x, int32 abs_tile_y);
 bool32 IsWorldPointEmpty(tile_map *map, tile_map_position pos);
 tile_map_position NormalizeTilemapPosition(tile_map* map, tile_map_position position);
-
+void SetTileValue(tile_map *tilemap, int32 abs_x, int32 abs_y, int32 tile_value);
 
 #ifdef UNITY_BUILD
 #include "tilemap.cpp"

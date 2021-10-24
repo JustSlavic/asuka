@@ -96,3 +96,10 @@ tile_map_position NormalizeTilemapPosition(tile_map* map, tile_map_position posi
 
     return result;
 }
+
+void SetTileValue(tile_map *tilemap, int32 abs_x, int32 abs_y, int32 tile_value) {
+    tile_chunk_position chunk_pos = GetChunkPosition(tilemap, abs_x, abs_y);
+    tile_chunk *chunk = GetTileChunk(tilemap, chunk_pos.tilechunk_x, chunk_pos.tilechunk_y);
+
+    chunk->tiles[chunk_pos.chunk_relative_y * tilemap->tile_count_x + chunk_pos.chunk_relative_x] = tile_value;
+}

@@ -5,27 +5,29 @@
 
 
 struct memory_arena {
-    void*  base;
-    uint64 size; // bytes
-    uint64 occupied; // bytes
+    void *memory;
+    usize size; // bytes
+    usize used; // bytes
 };
 
 
-inline void initialize_arena(memory_arena *arena, void* memory, uint64 size) {
-    arena->base = memory;
+INLINE_FUNCTION
+void initialize_arena(memory_arena *arena, void* memory, usize size) {
+    arena->memory = memory;
     arena->size = size;
-    arena->occupied = 0;
+    arena->used = 0;
 }
 
 
 #define push_struct(ARENA, TYPE) (TYPE*)push_memory(ARENA, sizeof(TYPE))
 #define push_array(ARENA, TYPE, SIZE) (TYPE*)push_memory(ARENA, sizeof(TYPE)*SIZE)
 
-inline void* push_memory(memory_arena *arena, uint64 struct_size) {
-    ASSERT((arena->occupied + struct_size) < arena->size);
+INLINE_FUNCTION
+void* push_memory(memory_arena *arena, usize size) {
+    ASSERT((arena->used + size) < arena->size);
 
-    void* result = (uint8*)arena->base + arena->occupied;
-    arena->occupied += struct_size;
+    void* result = (uint8*)arena->memory + arena->used;
+    arena->used += size;
 
     return result;
 }
