@@ -149,36 +149,53 @@ struct Game_Memory {
 };
 
 
-struct WorldPosition {
-    // Coordinates of the tilemap
-    vector2i tilemap;
-
-    // Coordinates of the tile
-    vector2i tile;
-
-    // uint32 tile_x;
-    // uint32 tile_y;
-
-    // In pixels inside a tile
-    vector2 relative_position_on_tile;
+struct tile_chunk {
+    int32 *tiles;
 };
 
 
-struct Tilemap {
-    int32 *tiles;
+struct tile_chunk_position {
+    // Allow chunks grow from the center of a map in any direction
+    int32 tilechunk_x;
+    int32 tilechunk_y;
+
+    // Inside a chunk there could not be tiles on negative coordinates
+    uint32 chunk_relative_x;
+    uint32 chunk_relative_y;
 };
 
 
 struct World {
     float32 tile_side_in_meters;
 
-    int32 tile_count_x;
-    int32 tile_count_y;
+    uint32 tile_count_x;
+    uint32 tile_count_y;
 
-    int32 tilemap_count_x;
-    int32 tilemap_count_y;
+    uint32 tilechunk_count_x;
+    uint32 tilechunk_count_y;
 
-    Tilemap* tilemaps;
+    tile_chunk* tilechunks;
+
+    uint32 chunk_shift;
+    uint32 chunk_mask;
+};
+
+
+struct WorldPosition {
+    // Coordinates of the tilemap
+    // vector2i tilemap;
+
+    // Coordinates of the tile
+    // vector2i tile;
+
+    int32 absolute_tile_x;
+    int32 absolute_tile_y;
+
+    // uint32 tile_x;
+    // uint32 tile_y;
+
+    // In pixels inside a tile
+    vector2 relative_position_on_tile;
 };
 
 
