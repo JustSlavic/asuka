@@ -99,7 +99,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
 
         tilemap->tile_side_in_meters = 1.0f; // [meters]
-        tilemap->tilechunk_count_x = 1;
+        tilemap->tilechunk_count_x = 2;
         tilemap->tilechunk_count_y = 2;
         // Tilechunks 256x256
         tilemap->chunk_shift = 6;
@@ -274,14 +274,19 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             };
 
             auto TileColor = color24{ 0.5f, 0.5f, 0.5f };
+
+            if ((row % tilemap->tile_count_y == 0 || column % tilemap->tile_count_x == 0)) {
+                TileColor = color24{ 0.0f, 0.4f, 0.8f };
+            }
+
             if (TileId == -1) {
                 TileColor = color24{ 1.0f };
-            }
-            if (TileId == 1) {
+            } else if (TileId == 1) {
                 TileColor = color24{ 0.2f, 0.3f, 0.2f };
             }
 
-            if (row == (int32)player_chunk_pos.chunk_relative_y && column == (int32)player_chunk_pos.chunk_relative_x) {
+            if (row == (int32)(player_chunk_pos.chunk_relative_y + player_chunk_pos.tilechunk_y * tilemap->tile_count_y) &&
+                column == (int32)(player_chunk_pos.chunk_relative_x + player_chunk_pos.tilechunk_x * tilemap->tile_count_x)) {
                 TileColor = color24{ 0.8f, 0.4f, 0.0f };
             }
 
