@@ -99,10 +99,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
 
         tilemap->tile_side_in_meters = 1.0f; // [meters]
-        tilemap->tilechunk_count_x = 2;
-        tilemap->tilechunk_count_y = 2;
+        tilemap->tilechunk_count_x = 20;
+        tilemap->tilechunk_count_y = 20;
         // Tilechunks 256x256
-        tilemap->chunk_shift = 6;
+        tilemap->chunk_shift = 4;
         tilemap->chunk_mask  = (1 << tilemap->chunk_shift) - 1;
         tilemap->tile_count_x = 1 << tilemap->chunk_shift;
         tilemap->tile_count_y = 1 << tilemap->chunk_shift;
