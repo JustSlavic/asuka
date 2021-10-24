@@ -24,6 +24,7 @@ typedef unsigned __int32 uint32;
 typedef unsigned __int64 uint64;
 
 #define ASUKA_DEBUG_BREAK __debugbreak
+#define FORCE_INLINE __forceinline
 
 #if defined(ASUKA_DLL_BUILD)
 #define ASUKA_DLL_EXPORT  __declspec(dllexport)
@@ -46,6 +47,7 @@ typedef signed int         int32;
 typedef signed long long   int64;
 
 #define ASUKA_DEBUG_BREAK __builtin_trap
+#define FORCE_INLINE __attribute__((always_inline))
 
 #if defined(ASUKA_DLL_BUILD)
 #define ASUKA_DLL_EXPORT  __attribute__((dllexport))
@@ -81,12 +83,16 @@ typedef signed long long   int64;
 #define STATIC_VARIABLE static
 #define GLOBAL_VARIABLE static
 
+#define INLINE_FUNCTION inline
+
 #define ARRAY_COUNT(ARRAY) (sizeof(ARRAY) / sizeof((ARRAY)[0]))
 
 #define KILOBYTES(VALUE) (((uint64)(VALUE))*1024)
 #define MEGABYTES(VALUE) (KILOBYTES((uint64)(VALUE))*1024)
 #define GIGABYTES(VALUE) (MEGABYTES((uint64)(VALUE))*1024)
 #define TERABYTES(VALUE) (GIGABYTES((uint64)(VALUE))*1024)
+
+#define ASUKA_EPS (1e-7)
 
 #define INT8_MIN (0x80)
 #define INT8_MAX (0x7F)

@@ -576,6 +576,10 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
                                 Global_DebugInputRecording.CurrentPlaybackInputIndex = 0;
                                 Global_DebugInputRecording.PlaybackLoopState = PLAYBACK_LOOP_PLAYBACK;
                             } else if (Global_DebugInputRecording.PlaybackLoopState == PLAYBACK_LOOP_PLAYBACK) {
+                                // Nullify keyboard controller such as nothing is pressed on stoping the playback loop
+                                // because if there's something left pressed, it will stay pressed although nothing is
+                                // pressed on the actual keyboard
+                                *KeyboardController = {};
                                 Global_DebugInputRecording.PlaybackLoopState = PLAYBACK_LOOP_IDLE;
                             }
                         }
@@ -585,6 +589,10 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
                                 Global_DebugInputRecording.CurrentPlaybackInputIndex = 0;
                                 Global_DebugInputRecording.PlaybackLoopState = PLAYBACK_LOOP_PLAYBACK;
                             } else if (Global_DebugInputRecording.PlaybackLoopState == PLAYBACK_LOOP_PLAYBACK) {
+                                // Nullify keyboard controller such as nothing is pressed on stoping the playback loop
+                                // because if there's something left pressed, it will stay pressed although nothing is
+                                // pressed on the actual keyboard
+                                *KeyboardController = {};
                                 Global_DebugInputRecording.PlaybackLoopState = PLAYBACK_LOOP_IDLE;
                             }
                         }

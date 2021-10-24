@@ -6,14 +6,14 @@
 
 struct memory_arena {
     void*  base;
-    uint64 size;
-    uint64 occupied;
+    uint64 size; // bytes
+    uint64 occupied; // bytes
 };
 
 
 inline void initialize_arena(memory_arena *arena, void* memory, uint64 size) {
-    arena->size = size;
     arena->base = memory;
+    arena->size = size;
     arena->occupied = 0;
 }
 
