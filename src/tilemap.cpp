@@ -1,14 +1,40 @@
 #include "tilemap.hpp"
 
 
-tile_chunk_position GetChunkPosition(tile_map *map, int32 abs_tile_x, int32 abs_tile_y) {
+tile_chunk_position GetChunkPosition(tile_map *map, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z) {
     tile_chunk_position result {};
 
-    result.tilechunk_x = abs_tile_x >> map->chunk_shift;
-    result.tilechunk_y = abs_tile_y >> map->chunk_shift;
+    result.chunk_x = abs_tile_x >> map->chunk_shift;
+    result.chunk_y = abs_tile_y >> map->chunk_shift;
+    result.chunk_z = abs_tile_z;
 
     result.chunk_relative_x = abs_tile_x & map->chunk_mask;
     result.chunk_relative_y = abs_tile_y & map->chunk_mask;
+
+    return result;
+}
+
+INTERNAL_FUNCTION
+INLINE_FUNCTION
+tile_chunk* GetTileChunk(tile_map* map, int32 chunk_x, int32 chunk_y, int32 chunk_z) {
+    // Allow negative coordinates of chunks so that chunks can grow
+    // from the center of the map in any direction.
+
+    // @todo: what asserts should I use here?
+    // ASSERT(world->tilechunk_count_x - tilechunk_x > 0);
+    // ASSERT(world->tilechunk_count_y - tilechunk_y > 0);
+
+    tile_chunk* result = NULL;
+
+    if (chunk_x >= 0 && chunk_x < (int32)map->chunk_count_x &&
+        chunk_y >= 0 && chunk_y < (int32)map->chunk_count_y &&
+        chunk_z >= 0 && chunk_z < (int32)map->chunk_count_z)
+    {
+        result = &map->chunks[
+            chunk_z * map->chunk_count_x * map->chunk_count_y +
+            chunk_y * map->chunk_count_x +
+            chunk_x];
+    }
 
     return result;
 }
@@ -23,32 +49,11 @@ tile_t GetTileValue_Unchecked(tile_map* map, tile_chunk* tilechunk, uint32 tile_
     return result;
 }
 
-INTERNAL_FUNCTION
-INLINE_FUNCTION
-tile_chunk* GetTileChunk(tile_map* map, int32 tilechunk_x, int32 tilechunk_y) {
-    // Allow negative coordinates of chunks so that chunks can grow
-    // from the center of the map in any direction.
-
-    // @todo: what asserts should I use here?
-    // ASSERT(world->tilechunk_count_x - tilechunk_x > 0);
-    // ASSERT(world->tilechunk_count_y - tilechunk_y > 0);
-
-    tile_chunk* result = NULL;
-
-    if (tilechunk_x >= 0 && tilechunk_x < (int32)map->tilechunk_count_x &&
-        tilechunk_y >= 0 && tilechunk_y < (int32)map->tilechunk_count_y)
-    {
-        result = &map->tilechunks[tilechunk_y * map->tilechunk_count_x + tilechunk_x];
-    }
-
-    return result;
-}
-
-tile_t GetTileValue(tile_map* map, int32 abs_tile_x, int32 abs_tile_y) {
+tile_t GetTileValue(tile_map* map, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z) {
     tile_t result = TILE_INVALID;
 
-    tile_chunk_position chunk_pos = GetChunkPosition(map, abs_tile_x, abs_tile_y);
-    tile_chunk *chunk = GetTileChunk(map, chunk_pos.tilechunk_x, chunk_pos.tilechunk_y);
+    tile_chunk_position chunk_pos = GetChunkPosition(map, abs_tile_x, abs_tile_y, abs_tile_z);
+    tile_chunk *chunk = GetTileChunk(map, chunk_pos.chunk_x, chunk_pos.chunk_y, chunk_pos.chunk_z);
 
     if (chunk != NULL && chunk->tiles != NULL) {
         result = GetTileValue_Unchecked(map, chunk, chunk_pos.chunk_relative_x, chunk_pos.chunk_relative_y);
@@ -57,9 +62,9 @@ tile_t GetTileValue(tile_map* map, int32 abs_tile_x, int32 abs_tile_y) {
     return result;
 }
 
-void SetTileValue(memory_arena *arena, tile_map *tilemap, int32 abs_x, int32 abs_y, tile_t tile_value) {
-    tile_chunk_position chunk_pos = GetChunkPosition(tilemap, abs_x, abs_y);
-    tile_chunk *chunk = GetTileChunk(tilemap, chunk_pos.tilechunk_x, chunk_pos.tilechunk_y);
+void SetTileValue(memory_arena *arena, tile_map *tilemap, int32 abs_x, int32 abs_y, int32 abs_z, tile_t tile_value) {
+    tile_chunk_position chunk_pos = GetChunkPosition(tilemap, abs_x, abs_y, abs_z);
+    tile_chunk *chunk = GetTileChunk(tilemap, chunk_pos.chunk_x, chunk_pos.chunk_y, chunk_pos.chunk_z);
 
     ASSERT(chunk);
 
@@ -73,9 +78,9 @@ void SetTileValue(memory_arena *arena, tile_map *tilemap, int32 abs_x, int32 abs
 bool32 IsWorldPointEmpty(tile_map *map, tile_map_position pos) {
     bool32 is_empty = false;
 
-    int32 tile_value = GetTileValue(map, pos.absolute_tile_x, pos.absolute_tile_y);
+    int32 tile_value = GetTileValue(map, pos.absolute_tile_x, pos.absolute_tile_y, pos.absolute_tile_z);
 
-    is_empty = (tile_value == TILE_FREE);
+    is_empty = (tile_value == TILE_FREE || tile_value == TILE_DOOR_UP || tile_value == TILE_DOOR_DOWN);
     return is_empty;
 }
 
