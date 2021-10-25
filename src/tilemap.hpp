@@ -1,9 +1,19 @@
 #ifndef ASUKA_TILEMAP_HPP
 #define ASUKA_TILEMAP_HPP
 
+#include <defines.hpp>
+#include "memory_arena.hpp"
+
+
+enum tile_t {
+    TILE_FREE = 0,
+    TILE_WALL = 1,
+    TILE_INVALID = 2
+};
+
 
 struct tile_chunk {
-    int32 *tiles;
+    tile_t *tiles;
 };
 
 struct tile_chunk_position {
@@ -57,10 +67,10 @@ struct tile_map_position {
 
 
 tile_chunk_position GetChunkPosition(tile_map *map, int32 abs_tile_x, int32 abs_tile_y);
-int32 GetTileValue(tile_map* map, int32 abs_tile_x, int32 abs_tile_y);
+tile_t GetTileValue(tile_map* map, int32 abs_tile_x, int32 abs_tile_y);
+void SetTileValue(memory_arena *arena, tile_map *tilemap, int32 abs_x, int32 abs_y, tile_t tile_value);
 bool32 IsWorldPointEmpty(tile_map *map, tile_map_position pos);
 tile_map_position NormalizeTilemapPosition(tile_map* map, tile_map_position position);
-void SetTileValue(tile_map *tilemap, int32 abs_x, int32 abs_y, int32 tile_value);
 
 #ifdef UNITY_BUILD
 #include "tilemap.cpp"

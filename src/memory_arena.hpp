@@ -16,6 +16,11 @@ void initialize_arena(memory_arena *arena, void* memory, usize size) {
     arena->memory = memory;
     arena->size = size;
     arena->used = 0;
+
+    uint8 *zero_memory = (uint8 *)memory;
+    for (usize idx = 0; idx < size; idx++) {
+        zero_memory[idx] = 0;
+    }
 }
 
 

@@ -15,11 +15,11 @@ tile_chunk_position GetChunkPosition(tile_map *map, int32 abs_tile_x, int32 abs_
 
 INTERNAL_FUNCTION
 INLINE_FUNCTION
-uint32 GetTileValue_Unchecked(tile_map* map, tile_chunk* tilechunk, uint32 tile_x, uint32 tile_y) {
+tile_t GetTileValue_Unchecked(tile_map* map, tile_chunk* tilechunk, uint32 tile_x, uint32 tile_y) {
     ASSERT(tile_x < map->tile_count_x);
     ASSERT(tile_y < map->tile_count_y);
 
-    uint32 result = tilechunk->tiles[tile_y*map->tile_count_x + tile_x];
+    tile_t result = tilechunk->tiles[tile_y*map->tile_count_x + tile_x];
     return result;
 }
 
@@ -44,17 +44,30 @@ tile_chunk* GetTileChunk(tile_map* map, int32 tilechunk_x, int32 tilechunk_y) {
     return result;
 }
 
-int32 GetTileValue(tile_map* map, int32 abs_tile_x, int32 abs_tile_y) {
-    int32 result = -1;
+tile_t GetTileValue(tile_map* map, int32 abs_tile_x, int32 abs_tile_y) {
+    tile_t result = TILE_INVALID;
 
     tile_chunk_position chunk_pos = GetChunkPosition(map, abs_tile_x, abs_tile_y);
     tile_chunk *chunk = GetTileChunk(map, chunk_pos.tilechunk_x, chunk_pos.tilechunk_y);
 
-    if (chunk) {
+    if (chunk != NULL && chunk->tiles != NULL) {
         result = GetTileValue_Unchecked(map, chunk, chunk_pos.chunk_relative_x, chunk_pos.chunk_relative_y);
     }
 
     return result;
+}
+
+void SetTileValue(memory_arena *arena, tile_map *tilemap, int32 abs_x, int32 abs_y, tile_t tile_value) {
+    tile_chunk_position chunk_pos = GetChunkPosition(tilemap, abs_x, abs_y);
+    tile_chunk *chunk = GetTileChunk(tilemap, chunk_pos.tilechunk_x, chunk_pos.tilechunk_y);
+
+    ASSERT(chunk);
+
+    if (chunk->tiles == NULL) {
+        chunk->tiles = push_array(arena, tile_t, tilemap->tile_count_x * tilemap->tile_count_y);
+    }
+
+    chunk->tiles[chunk_pos.chunk_relative_y * tilemap->tile_count_x + chunk_pos.chunk_relative_x] = tile_value;
 }
 
 bool32 IsWorldPointEmpty(tile_map *map, tile_map_position pos) {
@@ -62,7 +75,7 @@ bool32 IsWorldPointEmpty(tile_map *map, tile_map_position pos) {
 
     int32 tile_value = GetTileValue(map, pos.absolute_tile_x, pos.absolute_tile_y);
 
-    is_empty = (tile_value == 0);
+    is_empty = (tile_value == TILE_FREE);
     return is_empty;
 }
 
@@ -95,11 +108,4 @@ tile_map_position NormalizeTilemapPosition(tile_map* map, tile_map_position posi
     ASSERT((tile_top  <= result.relative_position_on_tile.y) && (result.relative_position_on_tile.y < tile_bottom));
 
     return result;
-}
-
-void SetTileValue(tile_map *tilemap, int32 abs_x, int32 abs_y, int32 tile_value) {
-    tile_chunk_position chunk_pos = GetChunkPosition(tilemap, abs_x, abs_y);
-    tile_chunk *chunk = GetTileChunk(tilemap, chunk_pos.tilechunk_x, chunk_pos.tilechunk_y);
-
-    chunk->tiles[chunk_pos.chunk_relative_y * tilemap->tile_count_x + chunk_pos.chunk_relative_x] = tile_value;
 }

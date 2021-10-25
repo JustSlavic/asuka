@@ -69,6 +69,8 @@ void RenderBorder(Game_OffscreenBuffer* Buffer, uint32 Width, color24 Color) {
 #endif
 
 
+#include <time.h>
+#include <stdlib.h>
 GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 {
     ASSERT(sizeof(game_state) <= Memory->PermanentStorageSize);
@@ -78,6 +80,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     game_state* GameState = (game_state*)Memory->PermanentStorage;
 
     if (!Memory->IsInitialized) {
+        srand((unsigned int)time(NULL));
         GameState->player_position.absolute_tile_x = 3;
         GameState->player_position.absolute_tile_y = 3;
 
@@ -87,13 +90,15 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         GameState->test_wav_file = load_wav_file(wav_filename);
         GameState->test_current_sound_cursor = 0;
 
+        memory_arena *arena = &GameState->world_arena;
+
         initialize_arena(
-            &GameState->world_arena,
+            arena,
             (uint8 *) Memory->PermanentStorage + sizeof(game_state),
             Memory->PermanentStorageSize - sizeof(game_state));
 
         // Generate tilemap
-        GameState->world = push_struct(&GameState->world_arena, game_world);
+        GameState->world = push_struct(arena, game_world);
         game_world *world = GameState->world;
         tile_map *tilemap = &world->tilemap;
 
@@ -102,45 +107,49 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         tilemap->tilechunk_count_x = 20;
         tilemap->tilechunk_count_y = 20;
         // Tilechunks 256x256
-        tilemap->chunk_shift = 4;
+        tilemap->chunk_shift = 3;
         tilemap->chunk_mask  = (1 << tilemap->chunk_shift) - 1;
         tilemap->tile_count_x = 1 << tilemap->chunk_shift;
         tilemap->tile_count_y = 1 << tilemap->chunk_shift;
 
 
-        tile_chunk *chunks = push_array(&GameState->world_arena, tile_chunk, tilemap->tilechunk_count_x * tilemap->tilechunk_count_y);
-        for (u32 chunk_y = 0; chunk_y < tilemap->tilechunk_count_y; chunk_y++) {
-            for (u32 chunk_x = 0; chunk_x < tilemap->tilechunk_count_x; chunk_x++) {
-                tile_chunk *chunk = &chunks[chunk_y * tilemap->tilechunk_count_x + chunk_x];
-
-                chunk->tiles = push_array(&GameState->world_arena, int32, tilemap->tile_count_x * tilemap->tile_count_y);
-            }
-        }
-
+        tile_chunk *chunks = push_array(arena, tile_chunk, tilemap->tilechunk_count_x * tilemap->tilechunk_count_y);
         tilemap->tilechunks = chunks;
 
 
         i32 room_width = 16;
         i32 room_height = 9;
 
-        for (i32 screen_y = 0; screen_y < 3; screen_y++) {
-            for (i32 screen_x = 0; screen_x < 3; screen_x++) {
-                for (i32 tile_y = 0; tile_y < room_height; tile_y++) {
-                    for (i32 tile_x = 0; tile_x < room_width; tile_x++) {
-                        u32 x = screen_x * room_width  + tile_x;
-                        u32 y = screen_y * room_height + tile_y;
+        i32 rooms_count_x = 10;
+        i32 rooms_count_y = 10;
 
-                        i32 tile_value = 0;
+        i32 screens_count = 10;
 
-                        if (tile_x == 0 || tile_y == 0 || tile_x == room_width - 1 || tile_y == room_height - 1) {
-                            if (tile_x != 5 && tile_y != 4) {
-                                tile_value = 1;
-                            }
+        i32 screen_y = 0;
+        i32 screen_x = 0;
+
+        for (i32 screen_idx = 0; screen_idx < screens_count; screen_idx++) {
+            for (i32 tile_y = 0; tile_y < room_height; tile_y++) {
+                for (i32 tile_x = 0; tile_x < room_width; tile_x++) {
+                    u32 x = screen_x * room_width  + tile_x;
+                    u32 y = screen_y * room_height + tile_y;
+
+                    tile_t tile_value = TILE_FREE;
+
+                    if (tile_x == 0 || tile_y == 0 || tile_x == room_width - 1 || tile_y == room_height - 1) {
+                        if (tile_x != room_width / 2 && tile_x != (room_width / 2 - 1) && tile_y != room_height / 2) {
+                            tile_value = TILE_WALL;
                         }
-
-                        SetTileValue(tilemap, x, y, tile_value);
                     }
+
+                    SetTileValue(arena, tilemap, x, y, tile_value);
                 }
+            }
+
+            if (rand() % 2 == 0) {
+                screen_x += 1;
+            } else {
+                screen_y += 1;
             }
         }
 
@@ -184,6 +193,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     {
         Game_ControllerInput* Input0 = GetController(Input, 0);
         Input0 = &Input->KeyboardController;
+
+        if (Input0->Y.EndedDown) {
+            Memory->IsInitialized = false;
+        }
 
         // [units]
         v2 input_direction = v2{ Input0->StickLXEnded, Input0->StickLYEnded }.normalized();
@@ -258,7 +271,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             // int32 abs_x = (column / tilemap->tile_count_x << tilemap->chunk_shift) | (column % tilemap->tile_count_x);
             // int32 abs_y = (row / tilemap->tile_count_y << tilemap->chunk_shift) | (row % tilemap->tile_count_y);
 
-            int32 TileId = GetTileValue(tilemap, column, row);
+            tile_t TileId = GetTileValue(tilemap, column, row);
 
             float32 TileBottomLeftX = (float32) (relative_column + center_x) * tile_side_in_pixels - GameState->player_position.relative_position_on_tile.x * pixels_per_meter;
             float32 TileBottomLeftY = (float32) Buffer->Height - (float32) (relative_row + center_y) * tile_side_in_pixels + GameState->player_position.relative_position_on_tile.y * pixels_per_meter;
@@ -279,9 +292,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 TileColor = color24{ 0.0f, 0.4f, 0.8f };
             }
 
-            if (TileId == -1) {
+            if (TileId == TILE_INVALID) {
                 TileColor = color24{ 1.0f };
-            } else if (TileId == 1) {
+            } else if (TileId == TILE_WALL) {
                 TileColor = color24{ 0.2f, 0.3f, 0.2f };
             }
 
