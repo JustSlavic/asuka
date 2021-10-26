@@ -63,7 +63,7 @@ typedef signed long long   int64;
 #define ASSERT_MSG(COND, MSG) \
     if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
 #define ASSERT_FAIL(MSG) \
-    ASUKA_DEBUG_BREAK(); void(0)
+    { ASUKA_DEBUG_BREAK(); } void(0)
 #else // ASUKA_DEBUG
 #define ASSERT(COND)
 #define ASSERT_MSG(COND, MSG)
@@ -77,6 +77,9 @@ typedef signed long long   int64;
 
 #ifdef ASUKA_OS_MACOS
 #endif // ASUKA_OS_MACOS
+
+#define STRINGIFY2(X) #X
+#define STRINGIFY(X) STRINGIFY2(X)
 
 #define INTERNAL_FUNCTION static
 #define IN_CLASS_FUNCTION static

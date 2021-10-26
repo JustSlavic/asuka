@@ -23,6 +23,49 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, game_state* GameState
 
 
 INTERNAL_FUNCTION
+void RenderBMP(
+    Game_OffscreenBuffer* buffer,
+    vector2 top_left, vector2 bottom_right,
+    bmp_file_contents *bmp,
+    bool32 stroke = false)
+{
+    vector2i tl = round_to_vector2i(top_left);
+    vector2i br = round_to_vector2i(bottom_right);
+
+    if (tl.x < 0) tl.x = 0;
+    if (tl.y < 0) tl.y = 0;
+    if (br.x > buffer->Width)  br.x = buffer->Width;
+    if (br.y > buffer->Height) br.y = buffer->Height;
+
+    vector2i dimensions = br - tl;
+
+    uint8* Row = (uint8*)buffer->Memory + tl.y*buffer->Pitch + tl.x*buffer->BytesPerPixel;
+    uint8* bmp_pixel_row = (uint8 *) bmp->pixels;
+
+    for (int y = 0; y < dimensions.y; y++) {
+        uint32* Pixel = (uint32*) Row;
+        uint8 * bmp_pixel = bmp_pixel_row;
+
+        for (int x = 0; x < dimensions.x; x++) {
+            if (stroke && (x == 0 || y == 0)) {
+                *Pixel = 0;
+            } else {
+                uint8 red = *bmp_pixel++;
+                uint8 green = *bmp_pixel++;
+                uint8 blue = *bmp_pixel++;
+
+                *Pixel = (red) | (green << 8) | (blue << 16);
+            }
+            Pixel++;
+        }
+
+        Row += buffer->Pitch;
+        bmp_pixel_row += bmp->width * bmp->bytes_per_pixel;
+    }
+}
+
+
+INTERNAL_FUNCTION
 void RenderRectangle(
     Game_OffscreenBuffer* buffer,
     vector2 top_left, vector2 bottom_right,
@@ -90,6 +133,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         const char *wav_filename = "piano2.wav";
         GameState->test_wav_file = load_wav_file(wav_filename);
         GameState->test_current_sound_cursor = 0;
+
+        const char *bmp_filename = "tree_60x60.bmp";
+        GameState->test_bmp_file = load_bmp_file(bmp_filename);
 
         memory_arena *arena = &GameState->world_arena;
 
@@ -268,7 +314,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     }
 #endif // ASUKA_PLAYBACK_LOOP
 
-    float32 pixels_per_meter = 10.f; // [pixels/m]
+    float32 pixels_per_meter = 60.f; // [pixels/m]
 
     v2  character_dimensions = { 0.75f, 1.0f }; // [m; m]
     f32 character_speed = 2.5f; // [m/s]
@@ -278,7 +324,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     {
         Game_ControllerInput* Input0 = GetController(Input, 0);
-        // Input0 = &Input->KeyboardController;
+        Input0 = &Input->KeyboardController;
 
         if (Input0->Y.EndedDown) {
             Memory->IsInitialized = false;
@@ -369,11 +415,11 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     int32 player_absolute_tile_y = GameState->player_position.absolute_tile_y;
     int32 player_absolute_tile_z = GameState->player_position.absolute_tile_z;
 
-    int32 center_x = 8 + 8 + 20;
-    int32 center_y = 4 + 5 + 20;
+    int32 center_x = 8; // + 8 + 20;
+    int32 center_y = 4; // + 5 + 20;
 
-    int32 row_border = 5 + 3 + 20;
-    int32 col_border = 8 + 7 + 20;
+    int32 row_border = 6; // + 3 + 20;
+    int32 col_border = 9; // + 7 + 20;
 
     int32 tile_side_in_pixels = (int32) (GameState->world->tilemap.tile_side_in_meters * pixels_per_meter);
 
@@ -411,7 +457,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             if (TileId == TILE_INVALID) {
                 TileColor = color24{ 1.0f };
             } else if (TileId == TILE_WALL) {
-                TileColor = color24{ 0.2f, 0.3f, 0.2f };
+                // TileColor = color24{ 0.2f, 0.3f, 0.2f };
+                RenderBMP(Buffer, TileUpperLeft, TileBottomRight, &GameState->test_bmp_file, true);
+                continue;
             } else if (TileId == TILE_DOOR_UP) {
                 TileColor = color24{ 0.8f, 0.8f, 0.8f };
             } else if (TileId == TILE_DOOR_DOWN) {
