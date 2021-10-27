@@ -54,7 +54,10 @@ void RenderBitmap(
     vector2i dimensions = br - tl;
     vector2i image_dims = image_br - image_tl;
 
-    vector2i dims { min_int32(dimensions.x, image_dims.x), min_int32(dimensions.y, image_dims.y) };
+    vector2i dims {
+        (dimensions.x < image_dims.x) ? dimensions.x : image_dims.x,
+        (dimensions.y < image_dims.y) ? dimensions.y : image_dims.y,
+    };
 
     uint8* Row = (uint8*)buffer->Memory + tl.y*buffer->Pitch + tl.x*buffer->BytesPerPixel;
     uint8* image_pixel_row = (uint8 *) image->pixels + image_tl.y * image->width * image->bytes_per_pixel + image_tl.x * image->bytes_per_pixel;
@@ -180,7 +183,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         GameState->test_png_file = load_png_file(png_filename);
 
         const char *floor_texture_filename = "tile_16x16.png";
-        GameState->floor_texture = load_png_file(floor_texture_filename);
+        GameState->floor_texture = load_png_file_myself(floor_texture_filename);
 
         const char *grass_texture_filename = "grass_texture.png";
         GameState->grass_texture = load_png_file(grass_texture_filename);

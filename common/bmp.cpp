@@ -10,7 +10,7 @@ struct BMP_Header {
     uint32 data_offset;
 };
 
-enum BMP_Compression {
+enum BMP_Compression : uint32 {
     BMP_BI_RGB = 0,  // No compression
     BMP_BI_RLE8 = 1, // 8bit RLE encoding
     BMP_BI_RLE4 = 2, // 4bit RLE encoding

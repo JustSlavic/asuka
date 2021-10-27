@@ -5,6 +5,7 @@
 #include <bitmap.hpp>
 
 
+bitmap load_png_file_myself(const char *filename);
 bitmap load_png_file(const char* filename);
 
 
