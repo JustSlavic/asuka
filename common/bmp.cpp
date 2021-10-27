@@ -48,8 +48,8 @@ enum {
 };
 
 
-bmp_file_contents load_bmp_file(const char* filename) {
-    bmp_file_contents result {};
+bitmap load_bmp_file(const char* filename) {
+    bitmap result {};
 
     os::file_read_result file_contents = os::load_entire_file(filename);
     if (file_contents.memory == NULL) {
@@ -68,6 +68,8 @@ bmp_file_contents load_bmp_file(const char* filename) {
     ASSERT(bmp_info_header->planes == 1);
     ASSERT(bmp_info_header->image_size > 0); // @todo: can be 0 but how can we guard against that?
 
+    BMP_ColorTable *bmp_color_table = (BMP_ColorTable *) ((uint8 *) data + sizeof(BMP_Header) + sizeof(BMP_InfoHeader));
+
     uint8 *pixels = data + bmp_header->data_offset;
 
     // @todo: should we convert bitmap from 24 bpp to 32 bpp?
@@ -85,6 +87,17 @@ bmp_file_contents load_bmp_file(const char* filename) {
             top_row[column] = bottom_row[column];
             bottom_row[column] = tmp;
         }
+    }
+
+    uint8 *pixel = pixels;
+    for (uint32 pixel_idx = 0; pixel_idx < bmp_info_header->width * bmp_info_header->height; pixel_idx++) {
+        uint8 r = pixel[0];
+        uint8 b = pixel[2];
+
+        pixel[2] = r;
+        pixel[0] = b;
+
+        pixel += (bmp_info_header->bits_per_pixel / 8);
     }
 
     result.pixels = pixels;

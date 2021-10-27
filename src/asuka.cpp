@@ -23,44 +23,83 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, game_state* GameState
 
 
 INTERNAL_FUNCTION
-void RenderBMP(
+void RenderBitmap(
     Game_OffscreenBuffer* buffer,
     vector2 top_left, vector2 bottom_right,
-    bmp_file_contents *bmp,
+    bitmap *image,
+    int32 integer_scale = 0,
     bool32 stroke = false)
 {
     vector2i tl = round_to_vector2i(top_left);
     vector2i br = round_to_vector2i(bottom_right);
 
-    if (tl.x < 0) tl.x = 0;
-    if (tl.y < 0) tl.y = 0;
-    if (br.x > buffer->Width)  br.x = buffer->Width;
-    if (br.y > buffer->Height) br.y = buffer->Height;
+    vector2i image_tl = vector2i{ 0, 0 };
+    vector2i image_br = vector2i{ (i32)image->width, (i32)image->height };
+
+    if (tl.x < 0) {
+        image_tl.x = -tl.x;
+        tl.x = 0;
+    }
+    if (tl.y < 0) {
+        image_tl.y = -tl.y;
+        tl.y = 0;
+    }
+    if (br.x > buffer->Width) {
+        br.x = buffer->Width;
+    }
+    if (br.y > buffer->Height) {
+        br.y = buffer->Height;
+    }
 
     vector2i dimensions = br - tl;
+    vector2i image_dims = image_br - image_tl;
+
+    vector2i dims { min_int32(dimensions.x, image_dims.x), min_int32(dimensions.y, image_dims.y) };
 
     uint8* Row = (uint8*)buffer->Memory + tl.y*buffer->Pitch + tl.x*buffer->BytesPerPixel;
-    uint8* bmp_pixel_row = (uint8 *) bmp->pixels;
+    uint8* image_pixel_row = (uint8 *) image->pixels + image_tl.y * image->width * image->bytes_per_pixel + image_tl.x * image->bytes_per_pixel;
 
-    for (int y = 0; y < dimensions.y; y++) {
+    for (int y = 0; y < dims.y; y++) {
         uint32* Pixel = (uint32*) Row;
-        uint8 * bmp_pixel = bmp_pixel_row;
+        uint8 * image_pixel = image_pixel_row;
 
-        for (int x = 0; x < dimensions.x; x++) {
-            if (stroke && (x == 0 || y == 0)) {
-                *Pixel = 0;
-            } else {
-                uint8 red = *bmp_pixel++;
-                uint8 green = *bmp_pixel++;
-                uint8 blue = *bmp_pixel++;
+        for (int x = 0; x < dims.x; x++) {
+            uint8 blue = image_pixel[0];
+            uint8 green = image_pixel[1];
+            uint8 red = image_pixel[2];
+            uint8 alpha = image_pixel[3];
 
-                *Pixel = (red) | (green << 8) | (blue << 16);
-            }
+            *Pixel = (red) | (green << 8) | (blue << 16);
+
+            // f32 r = red / 255.f;
+            // f32 g = green / 255.f;
+            // f32 b = blue / 255.f;
+            // f32 a = alpha / 255.f;
+
+            // uint32 back_red = *Pixel & 0xFF;
+            // uint32 back_green = (*Pixel & 0xFF00) >> 8;
+            // uint32 back_blue = (*Pixel & 0xFF0000) >> 16;
+            // uint32 back_alpha = (*Pixel & 0xFF000000) >> 24;
+
+            // f32 back_r = back_red / 255.f;
+            // f32 back_g = back_green / 255.f;
+            // f32 back_b = back_blue / 255.f;
+            // f32 back_a = back_alpha / 255.f;
+
+            // f32 new_r = (1.0f - a) * back_r + a * r;
+            // f32 new_g = (1.0f - a) * back_g + a * g;
+            // f32 new_b = (1.0f - a) * back_b + a * b;
+
+            // *Pixel = (((uint32)(new_r * 255.f)) << 0) |
+            //          (((uint32)(new_g * 255.f)) << 8) |
+            //          (((uint32)(new_b * 255.f)) << 16);
+
             Pixel++;
+            image_pixel += image->bytes_per_pixel;
         }
 
         Row += buffer->Pitch;
-        bmp_pixel_row += bmp->width * bmp->bytes_per_pixel;
+        image_pixel_row += image->width * image->bytes_per_pixel;
     }
 }
 
@@ -134,8 +173,20 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         GameState->test_wav_file = load_wav_file(wav_filename);
         GameState->test_current_sound_cursor = 0;
 
-        const char *bmp_filename = "tree_60x60.bmp";
+        const char *bmp_filename = "tree_60x60_32bpp.bmp";
         GameState->test_bmp_file = load_bmp_file(bmp_filename);
+
+        const char *png_filename = "tree_60x60.png";
+        GameState->test_png_file = load_png_file(png_filename);
+
+        const char *floor_texture_filename = "tile_16x16.png";
+        GameState->floor_texture = load_png_file(floor_texture_filename);
+
+        const char *grass_texture_filename = "grass_texture.png";
+        GameState->grass_texture = load_png_file(grass_texture_filename);
+
+        const char *wall_texture_filename = "tile_60x60.bmp";
+        GameState->wall_texture = load_bmp_file(wall_texture_filename);
 
         memory_arena *arena = &GameState->world_arena;
 
@@ -405,6 +456,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     // Rendering pink background to really see if there are some pixels I didn't drew
     RenderRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Buffer->Height}, {1.f, 0.f, 1.f});
 
+    RenderBitmap(Buffer, { 0, 0 }, { (float32)Buffer->Width, (f32)Buffer->Height }, &GameState->grass_texture);
+
     tile_chunk_position player_chunk_pos = GetChunkPosition(
         tilemap,
         GameState->player_position.absolute_tile_x,
@@ -450,44 +503,63 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
             auto TileColor = color24{ 0.5f, 0.5f, 0.5f };
 
-            if ((row % tilemap->tile_count_y == 0 || column % tilemap->tile_count_x == 0)) {
-                TileColor = color24{ 0.0f, 0.4f, 0.8f };
-            }
+            switch (TileId) {
+                case TILE_INVALID: {
+                    // TileColor = color24{ 1.0f };
+                    continue;
+                }
+                case TILE_FREE: {
+                    // TileColor = color24{ 0.5f, 0.5f, 0.5f };
 
-            if (TileId == TILE_INVALID) {
-                TileColor = color24{ 1.0f };
-            } else if (TileId == TILE_WALL) {
-                // TileColor = color24{ 0.2f, 0.3f, 0.2f };
-                RenderBMP(Buffer, TileUpperLeft, TileBottomRight, &GameState->test_bmp_file, true);
-                continue;
-            } else if (TileId == TILE_DOOR_UP) {
-                TileColor = color24{ 0.8f, 0.8f, 0.8f };
-            } else if (TileId == TILE_DOOR_DOWN) {
-                TileColor = color24{ 0.3f, 0.3f, 0.3f };
-            } else if (TileId == TILE_WIN) {
-                STATIC_VARIABLE f32 t_color = 0.0f;
-                f32 tmp_r = sinf(pi_f32 * t_color - 0.5f * pi_f32);
-                f32 tmp_g = sinf(pi_f32 * t_color - 5.0f * pi_f32 / 6.0f);
-                f32 tmp_b = sinf(pi_f32 * t_color - pi_f32 / 6.0f);
+                    if ((row % tilemap->tile_count_y == 0 || column % tilemap->tile_count_x == 0)) {
+                        TileColor = color24{ 0.0f, 0.4f, 0.8f };
+                        break;
+                    }
+                    if (row == (int32)(player_chunk_pos.chunk_relative_y + player_chunk_pos.chunk_y * tilemap->tile_count_y) &&
+                        column == (int32)(player_chunk_pos.chunk_relative_x + player_chunk_pos.chunk_x * tilemap->tile_count_x)) {
+                        TileColor = color24{ 0.8f, 0.4f, 0.0f };
+                    } else {
+                        continue;
+                    }
 
-                f32 normalization_constant = 2.0f / 3.0f;
-                normalization_constant = 1.0f;
+                    break;
+                }
+                case TILE_WALL: {
+                    RenderBitmap(Buffer, TileUpperLeft, TileBottomRight, &GameState->wall_texture);
+                    continue;
 
-                color24 tile_win_color = color24{
-                    tmp_r * tmp_r * normalization_constant,
-                    tmp_g * tmp_g * normalization_constant,
-                    tmp_b * tmp_b * normalization_constant,
-                };
-                t_color += 0.01f;
+                    // TileColor = color24{ 0.2f, 0.3f, 0.2f };
+                    // break;
+                }
+                case TILE_DOOR_UP: {
+                    TileColor = color24{ 0.8f, 0.8f, 0.8f };
+                    break;
+                }
+                case TILE_DOOR_DOWN: {
+                    TileColor = color24{ 0.3f, 0.3f, 0.3f };
+                    break;
+                }
+                case TILE_WIN: {
+                    STATIC_VARIABLE f32 t_color = 0.0f;
+                    f32 tmp_r = sinf(pi_f32 * t_color - 0.5f * pi_f32);
+                    f32 tmp_g = sinf(pi_f32 * t_color - 5.0f * pi_f32 / 6.0f);
+                    f32 tmp_b = sinf(pi_f32 * t_color - pi_f32 / 6.0f);
 
-                if (t_color > 1.0f) { t_color -= 1.0f; }
+                    f32 normalization_constant = 2.0f / 3.0f;
+                    normalization_constant = 1.0f;
 
-                TileColor = tile_win_color;
-            }
+                    color24 tile_win_color = color24{
+                        tmp_r * tmp_r * normalization_constant,
+                        tmp_g * tmp_g * normalization_constant,
+                        tmp_b * tmp_b * normalization_constant,
+                    };
+                    t_color += 0.01f;
 
-            if (row == (int32)(player_chunk_pos.chunk_relative_y + player_chunk_pos.chunk_y * tilemap->tile_count_y) &&
-                column == (int32)(player_chunk_pos.chunk_relative_x + player_chunk_pos.chunk_x * tilemap->tile_count_x)) {
-                TileColor = color24{ 0.8f, 0.4f, 0.0f };
+                    if (t_color > 1.0f) { t_color -= 1.0f; }
+
+                    TileColor = tile_win_color;
+                    break;
+                }
             }
 
             RenderRectangle(

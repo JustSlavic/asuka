@@ -5,6 +5,7 @@
 #include <math.hpp>
 #include <wav.hpp>
 #include <bmp.hpp>
+#include <png.hpp>
 #include "tilemap.hpp"
 #include "memory_arena.hpp"
 
@@ -167,7 +168,12 @@ struct game_state {
     memory_arena world_arena;
 
     wav_file_contents test_wav_file;
-    bmp_file_contents test_bmp_file;
+    bitmap test_bmp_file;
+    bitmap test_png_file;
+
+    bitmap wall_texture;
+    bitmap floor_texture;
+    bitmap grass_texture;
 
     uint32 test_current_sound_cursor;
 };
