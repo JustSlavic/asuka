@@ -176,12 +176,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         GameState->test_wav_file = load_wav_file(wav_filename);
         GameState->test_current_sound_cursor = 0;
 
-        const char *bmp_filename = "tree_60x60_32bpp.bmp";
-        GameState->test_bmp_file = load_bmp_file(bmp_filename);
-
-        const char *png_filename = "tree_60x60.png";
-        GameState->test_png_file = load_png_file(png_filename);
-
         const char *floor_texture_filename = "tile_16x16.png";
         GameState->floor_texture = load_png_file_myself(floor_texture_filename);
 

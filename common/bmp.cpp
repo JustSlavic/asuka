@@ -68,7 +68,9 @@ bitmap load_bmp_file(const char* filename) {
     ASSERT(bmp_info_header->planes == 1);
     ASSERT(bmp_info_header->image_size > 0); // @todo: can be 0 but how can we guard against that?
 
-    BMP_ColorTable *bmp_color_table = (BMP_ColorTable *) ((uint8 *) data + sizeof(BMP_Header) + sizeof(BMP_InfoHeader));
+    if (bmp_info_header->bits_per_pixel < 8) {
+        BMP_ColorTable *bmp_color_table = (BMP_ColorTable *) ((uint8 *) data + sizeof(BMP_Header) + sizeof(BMP_InfoHeader));
+    }
 
     uint8 *pixels = data + bmp_header->data_offset;
 

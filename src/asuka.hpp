@@ -168,8 +168,6 @@ struct game_state {
     memory_arena world_arena;
 
     wav_file_contents test_wav_file;
-    bitmap test_bmp_file;
-    bitmap test_png_file;
 
     bitmap wall_texture;
     bitmap floor_texture;

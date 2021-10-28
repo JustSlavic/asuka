@@ -9,6 +9,8 @@ Reference: http://www.libpng.org/pub/png/spec/1.2/PNG-Structure.html
 #include "os/file.hpp"
 #include "crc.hpp"
 
+#include "stdlib.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <external/stb_image.h>
 
@@ -16,7 +18,7 @@ Reference: http://www.libpng.org/pub/png/spec/1.2/PNG-Structure.html
 #pragma pack(push, 1)
 struct PNG_ChunkHeader {
     uint32 size_of_data; // in bytes
-    uint32 type; // type code
+    uint32 type;
 };
 
 struct PNG_IHDRHeader {
@@ -84,7 +86,6 @@ using crc_t = uint32;
 
 } // png
 
-
 #define PNG_CONSUME_STRUCT(POINTER, TYPE) \
     (TYPE *)png::consume_memory(&POINTER, sizeof(TYPE)); void(0)
 
@@ -95,7 +96,14 @@ struct bit_fetcher {
     uint32 available_bits;
 };
 
+struct huffman_code {
+
+};
+
+INTERNAL_FUNCTION
 uint32 get_bits(bit_fetcher* fetcher, uint32 n) {
+    ASSERT(n <= 32);
+
     uint32 result;
 
     if (fetcher->available_bits < n) {
@@ -112,8 +120,22 @@ uint32 get_bits(bit_fetcher* fetcher, uint32 n) {
     return result;
 }
 
+INTERNAL_FUNCTION
+huffman_code generate_huffman() {
+    huffman_code result {};
 
-void decode_idat_chunk(uint8 *data, usize size) {
+    return result;
+}
+
+INTERNAL_FUNCTION
+uint32 decode_huffman(huffman_code *huffman) {
+    uint32 result {};
+
+    return result;
+}
+
+INTERNAL_FUNCTION
+void decode_idat_chunk(uint8 *data, usize size, bitmap *result) {
     uint8 CMF = *data;
     uint8 CM  = 0x0F & CMF; // CompressionMethod
 
@@ -152,8 +174,8 @@ void decode_idat_chunk(uint8 *data, usize size) {
     uint8 BFINAL;
     uint8 BTYPE;
     do {
-        BFINAL = (uint8)get_bits(&fetcher, 1); // ((*zlib_data) & 0b1000'0000) >> 7;
-        BTYPE  = (uint8)get_bits(&fetcher, 2); // ((*zlib_data) & 0b0110'0000) >> 5;
+        BFINAL = (uint8)get_bits(&fetcher, 1); // ((*zlib_data) & 0b0000'0001);
+        BTYPE  = (uint8)get_bits(&fetcher, 2); // ((*zlib_data) & 0b0000'0110) >> 1;
 
         ASSERT(BTYPE != 3); // @debug: reserved value for error!
 
@@ -169,22 +191,19 @@ void decode_idat_chunk(uint8 *data, usize size) {
             ASSERT(LEN == ~NLEN);
             // Test this on something.
         } else {
-            if (BTYPE == 3) {
-                // @todo: return error;
-                return;
-            }
+            if (BTYPE == 2) { // Compressed with dynamic Huffman code
 
-            if (BTYPE == 1) {
-                // Compressed with fixed Huffman codes
-            }
+                // read representation of code trees (see subsection below)
 
-            if (BTYPE == 2) {
-                // Compressed with dynamic Huffman codes
-                // Computing Huffman codes
                 uint32 HLIT  = get_bits(&fetcher, 5) + 257;
                 uint32 HDIST = get_bits(&fetcher, 5) + 1;
                 uint32 HCLEN = get_bits(&fetcher, 4) + 4;
 
+                // (HCLEN + 4) x 3 bits: code lengths for the code length
+                // alphabet given just above, in the order: 16, 17, 18,
+                // 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15
+
+                ASSERT(HCLEN <= 19);
                 uint8 code_lengths_order[19] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
                 uint8 code_lengths[19] {};
 
@@ -206,13 +225,14 @@ void decode_idat_chunk(uint8 *data, usize size) {
 
                 int32 code = 0;
                 bl_count[0] = 0;
-                // uint32 max_code; // Should be referenced later
                 uint32 next_code[16] {};
 
                 for (uint32 bits = 1; bits < 16; bits++) {
                     code = (code + bl_count[bits-1]) << 1;
                     next_code[bits] = code;
                 }
+
+                // uint32 max_code; // should be used later? ??
 
                 // 3) Assign numerical values to all codes, using consecutive
                 //    values for all codes of the same length with the base
@@ -228,12 +248,34 @@ void decode_idat_chunk(uint8 *data, usize size) {
                 //     }
                 // }
 
-                // Apply Huffman codes
+            } else if (BTYPE == 1) {
+                // Compressed with fixed Huffman code
+                // ???
             }
 
-            // Decode here
+#if 0
+            while (true /* until end of block recognized */) {
+                huffman_code test_ {};
+                uint32 literal_length_value = decode_huffman(&test_);
+                if (literal_length_value < 256) {
+                    // copy value (literal byte) to output stream
+                } else {
+                    if (literal_length_value == 256) // end of block
+                        break;
+                    else {
+                        // decode distance from input stream
+
+                        // move backwards distance bytes in the output
+                        // stream, and copy length bytes from this
+                        // position to the output stream.
+
+                    }
+                }
+            }
+#endif
+
         }
-    } while (!BFINAL);
+    } while (BFINAL == 0);
 
     uint8 debug_ = 0;
 
@@ -272,14 +314,13 @@ bitmap load_png_file_myself(const char *filename) {
 
     uint8 *data = (uint8 *)file_contents.memory;
 
-    uint32 *signature1 = PNG_CONSUME_STRUCT(data, uint32);
-    uint32 *signature2 = PNG_CONSUME_STRUCT(data, uint32);
+    uint32 signature1 = *PNG_CONSUME_STRUCT(data, uint32);
+    uint32 signature2 = *PNG_CONSUME_STRUCT(data, uint32);
 
-    ASSERT(*signature1 == PNG_SIGNATURE_1);
-    ASSERT(*signature2 == PNG_SIGNATURE_2);
+    ASSERT(signature1 == PNG_SIGNATURE_1);
+    ASSERT(signature2 == PNG_SIGNATURE_2);
 
     bool end = false;
-    PNG_IHDRHeader ihdr_header {};
 
     while (data < ((uint8 *)file_contents.memory + file_contents.size)) {
         //
@@ -300,21 +341,19 @@ bitmap load_png_file_myself(const char *filename) {
         if (chunk_header.type == PNG_IHDR_ID) {
             PNG_IHDRHeader *ihdr = PNG_CONSUME_STRUCT(data, PNG_IHDRHeader);
 
-            ihdr_header.width = change_endianess(ihdr->width);
-            ihdr_header.height = change_endianess(ihdr->height);
-            ihdr_header.bit_depth = ihdr->bit_depth;
-            ihdr_header.color_type = ihdr->color_type;
-            ihdr_header.compression_method = ihdr->compression_method;
-            ihdr_header.filter_method = ihdr->filter_method;
-            ihdr_header.interlace_method = ihdr->interlace_method;
+            result.width = change_endianess(ihdr->width);
+            result.height = change_endianess(ihdr->height);
+            result.bytes_per_pixel = ihdr->bit_depth / 8;
+            result.size = result.width * result.height * result.bytes_per_pixel;
+            result.pixels = malloc(result.size);
 
             // Only compression method 0 (deflate/inflate compression with
             // a sliding window of at most 32768 bytes) is defined.
             // All standard PNG images must be compressed with this scheme.
-            ASSERT(ihdr_header.compression_method == 0);
+            ASSERT(ihdr->compression_method == 0);
 
             // Adam7 interlace method is not supported.
-            ASSERT(ihdr_header.interlace_method == PNG_INTERLACE_NONE);
+            ASSERT(ihdr->interlace_method == PNG_INTERLACE_NONE);
         }
 
         if (chunk_header.type == PNG_sRGB_ID) {
@@ -322,7 +361,7 @@ bitmap load_png_file_myself(const char *filename) {
         }
 
         if (chunk_header.type == PNG_IDAT_ID) {
-            decode_idat_chunk(data, chunk_header.size_of_data);
+            decode_idat_chunk(data, chunk_header.size_of_data, &result);
             data += chunk_header.size_of_data;
         }
 
