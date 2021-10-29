@@ -492,9 +492,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #if DEBUG_CAMERA_FOLLOW_PLAYER
     GameState->camera_position = GameState->player_position;
 #else
+    int32 player_room_x = GameState->player_position.absolute_tile_x / room_width_in_tiles;
+    int32 player_room_y = GameState->player_position.absolute_tile_y / room_height_in_tiles;
+
     GameState->camera_position = {};
-    GameState->camera_position.absolute_tile_x = GameState->player_position.absolute_tile_x + room_width_in_tiles / 2;
-    GameState->camera_position.absolute_tile_y = GameState->player_position.absolute_tile_y + room_height_in_tiles / 2;
+    GameState->camera_position.absolute_tile_x = player_room_x * room_width_in_tiles + room_width_in_tiles / 2;
+    GameState->camera_position.absolute_tile_y = player_room_y * room_height_in_tiles + room_height_in_tiles / 2;
     GameState->camera_position.absolute_tile_z = GameState->player_position.absolute_tile_z;
 #endif
 

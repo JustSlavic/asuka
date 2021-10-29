@@ -86,7 +86,7 @@ bool32 IsWorldPointEmpty(tile_map *map, tile_map_position pos) {
 
     int32 tile_value = GetTileValue(map, pos.absolute_tile_x, pos.absolute_tile_y, pos.absolute_tile_z);
 
-    is_empty = (tile_value == TILE_FREE || tile_value == TILE_DOOR_UP || tile_value == TILE_DOOR_DOWN);
+    is_empty = (tile_value == TILE_FREE || tile_value == TILE_DOOR_UP || tile_value == TILE_DOOR_DOWN || tile_value == TILE_WIN);
     return is_empty;
 }
 
