@@ -72,30 +72,27 @@ void RenderBitmap(
             uint8 red = image_pixel[2];
             uint8 alpha = image_pixel[3];
 
-            *Pixel = (red) | (green << 8) | (blue << 16);
+            if (image->bytes_per_pixel == 3) {
+                *Pixel = (red) | (green << 8) | (blue << 16);
+            } else {
+                f32 r = red / 255.f;
+                f32 g = green / 255.f;
+                f32 b = blue / 255.f;
+                f32 a = alpha / 255.f;
 
-            // f32 r = red / 255.f;
-            // f32 g = green / 255.f;
-            // f32 b = blue / 255.f;
-            // f32 a = alpha / 255.f;
+                f32 back_r = (*Pixel & 0xFF) / 255.f;
+                f32 back_g = ((*Pixel & 0xFF00) >> 8) / 255.f;
+                f32 back_b = ((*Pixel & 0xFF0000) >> 16) / 255.f;
+                f32 back_a = ((*Pixel & 0xFF000000) >> 24) / 255.f;
 
-            // uint32 back_red = *Pixel & 0xFF;
-            // uint32 back_green = (*Pixel & 0xFF00) >> 8;
-            // uint32 back_blue = (*Pixel & 0xFF0000) >> 16;
-            // uint32 back_alpha = (*Pixel & 0xFF000000) >> 24;
+                f32 new_r = (1.0f - a) * back_r + a * r;
+                f32 new_g = (1.0f - a) * back_g + a * g;
+                f32 new_b = (1.0f - a) * back_b + a * b;
 
-            // f32 back_r = back_red / 255.f;
-            // f32 back_g = back_green / 255.f;
-            // f32 back_b = back_blue / 255.f;
-            // f32 back_a = back_alpha / 255.f;
-
-            // f32 new_r = (1.0f - a) * back_r + a * r;
-            // f32 new_g = (1.0f - a) * back_g + a * g;
-            // f32 new_b = (1.0f - a) * back_b + a * b;
-
-            // *Pixel = (((uint32)(new_r * 255.f)) << 0) |
-            //          (((uint32)(new_g * 255.f)) << 8) |
-            //          (((uint32)(new_b * 255.f)) << 16);
+                *Pixel = (((uint32)(new_r * 255.f)) << 0) |
+                         (((uint32)(new_g * 255.f)) << 8) |
+                         (((uint32)(new_b * 255.f)) << 16);
+            }
 
             Pixel++;
             image_pixel += image->bytes_per_pixel;
@@ -164,6 +161,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     game_state* GameState = (game_state*)Memory->PermanentStorage;
 
+    i32 room_width_in_tiles = 16;
+    i32 room_height_in_tiles = 9;
+
     if (!Memory->IsInitialized) {
         srand((unsigned int)time(NULL));
         GameState->player_position.absolute_tile_x = 3;
@@ -171,6 +171,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         GameState->player_position.absolute_tile_z = 0;
 
         GameState->player_position.relative_position_on_tile = { 0.0f, 0.0f }; // in meters relative to the tile
+
+        GameState->player_face_direction = PLAYER_FACE_DOWN;
 
         const char *wav_filename = "piano2.wav";
         GameState->test_wav_file = load_wav_file(wav_filename);
@@ -184,6 +186,16 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         const char *wall_texture_filename = "tile_60x60.bmp";
         GameState->wall_texture = load_bmp_file(wall_texture_filename);
+
+        const char *player_face_texture_filename = "character_1.png";
+        const char *player_left_texture_filename = "character_2.png";
+        const char *player_right_texture_filename = "character_3.png";
+        const char *player_back_texture_filename = "character_4.png";
+
+        GameState->player_textures[0] = load_png_file(player_face_texture_filename);
+        GameState->player_textures[1] = load_png_file(player_left_texture_filename);
+        GameState->player_textures[2] = load_png_file(player_right_texture_filename);
+        GameState->player_textures[3] = load_png_file(player_back_texture_filename);
 
         memory_arena *arena = &GameState->world_arena;
 
@@ -212,10 +224,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         tile_chunk *chunks = push_array(arena, tile_chunk, tilemap->chunk_count_x * tilemap->chunk_count_y * tilemap->chunk_count_z);
         tilemap->chunks = chunks;
-
-
-        i32 room_width = 16;
-        i32 room_height = 9;
 
         i32 screens_count = 20;
 
@@ -253,10 +261,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 choice = GEN_NONE;
             }
 
-            for (i32 tile_y = 0; tile_y < room_height; tile_y++) {
-                for (i32 tile_x = 0; tile_x < room_width; tile_x++) {
-                    u32 x = screen_x * room_width  + tile_x;
-                    u32 y = screen_y * room_height + tile_y;
+            for (i32 tile_y = 0; tile_y < room_height_in_tiles; tile_y++) {
+                for (i32 tile_x = 0; tile_x < room_width_in_tiles; tile_x++) {
+                    u32 x = screen_x * room_width_in_tiles  + tile_x;
+                    u32 y = screen_y * room_height_in_tiles + tile_y;
                     u32 z = screen_z;
 
                     tile_t tile_value = TILE_FREE;
@@ -265,16 +273,16 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     if (tile_y == 0) {
                         tile_value = TILE_WALL;
 
-                        if ((previous_choice == GEN_UP) && (tile_x == room_width / 2 || tile_x == (room_width / 2 - 1))) {
+                        if ((previous_choice == GEN_UP) && (tile_x == room_width_in_tiles / 2 || tile_x == (room_width_in_tiles / 2 - 1))) {
                             tile_value = TILE_FREE;
                         }
                     }
 
                     // upper wall
-                    if (tile_y == room_height - 1) {
+                    if (tile_y == room_height_in_tiles - 1) {
                         tile_value = TILE_WALL;
 
-                        if ((choice == GEN_UP) && (tile_x == room_width / 2 || tile_x == (room_width / 2 - 1))) {
+                        if ((choice == GEN_UP) && (tile_x == room_width_in_tiles / 2 || tile_x == (room_width_in_tiles / 2 - 1))) {
                             tile_value = TILE_FREE;
                         }
                     }
@@ -283,16 +291,16 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     if (tile_x == 0) {
                         tile_value = TILE_WALL;
 
-                        if ((previous_choice == GEN_RIGHT && (tile_y == room_height / 2))) {
+                        if ((previous_choice == GEN_RIGHT && (tile_y == room_height_in_tiles / 2))) {
                             tile_value = TILE_FREE;
                         }
                     }
 
                     // right wall
-                    if (tile_x == room_width - 1) {
+                    if (tile_x == room_width_in_tiles - 1) {
                         tile_value = TILE_WALL;
 
-                        if ((choice == GEN_RIGHT && (tile_y == room_height / 2))) {
+                        if ((choice == GEN_RIGHT && (tile_y == room_height_in_tiles / 2))) {
                             tile_value = TILE_FREE;
                         }
                     }
@@ -305,7 +313,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                         tile_value = TILE_DOOR_DOWN;
                     }
 
-                    if ((screen_idx == screens_count - 1) && (tile_x == room_width - 2) && (tile_y == room_height - 2)) {
+                    if ((screen_idx == screens_count - 1) && (tile_x == room_width_in_tiles - 2) && (tile_y == room_height_in_tiles - 2)) {
                         tile_value = TILE_WIN;
                     }
 
@@ -341,7 +349,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
 #ifdef ASUKA_PLAYBACK_LOOP
     color24 BorderColor {};
-    uint32 BorderWidth = 5;
+    uint32 BorderWidth = 10;
     bool32 BorderVisible {};
 
     switch (Input->PlaybackLoopState) {
@@ -445,6 +453,20 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         if (tile_is_valid) {
             GameState->player_position = normalized_player_position;
+
+            if (absolute(GameState->player_velocity.x) > absolute(GameState->player_velocity.y)) {
+                if (GameState->player_velocity.x > 0) {
+                    GameState->player_face_direction = PLAYER_FACE_RIGHT;
+                } else {
+                    GameState->player_face_direction = PLAYER_FACE_LEFT;
+                }
+            } else {
+                if (GameState->player_velocity.y > 0) {
+                    GameState->player_face_direction = PLAYER_FACE_UP;
+                } else {
+                    GameState->player_face_direction = PLAYER_FACE_DOWN;
+                }
+            }
         }
     }
 
@@ -453,76 +475,77 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     // Rendering pink background to really see if there are some pixels I didn't drew
     RenderRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Buffer->Height}, {1.f, 0.f, 1.f});
 
-    RenderBitmap(Buffer, { 0, 0 }, { (float32)Buffer->Width, (f32)Buffer->Height }, &GameState->grass_texture);
+    // RenderBitmap(Buffer, { 0, 0 }, { (float32)Buffer->Width, (f32)Buffer->Height }, &GameState->grass_texture);
 
-    tile_chunk_position player_chunk_pos = GetChunkPosition(
-        tilemap,
-        GameState->player_position.absolute_tile_x,
-        GameState->player_position.absolute_tile_y,
-        GameState->player_position.absolute_tile_z);
+    tile_chunk_position player_chunk_pos = GetChunkPosition(tilemap, GameState->player_position);
 
-    int32 player_absolute_tile_x = GameState->player_position.absolute_tile_x;
-    int32 player_absolute_tile_y = GameState->player_position.absolute_tile_y;
-    int32 player_absolute_tile_z = GameState->player_position.absolute_tile_z;
-
-    int32 center_x = 8; // + 8 + 20;
-    int32 center_y = 4; // + 5 + 20;
-
-    int32 row_border = 6; // + 3 + 20;
-    int32 col_border = 9; // + 7 + 20;
+    int32 render_tiles_count_y = 6;
+    int32 render_tiles_count_x = 9;
 
     int32 tile_side_in_pixels = (int32) (GameState->world->tilemap.tile_side_in_meters * pixels_per_meter);
 
-    for (int32 relative_row = -row_border; relative_row < row_border; relative_row++) {
-        for (int32 relative_column = -col_border; relative_column < col_border; relative_column++) {
+    auto *player_p = &GameState->player_position;
+    auto *camera_p = &GameState->camera_position;
 
-            int32 row = player_absolute_tile_y + relative_row;
-            int32 column = player_absolute_tile_x + relative_column;
-            int32 level = player_absolute_tile_z;
+#define DEBUG_CAMERA_FOLLOW_PLAYER (1 && ASUKA_DEBUG)
 
-            // int32 abs_x = (column / tilemap->tile_count_x << tilemap->chunk_shift) | (column % tilemap->tile_count_x);
-            // int32 abs_y = (row / tilemap->tile_count_y << tilemap->chunk_shift) | (row % tilemap->tile_count_y);
+#if DEBUG_CAMERA_FOLLOW_PLAYER
+    GameState->camera_position = GameState->player_position;
+#else
+    GameState->camera_position = {};
+    GameState->camera_position.absolute_tile_x = GameState->player_position.absolute_tile_x + room_width_in_tiles / 2;
+    GameState->camera_position.absolute_tile_y = GameState->player_position.absolute_tile_y + room_height_in_tiles / 2;
+    GameState->camera_position.absolute_tile_z = GameState->player_position.absolute_tile_z;
+#endif
 
-            tile_t TileId = GetTileValue(tilemap, column, row, level);
+    for (int32 relative_row = -render_tiles_count_y; relative_row < render_tiles_count_y; relative_row++) {
+        for (int32 relative_column = -render_tiles_count_x; relative_column < render_tiles_count_x; relative_column++) {
 
-            float32 TileBottomLeftX = (float32) (relative_column + center_x) * tile_side_in_pixels - GameState->player_position.relative_position_on_tile.x * pixels_per_meter;
-            float32 TileBottomLeftY = (float32) Buffer->Height - (float32) (relative_row + center_y) * tile_side_in_pixels + GameState->player_position.relative_position_on_tile.y * pixels_per_meter;
+            int32 row = camera_p->absolute_tile_y + relative_row;
+            int32 column = camera_p->absolute_tile_x + relative_column;
+            int32 level = camera_p->absolute_tile_z;
 
-            vector2 TileUpperLeft {
-                TileBottomLeftX,
-                TileBottomLeftY - tile_side_in_pixels,
+            v2 bottom_left_in_bottom_up_screen_pixel_coords =
+                v2{ (f32)relative_column, (f32)relative_row } * (f32)tile_side_in_pixels -
+                (camera_p->relative_position_on_tile + v2{ 0.0f, 0.5f }) * pixels_per_meter +
+                v2{ 0.5f * Buffer->Width, 0.5f * Buffer->Height };
+
+            vector2 upper_left_in_up_down_screen_pixel_coords {
+                bottom_left_in_bottom_up_screen_pixel_coords.x,
+                Buffer->Height - bottom_left_in_bottom_up_screen_pixel_coords.y - tile_side_in_pixels,
             };
 
-            vector2 TileBottomRight {
-                TileUpperLeft.x + tile_side_in_pixels,
-                TileUpperLeft.y + tile_side_in_pixels,
-            };
+            vector2 bottom_right_in_up_down_screen_pixel_coords =
+                upper_left_in_up_down_screen_pixel_coords + v2::from((f32)tile_side_in_pixels);
 
+
+            tile_t tile_value = GetTileValue(tilemap, column, row, level);
             auto TileColor = color24{ 0.5f, 0.5f, 0.5f };
 
-            switch (TileId) {
+            switch (tile_value) {
                 case TILE_INVALID: {
-                    // TileColor = color24{ 1.0f };
-                    continue;
+                    TileColor = color24{ 1.0f };
+                    break;
+                    // continue;
                 }
                 case TILE_FREE: {
-                    // TileColor = color24{ 0.5f, 0.5f, 0.5f };
+                    TileColor = color24{ 0.5f, 0.5f, 0.5f };
 
-                    if ((row % tilemap->tile_count_y == 0 || column % tilemap->tile_count_x == 0)) {
-                        TileColor = color24{ 0.0f, 0.4f, 0.8f };
-                        break;
-                    }
                     if (row == (int32)(player_chunk_pos.chunk_relative_y + player_chunk_pos.chunk_y * tilemap->tile_count_y) &&
                         column == (int32)(player_chunk_pos.chunk_relative_x + player_chunk_pos.chunk_x * tilemap->tile_count_x)) {
                         TileColor = color24{ 0.8f, 0.4f, 0.0f };
-                    } else {
-                        continue;
                     }
+                    // else
+                    // if ((row % tilemap->tile_count_y == 0 || column % tilemap->tile_count_x == 0))
+                    // {
+                    //     TileColor = color24{ 0.0f, 0.4f, 0.8f };
+                    //     break;
+                    // }
 
                     break;
                 }
                 case TILE_WALL: {
-                    RenderBitmap(Buffer, TileUpperLeft, TileBottomRight, &GameState->wall_texture);
+                    RenderBitmap(Buffer, upper_left_in_up_down_screen_pixel_coords, bottom_right_in_up_down_screen_pixel_coords, &GameState->wall_texture);
                     continue;
 
                     // TileColor = color24{ 0.2f, 0.3f, 0.2f };
@@ -542,8 +565,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     f32 tmp_g = sinf(pi_f32 * t_color - 5.0f * pi_f32 / 6.0f);
                     f32 tmp_b = sinf(pi_f32 * t_color - pi_f32 / 6.0f);
 
-                    f32 normalization_constant = 2.0f / 3.0f;
-                    normalization_constant = 1.0f;
+                    f32 normalization_constant = 1.0f;
 
                     color24 tile_win_color = color24{
                         tmp_r * tmp_r * normalization_constant,
@@ -561,38 +583,49 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
             RenderRectangle(
                 Buffer,
-                TileUpperLeft,
-                TileBottomRight,
+                upper_left_in_up_down_screen_pixel_coords,
+                bottom_right_in_up_down_screen_pixel_coords,
                 TileColor, true);
         }
     }
 
-    vector2 absolute_player_position =
-        vector2{ (float32)center_x, (float32)center_y } * tilemap->tile_side_in_meters +
-        vector2{ 0.5f, 0.5f } * tilemap->tile_side_in_meters;
-    absolute_player_position.y = Buffer->Height / pixels_per_meter - absolute_player_position.y;
+    vector2 player_position_in_bottom_up_screen_pixel_coordinates = {
+        (f32) Buffer->Width / 2.0f +
+        (player_p->absolute_tile_x - camera_p->absolute_tile_x) * tilemap->tile_side_in_meters * pixels_per_meter +
+        (player_p->relative_position_on_tile.x - camera_p->relative_position_on_tile.x) * pixels_per_meter +
+        0.5f * tilemap->tile_side_in_meters * pixels_per_meter,
+
+        (f32) Buffer->Height / 2.0f +
+        (player_p->absolute_tile_y - camera_p->absolute_tile_y) * tilemap->tile_side_in_meters * pixels_per_meter +
+        (player_p->relative_position_on_tile.y - camera_p->relative_position_on_tile.y) * pixels_per_meter,
+    };
+
+    vector2 player_position_in_top_bottom_screen_pixel_coordinates = {
+        player_position_in_bottom_up_screen_pixel_coordinates.x,
+        (f32)Buffer->Height - player_position_in_bottom_up_screen_pixel_coordinates.y,
+    };
 
     vector2 top_left = {
-        absolute_player_position.x - 0.5f * character_dimensions.x,
-        absolute_player_position.y - 1.0f * character_dimensions.y,
+        player_position_in_top_bottom_screen_pixel_coordinates.x - 0.5f * character_dimensions.x * pixels_per_meter,
+        player_position_in_top_bottom_screen_pixel_coordinates.y - 1.0f * character_dimensions.y * pixels_per_meter,
     };
 
     vector2 bottom_right = {
-        absolute_player_position.x + 0.5f * character_dimensions.x,
-        absolute_player_position.y
+        player_position_in_top_bottom_screen_pixel_coordinates.x + 0.5f * character_dimensions.x * pixels_per_meter,
+        player_position_in_top_bottom_screen_pixel_coordinates.y
     };
 
-    RenderRectangle(
-        Buffer,
-        top_left * pixels_per_meter,
-        bottom_right * pixels_per_meter,
-        color24{ 0.9f, 0.9f, 0.2f });
+    // RenderRectangle(
+    //     Buffer,
+    //     player_position_in_top_bottom_screen_pixel_coordinates - vector2{ 3.f, 3.f },
+    //     player_position_in_top_bottom_screen_pixel_coordinates + vector2{ 3.f, 3.f },
+    //     color24{ 0.f, 0.f, 0.f });
 
-    RenderRectangle(
+    RenderBitmap(
         Buffer,
-        absolute_player_position * pixels_per_meter - vector2{ 3.f, 3.f },
-        absolute_player_position * pixels_per_meter + vector2{ 3.f, 3.f },
-        color24{ 0.f, 0.f, 0.f });
+        top_left,
+        v2{ (f32)Buffer->Width, (f32)Buffer->Height },
+        &GameState->player_textures[GameState->player_face_direction]);
 
 #ifdef ASUKA_PLAYBACK_LOOP
     if (BorderVisible) {

@@ -14,6 +14,12 @@ tile_chunk_position GetChunkPosition(tile_map *map, int32 abs_tile_x, int32 abs_
     return result;
 }
 
+tile_chunk_position GetChunkPosition(tile_map *map, tile_map_position pos) {
+    tile_chunk_position result;
+    result = GetChunkPosition(map, pos.absolute_tile_x, pos.absolute_tile_y, pos.absolute_tile_z);
+    return result;
+}
+
 INTERNAL_FUNCTION
 INLINE_FUNCTION
 tile_chunk* GetTileChunk(tile_map* map, int32 chunk_x, int32 chunk_y, int32 chunk_z) {

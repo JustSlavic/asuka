@@ -158,10 +158,19 @@ struct game_world {
     tile_map tilemap;
 };
 
+enum PlayerFaceDirection {
+    PLAYER_FACE_DOWN = 0,
+    PLAYER_FACE_LEFT = 1,
+    PLAYER_FACE_RIGHT = 2,
+    PLAYER_FACE_UP = 3,
+};
 
 struct game_state {
+    tile_map_position camera_position;
+
     tile_map_position player_position;
     vector2 player_velocity;
+    PlayerFaceDirection player_face_direction;
 
     game_world *world;
 
@@ -172,6 +181,8 @@ struct game_state {
     bitmap wall_texture;
     bitmap floor_texture;
     bitmap grass_texture;
+
+    bitmap player_textures[4];
 
     uint32 test_current_sound_cursor;
 };

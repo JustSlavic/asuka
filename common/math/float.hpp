@@ -8,6 +8,17 @@
 extern f32 pi_f32;
 
 
+inline float32 absolute(float32 x) {
+    union {
+        uint32  u;
+        float32 f;
+    };
+    f = x;
+    u = u & 0x7FFF'FFFF;
+
+    return f;
+}
+
 inline int32 round_to_i32(float32 x) {
     return (int32) (x + 0.5f);
 }

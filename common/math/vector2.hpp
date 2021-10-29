@@ -30,6 +30,13 @@ struct vector2 {
         float32 at[2];
     };
 
+    IN_CLASS_FUNCTION
+    INLINE_FUNCTION
+    vector2 from(float32 v) {
+        vector2 result { v, v };
+        return result;
+    }
+
     inline float32 length_2 () { return x*x + y*y; }
     inline float32 length () { return sqrt(length_2()); }
     inline float32 norm () { return length(); }

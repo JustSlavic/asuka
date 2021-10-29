@@ -73,6 +73,7 @@ struct tile_map_position {
 
 
 tile_chunk_position GetChunkPosition(tile_map *map, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
+tile_chunk_position GetChunkPosition(tile_map *map, tile_map_position pos);
 tile_t GetTileValue(tile_map* map, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
 void SetTileValue(memory_arena *arena, tile_map *tilemap, int32 abs_x, int32 abs_y, int32 abs_z, tile_t tile_value);
 bool32 IsWorldPointEmpty(tile_map *map, tile_map_position pos);
