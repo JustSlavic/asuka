@@ -1,6 +1,19 @@
 #ifndef ASUKA_COMMON_DEFINES_HPP
 #define ASUKA_COMMON_DEFINES_HPP
 
+/*
+
+ASUKA_DEBUG=1 - compile with:
+    + with debug symbols
+    + with debug utilities
+    - without optimizations
+
+ASUKA_PROFILING=1
+    + include profiling stuff
+    - without slow code except profiling utilities
+
+*/
+
 #ifdef _MSC_VER
 #define ASUKA_COMPILER_MICROSOFT
 #elif __GNUC__

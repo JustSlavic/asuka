@@ -140,7 +140,7 @@ void RenderRectangle(
 }
 
 
-#ifdef ASUKA_DEBUG
+#if ASUKA_PLAYBACK_LOOP
 INTERNAL_FUNCTION
 void RenderBorder(Game_OffscreenBuffer* Buffer, uint32 Width, color24 Color) {
     RenderRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Width}, Color);
@@ -347,7 +347,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     game_world *world = GameState->world;
     tile_map *tilemap = &world->tilemap;
 
-#ifdef ASUKA_PLAYBACK_LOOP
+#if ASUKA_PLAYBACK_LOOP
     color24 BorderColor {};
     uint32 BorderWidth = 10;
     bool32 BorderVisible {};
@@ -627,7 +627,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         v2{ (f32)Buffer->Width, (f32)Buffer->Height },
         &GameState->player_textures[GameState->player_face_direction]);
 
-#ifdef ASUKA_PLAYBACK_LOOP
+#if ASUKA_PLAYBACK_LOOP
     if (BorderVisible) {
         RenderBorder(Buffer, BorderWidth, BorderColor);
     }

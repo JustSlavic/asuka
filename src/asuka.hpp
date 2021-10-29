@@ -94,7 +94,7 @@ struct Game_MouseState {
 };
 
 
-#ifdef ASUKA_PLAYBACK_LOOP
+#if ASUKA_PLAYBACK_LOOP
 enum Debug_PlaybackLoopState {
     PLAYBACK_LOOP_IDLE,
     PLAYBACK_LOOP_RECORDING,
@@ -113,7 +113,7 @@ struct Game_Input {
     // Probably should go to a game no in controller input?
     float32 dt;
 
-#ifdef ASUKA_PLAYBACK_LOOP
+#if ASUKA_PLAYBACK_LOOP
     Debug_PlaybackLoopState PlaybackLoopState;
 #endif // ASUKA_PLAYBACK_LOOP
 };

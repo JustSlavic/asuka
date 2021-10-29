@@ -82,7 +82,7 @@ struct Win32_DebugSoundCursors {
 };
 #endif // DRAW_DEBUG_SOUND_CURSORS
 
-#ifdef ASUKA_PLAYBACK_LOOP
+#if ASUKA_PLAYBACK_LOOP
 struct Win32_DebugInputRecording {
     uint64 InitialGameMemorySize;
     void*  InitialGameMemory;
@@ -571,7 +571,7 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
                         Win32_ProcessKeyboardEvent(&KeyboardController->X, IsDown);
                     } else if (VKCode == VK_RIGHT) {
                         Win32_ProcessKeyboardEvent(&KeyboardController->B, IsDown);
-#ifdef ASUKA_PLAYBACK_LOOP
+#if ASUKA_PLAYBACK_LOOP
                     } else if (VKCode == 'L') {
                         if (IsDown == FALSE) {
                             if (Global_DebugInputRecording.PlaybackLoopState == PLAYBACK_LOOP_IDLE) {
@@ -816,7 +816,7 @@ int WINAPI WinMain(
     GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, (size_t)TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     GameMemory.TransientStorage = (uint8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
 
-#ifdef ASUKA_PLAYBACK_LOOP
+#if ASUKA_PLAYBACK_LOOP
     uint64 InitialGameMemorySize = GameMemory.PermanentStorageSize;
 
     Global_DebugInputRecording.InitialGameMemorySize = InitialGameMemorySize;
@@ -1029,7 +1029,7 @@ int WINAPI WinMain(
         ScreenBuffer.Pitch  = Global_BackBuffer.Pitch;
         ScreenBuffer.BytesPerPixel = Global_BackBuffer.BytesPerPixel;
 
-#ifdef ASUKA_PLAYBACK_LOOP
+#if ASUKA_PLAYBACK_LOOP
         NewInput->PlaybackLoopState = Global_DebugInputRecording.PlaybackLoopState;
 
         if (Global_DebugInputRecording.PlaybackLoopState == PLAYBACK_LOOP_RECORDING) {
