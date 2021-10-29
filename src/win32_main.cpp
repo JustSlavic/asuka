@@ -166,18 +166,23 @@ FILETIME Win32_GetFileTimestamp(const char* Filename) {
 
 
 INTERNAL_FUNCTION
-Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath) {
+Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath, const char *LockFilename) {
 #if defined(ASUKA_DLL_BUILD)
     Win32_GameDLL Result {};
 
-    Result.Timestamp = Win32_GetFileTimestamp(DllPath);
-    CopyFile(DllPath, TempDllPath, FALSE);
-    Result.GameDLL = LoadLibraryA(TempDllPath);
+    DWORD dwAttrib = GetFileAttributes(LockFilename);
+    BOOL LockFileExists = (dwAttrib != INVALID_FILE_ATTRIBUTES && !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 
-    if (Result.GameDLL) {
-        Result.UpdateAndRender = (Game_UpdateAndRenderT*)GetProcAddress(Result.GameDLL, "Game_UpdateAndRender");
+    if (!LockFileExists) {
+        Result.Timestamp = Win32_GetFileTimestamp(DllPath);
+        CopyFile(DllPath, TempDllPath, FALSE);
+        Result.GameDLL = LoadLibraryA(TempDllPath);
 
-        Result.IsValid = (Result.UpdateAndRender != NULL);
+        if (Result.GameDLL) {
+            Result.UpdateAndRender = (Game_UpdateAndRenderT*)GetProcAddress(Result.GameDLL, "Game_UpdateAndRender");
+
+            Result.IsValid = (Result.UpdateAndRender != NULL);
+        }
     }
 
     return Result;
@@ -847,9 +852,11 @@ int WINAPI WinMain(
 
     char GameDllFilename[] = "asuka.dll";
     char GameTempDllFilename[] = "asuka_running.dll";
+    char LockFilename[] = "lock.tmp";
 
     char GameDllFilepath [256];
     char GameTempDllFilepath [256];
+    char LockFilepath [256];
 
     Win32_DebugCatStrings(
         ProgramPath, ProgramPathNoFilenameSize,
@@ -859,8 +866,12 @@ int WINAPI WinMain(
         ProgramPath, ProgramPathNoFilenameSize,
         GameTempDllFilename, sizeof(GameTempDllFilename),
         GameTempDllFilepath, sizeof(GameTempDllFilepath));
+    Win32_DebugCatStrings(
+        ProgramPath, ProgramPathNoFilenameSize,
+        LockFilename, sizeof(LockFilename),
+        LockFilepath, sizeof(LockFilepath));
 
-    Win32_GameDLL Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath);
+    Win32_GameDLL Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath, LockFilepath);
 
     int64 LastClockTimepoint = os::get_wall_clock();
     while (Running) {
@@ -869,7 +880,7 @@ int WINAPI WinMain(
         FILETIME GameDllTimestamp = Win32_GetFileTimestamp(GameDllFilepath);
         if (CompareFileTime(&GameDllTimestamp, &Game.Timestamp) != 0) {
             Win32_UnloadGameDLL(&Game);
-            Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath);
+            Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath, LockFilepath);
         }
 
         Game_ControllerInput* OldKeyboardController = &OldInput->KeyboardController;
