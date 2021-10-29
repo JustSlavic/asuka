@@ -5,7 +5,6 @@
 // - Asset loading path
 // - Threading (launch a thread)
 // - Raw input (support for multiple keyboards)
-// - Sleep / timeBeginPeriod
 // - ClipCursor() (multimonitor support)
 // - Fullscreen support
 // - WM_SETCURSOR (control cursor visibility)
@@ -106,6 +105,7 @@ GLOBAL_VARIABLE Win32_DebugInputRecording Global_DebugInputRecording;
 GLOBAL_VARIABLE bool Running;
 GLOBAL_VARIABLE Win32_OffscreenBuffer Global_BackBuffer;
 GLOBAL_VARIABLE LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
+GLOBAL_VARIABLE bool Global_CursorIsVisible;
 
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -456,6 +456,14 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
     LRESULT result {};
 
     switch (message) {
+        case WM_SETCURSOR: {
+            if (Global_CursorIsVisible) {
+                result = DefWindowProcA(Window, message, wParam, lParam);
+            } else {
+                SetCursor(NULL);
+            }
+            break;
+        }
         case WM_SIZE: {
             break;
         }
@@ -737,17 +745,20 @@ int WINAPI WinMain(
     }
     DWORD ProgramPathNoFilenameSize = IndexOfLastSlash + 1;
 
-
     Win32_LoadXInputFunctions();
-    WNDCLASSA WindowClass{};
-
     Win32_ResizeDIBSection(&Global_BackBuffer, 960, 540);
 
+#ifdef ASUKA_DEBUG
+    Global_CursorIsVisible = true;
+#endif
+
+    WNDCLASSA WindowClass{};
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = MainWindowCallback;
     WindowClass.hInstance = hInstance;
     WindowClass.lpszClassName = "AsukaWindowClass";
     // HICON     hIcon;
+    WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
 
     int64 WallClockFrequency = os::get_wall_clock_frequency();
 
