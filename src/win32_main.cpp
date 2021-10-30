@@ -14,6 +14,8 @@
 // - Hardware acceleration (OpenGL or Direct3D)
 // - GetKeyboardLayout (for French keyboards, international WASD support)
 //
+// - ChangeDisplaySettings ?
+//
 // Just a partial list of stuff
 //
 
@@ -106,6 +108,8 @@ GLOBAL_VARIABLE bool Running;
 GLOBAL_VARIABLE Win32_OffscreenBuffer Global_BackBuffer;
 GLOBAL_VARIABLE LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
 GLOBAL_VARIABLE bool Global_CursorIsVisible;
+GLOBAL_VARIABLE WINDOWPLACEMENT Global_WindowPosition = { sizeof(Global_WindowPosition) };
+GLOBAL_VARIABLE bool Global_IsFullscreen;
 
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -355,23 +359,32 @@ void Win32_ResizeDIBSection(Win32_OffscreenBuffer* Buffer, LONG Width, LONG Heig
 
 INTERNAL_FUNCTION
 void Win32_CopyBufferToWindow(Win32_OffscreenBuffer *Buffer, HDC device_context, int WindowWidth, int WindowHeight) {
-    PatBlt(
-        device_context,
-        Buffer->Width, 0,
-        WindowWidth - Buffer->Width, WindowHeight,
-        BLACKNESS);
-    PatBlt(
-        device_context,
-        0, Buffer->Height,
-        Buffer->Width, WindowHeight,
-        BLACKNESS);
+    if (Global_IsFullscreen) {
+        StretchDIBits(
+            device_context,
+            0, 0, WindowWidth, WindowHeight,
+            0, 0, Buffer->Width, Buffer->Height,
+            Buffer->Memory, &Buffer->Info,
+            DIB_RGB_COLORS, SRCCOPY);
+    } else {
+        PatBlt(
+            device_context,
+            Buffer->Width, 0,
+            WindowWidth - Buffer->Width, WindowHeight,
+            BLACKNESS);
+        PatBlt(
+            device_context,
+            0, Buffer->Height,
+            Buffer->Width, WindowHeight,
+            BLACKNESS);
 
-    StretchDIBits(
-        device_context,
-        0, 0, Buffer->Width, Buffer->Height,
-        0, 0, Buffer->Width, Buffer->Height,
-        Buffer->Memory, &Buffer->Info,
-        DIB_RGB_COLORS, SRCCOPY);
+        StretchDIBits(
+            device_context,
+            0, 0, Buffer->Width, Buffer->Height,
+            0, 0, Buffer->Width, Buffer->Height,
+            Buffer->Memory, &Buffer->Info,
+            DIB_RGB_COLORS, SRCCOPY);
+    }
 }
 
 
@@ -448,6 +461,36 @@ void Win32_FillSoundBuffer(
         }
 
         Global_SecondaryBuffer->Unlock(Region1, Region1_Size, Region2, Region2_Size);
+    }
+}
+
+
+INTERNAL_FUNCTION
+void Win32_ToggleFullscreen(HWND Window) {
+    /*
+        Reference: https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
+    */
+    DWORD WindowStyle = GetWindowLong(Window, GWL_STYLE);
+    if (WindowStyle & WS_OVERLAPPEDWINDOW) {
+        MONITORINFO MonitorInfo = { sizeof(MonitorInfo) };
+        if (GetWindowPlacement(Window, &Global_WindowPosition) && GetMonitorInfo(MonitorFromWindow(Window, MONITOR_DEFAULTTOPRIMARY), &MonitorInfo)) {
+                SetWindowLong(Window, GWL_STYLE, WindowStyle & ~WS_OVERLAPPEDWINDOW);
+                SetWindowPos(Window, HWND_TOP,
+                    MonitorInfo.rcMonitor.left, MonitorInfo.rcMonitor.top,
+                    MonitorInfo.rcMonitor.right - MonitorInfo.rcMonitor.left,
+                    MonitorInfo.rcMonitor.bottom - MonitorInfo.rcMonitor.top,
+                    SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        }
+
+        Global_IsFullscreen = true;
+    } else {
+        SetWindowLong(Window, GWL_STYLE, WindowStyle | WS_OVERLAPPEDWINDOW);
+        SetWindowPlacement(Window, &Global_WindowPosition);
+        SetWindowPos(Window, NULL, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+            SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+
+        Global_IsFullscreen = false;
     }
 }
 
@@ -534,8 +577,9 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
             case WM_KEYDOWN:
             case WM_KEYUP: {
                 uint32 VKCode = (uint32)Message.wParam;
-                bool WasDown = (Message.lParam & (1 << 30)) != 0;
-                bool IsDown = (Message.lParam & (1 << 31)) == 0;
+                bool32 AltDown = (Message.lParam & (1 << 29));
+                bool32 WasDown = (Message.lParam & (1 << 30)) != 0;
+                bool32 IsDown = (Message.lParam & (1 << 31)) == 0;
 
                 if (WasDown != IsDown) {
                     if (VKCode == VK_ESCAPE) {
@@ -610,6 +654,14 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
                             }
                         }
 #endif // ASUKA_PLAYBACK_LOOP
+                    }
+
+                    if (IsDown) {
+                        if (AltDown && VKCode == VK_RETURN) {
+                            if (Message.hwnd) {
+                                Win32_ToggleFullscreen(Message.hwnd);
+                            }
+                        }
                     }
                 }
                 break;
