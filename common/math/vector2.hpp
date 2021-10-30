@@ -5,6 +5,8 @@
 #include "float.hpp"
 
 
+namespace math {
+
 struct vector2i {
     union {
         struct { int32  x, y; };
@@ -145,5 +147,6 @@ inline vector2 mul_per_axis(vector2 a, vector2 b) {
     return result;
 }
 
+} // namespace math
 
 #endif // ASUKA_COMMON_MATH_VECTOR2_HPP

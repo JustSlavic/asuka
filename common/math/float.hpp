@@ -5,10 +5,11 @@
 #include <math.h>
 
 
-extern f32 pi_f32;
+namespace math {
 
+extern f32 pi;
 
-inline float32 absolute(float32 x) {
+inline float32 abs(float32 x) {
     union {
         uint32  u;
         float32 f;
@@ -47,6 +48,7 @@ inline f32 lerp (f32 a, f32 b, f32 t) {
     return (1.f - t) * a + t * b;
 }
 
+} // namespace math
 
 #ifdef UNITY_BUILD
 #include "float.cpp"

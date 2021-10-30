@@ -169,7 +169,7 @@ struct game_state {
     tile_map_position camera_position;
 
     tile_map_position player_position;
-    vector2 player_velocity;
+    math::v2 player_velocity;
     PlayerFaceDirection player_face_direction;
 
     game_world *world;

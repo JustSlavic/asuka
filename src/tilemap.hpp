@@ -68,7 +68,7 @@ struct tile_map_position {
     int32 absolute_tile_z;
 
     // In pixels inside a tile
-    vector2 relative_position_on_tile;
+    math::v2 relative_position_on_tile;
 };
 
 

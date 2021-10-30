@@ -94,7 +94,7 @@ INTERNAL_FUNCTION
 INLINE_FUNCTION
 void NormalizeCoordinate(tile_map *map, i32 *tile, f32 *relative_coord) {
     f32 coord = *relative_coord + 0.5f * map->tile_side_in_meters;
-    i32 offset = floor_to_int32(coord / map->tile_side_in_meters);
+    i32 offset = math::floor_to_int32(coord / map->tile_side_in_meters);
 
     *tile += offset;
     *relative_coord -= offset * map->tile_side_in_meters;

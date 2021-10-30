@@ -4,6 +4,8 @@
 #include <defines.hpp>
 
 
+namespace math {
+
 struct color24 {
     struct { f32 r; f32 g; f32 b; };
 };
@@ -32,5 +34,6 @@ inline color24 lerp (const color24& a, const color24& b, f32 t) {
     return result;
 }
 
+} // namespace math
 
 #endif // ASUKA_COMMON_MATH_COLOR_HPP
