@@ -81,12 +81,16 @@ void SetTileValue(memory_arena *arena, tile_map *tilemap, int32 abs_x, int32 abs
     chunk->tiles[chunk_pos.chunk_relative_y * tilemap->tile_count_x + chunk_pos.chunk_relative_x] = tile_value;
 }
 
+bool32 IsTileValueEmpty(tile_t tile_value) {
+    bool32 result = (tile_value == TILE_FREE || tile_value == TILE_DOOR_UP || tile_value == TILE_DOOR_DOWN || tile_value == TILE_WIN);
+    return result;
+}
+
 bool32 IsWorldPointEmpty(tile_map *map, tile_map_position pos) {
     bool32 is_empty = false;
 
-    int32 tile_value = GetTileValue(map, pos.absolute_tile_x, pos.absolute_tile_y, pos.absolute_tile_z);
-
-    is_empty = (tile_value == TILE_FREE || tile_value == TILE_DOOR_UP || tile_value == TILE_DOOR_DOWN || tile_value == TILE_WIN);
+    tile_t tile_value = GetTileValue(map, pos.absolute_tile_x, pos.absolute_tile_y, pos.absolute_tile_z);
+    is_empty = IsTileValueEmpty(tile_value);
     return is_empty;
 }
 
@@ -117,6 +121,23 @@ tile_map_position NormalizeTilemapPosition(tile_map* map, tile_map_position posi
 
     ASSERT((tile_left <= result.relative_position_on_tile.x) && (result.relative_position_on_tile.x < tile_right));
     ASSERT((tile_top  <= result.relative_position_on_tile.y) && (result.relative_position_on_tile.y < tile_bottom));
+
+    return result;
+}
+
+math::vector2 PositionDifference(tile_map *tilemap, tile_map_position p1, tile_map_position p2) {
+    math::v2 result {};
+
+    if (p1.absolute_tile_z != p2.absolute_tile_z) {
+        return result;
+    }
+
+    result.x =
+        (p1.absolute_tile_x * tilemap->tile_side_in_meters + p1.relative_position_on_tile.x) -
+        (p2.absolute_tile_x * tilemap->tile_side_in_meters + p2.relative_position_on_tile.x);
+    result.y =
+        (p1.absolute_tile_y * tilemap->tile_side_in_meters + p1.relative_position_on_tile.y) -
+        (p2.absolute_tile_y * tilemap->tile_side_in_meters + p2.relative_position_on_tile.y);
 
     return result;
 }

@@ -589,27 +589,27 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
                         Win32_ProcessKeyboardEvent(&KeyboardController->Start, IsDown);
                     } else if (VKCode == 'W') {
                         if (IsDown) {
-                            KeyboardController->StickLYEnded = 1;
+                            KeyboardController->LeftStickEnded.y = 1;
                         } else {
-                            KeyboardController->StickLYEnded = 0;
+                            KeyboardController->LeftStickEnded.y = 0;
                         }
                     } else if (VKCode == 'A') {
                         if (IsDown) {
-                            KeyboardController->StickLXEnded = -1;
+                            KeyboardController->LeftStickEnded.x = -1;
                         } else {
-                            KeyboardController->StickLXEnded = 0;
+                            KeyboardController->LeftStickEnded.x = 0;
                         }
                     } else if (VKCode == 'S') {
                         if (IsDown) {
-                            KeyboardController->StickLYEnded = -1;
+                            KeyboardController->LeftStickEnded.y = -1;
                         } else {
-                            KeyboardController->StickLYEnded = 0;
+                            KeyboardController->LeftStickEnded.y = 0;
                         }
                     } else if (VKCode == 'D') {
                         if (IsDown) {
-                            KeyboardController->StickLXEnded = 1;
+                            KeyboardController->LeftStickEnded.x = 1;
                         } else {
-                            KeyboardController->StickLXEnded = 0;
+                            KeyboardController->LeftStickEnded.x = 0;
                         }
                     } else if (VKCode == 'Q') {
                         Win32_ProcessKeyboardEvent(&KeyboardController->ShoulderLeft, IsDown);
@@ -995,17 +995,15 @@ int WINAPI WinMain(
                 Win32_ProcessXInputButton(&OldGamepadInput->Back, &NewGamepadInput->Back, Gamepad.wButtons, XINPUT_GAMEPAD_BACK);
                 Win32_ProcessXInputButton(&OldGamepadInput->Start, &NewGamepadInput->Start, Gamepad.wButtons, XINPUT_GAMEPAD_START);
 
-                NewGamepadInput->StickLXStarted = OldGamepadInput->StickLXEnded;
-                NewGamepadInput->StickLXEnded = Win32_ProcessXInputStick(Gamepad.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+                NewGamepadInput->LeftStickStarted = OldGamepadInput->LeftStickEnded;
 
-                NewGamepadInput->StickLYStarted = OldGamepadInput->StickLYEnded;
-                NewGamepadInput->StickLYEnded = Win32_ProcessXInputStick(Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+                NewGamepadInput->LeftStickEnded.x = Win32_ProcessXInputStick(Gamepad.sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+                NewGamepadInput->LeftStickEnded.y = Win32_ProcessXInputStick(Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
 
-                NewGamepadInput->StickRXStarted = OldGamepadInput->StickRXEnded;
-                NewGamepadInput->StickRXEnded = Win32_ProcessXInputStick(Gamepad.sThumbRX, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
+                NewGamepadInput->RightStickStarted = OldGamepadInput->RightStickEnded;
 
-                NewGamepadInput->StickRYStarted = OldGamepadInput->StickRYEnded;
-                NewGamepadInput->StickRYEnded = Win32_ProcessXInputStick(Gamepad.sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
+                NewGamepadInput->RightStickEnded.x = Win32_ProcessXInputStick(Gamepad.sThumbRX, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
+                NewGamepadInput->RightStickEnded.y = Win32_ProcessXInputStick(Gamepad.sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
 
                 NewGamepadInput->TriggerLeftStarted = OldGamepadInput->TriggerLeftEnded;
                 NewGamepadInput->TriggerLeftEnded = Win32_ProcessXInputTrigger(Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD);

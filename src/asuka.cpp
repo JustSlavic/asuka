@@ -173,6 +173,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     i32 room_width_in_tiles = 16;
     i32 room_height_in_tiles = 9;
 
+    // ===================== INITIALIZATION ===================== //
+
     if (!Memory->IsInitialized) {
         srand((unsigned int)time(NULL));
         GameState->player_position.absolute_tile_x = 3;
@@ -213,11 +215,11 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             (uint8 *) Memory->PermanentStorage + sizeof(game_state),
             Memory->PermanentStorageSize - sizeof(game_state));
 
-        // Generate tilemap
+        // ===================== WORLD GENERATION ===================== //
+
         GameState->world = push_struct(arena, game_world);
         game_world *world = GameState->world;
         tile_map *tilemap = &world->tilemap;
-
 
         tilemap->tile_side_in_meters = 1.0f; // [meters]
         tilemap->chunk_count_x = 40;
@@ -229,7 +231,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         tilemap->chunk_mask  = (1 << tilemap->chunk_shift) - 1;
         tilemap->tile_count_x = 1 << tilemap->chunk_shift;
         tilemap->tile_count_y = 1 << tilemap->chunk_shift;
-
 
         tile_chunk *chunks = push_array(arena, tile_chunk, tilemap->chunk_count_x * tilemap->chunk_count_y * tilemap->chunk_count_z);
         tilemap->chunks = chunks;
@@ -420,7 +421,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
 
         // [units]
-        v2 input_direction = v2{ Input0->StickLXEnded, Input0->StickLYEnded }.normalized();
+        v2 input_direction = Input0->LeftStickEnded.normalized();
+        f32 input_strength = math::clamp(Input0->LeftStickEnded.norm(), 0, 1);
 
         // [m/s^2]
         float32 acceleration_coefficient = 30.0f;
@@ -428,7 +430,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             acceleration_coefficient = 200.0f;
         }
 
-        v2 acceleration = acceleration_coefficient * input_direction;
+        v2 acceleration = acceleration_coefficient * input_strength * input_direction;
 
         // [m/s^2] = [m/s] * [units] * [m/s^2]
         // @todo: why units do not add up?
@@ -438,12 +440,13 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         GameState->player_velocity = GameState->player_velocity + (acceleration - friction_acceleration) * dt;
 
         // [m] = [m] + [m/s] * [s]
-        v2 new_position =
+        v2 new_player_position =
             GameState->player_position.relative_position_on_tile +
             GameState->player_velocity * dt;
 
+#if 0
         tile_map_position temp_player_position = GameState->player_position;
-        temp_player_position.relative_position_on_tile = new_position;
+        temp_player_position.relative_position_on_tile = new_player_position;
 
         tile_map_position player_left_corner = temp_player_position;
         player_left_corner.relative_position_on_tile.x -= character_dimensions.x * 0.5f;
@@ -462,24 +465,124 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         if (tile_is_valid) {
             GameState->player_position = normalized_player_position;
+        }
+#else
+        v2 v0 = GameState->player_velocity;
 
-            if (math::abs(GameState->player_velocity.x) > math::abs(GameState->player_velocity.y)) {
-                if (GameState->player_velocity.x > 0) {
-                    GameState->player_face_direction = PLAYER_FACE_RIGHT;
-                } else {
-                    GameState->player_face_direction = PLAYER_FACE_LEFT;
+        tile_map_position temp_player_position = GameState->player_position;
+        temp_player_position.relative_position_on_tile = new_player_position;
+
+        tile_map_position normalized_player_position = NormalizeTilemapPosition(tilemap, temp_player_position);
+
+        tile_map_position origin {
+            GameState->player_position.absolute_tile_x,
+            GameState->player_position.absolute_tile_y,
+            GameState->player_position.absolute_tile_z,
+            0.0f, 0.0f
+        };
+
+        int32 min_tile_x = GameState->player_position.absolute_tile_x - 1;
+        int32 max_tile_x = GameState->player_position.absolute_tile_x + 1;
+        int32 min_tile_y = GameState->player_position.absolute_tile_y - 1;
+        int32 max_tile_y = GameState->player_position.absolute_tile_y + 1;
+
+        int32 abs_tile_z = GameState->player_position.absolute_tile_z;
+
+        for (int32 abs_tile_y = min_tile_y; abs_tile_y < max_tile_y; abs_tile_y++) {
+            for (int32 abs_tile_x = min_tile_x; abs_tile_x < max_tile_x; abs_tile_x++) {
+                tile_t tile_value = GetTileValue(tilemap, abs_tile_x, abs_tile_y, abs_tile_z);
+
+                if (!IsTileValueEmpty(tile_value)) {
+                    tile_map_position test_top_left_corner {
+                        abs_tile_x, abs_tile_y, abs_tile_z,
+                        -0.5f, 0.5f
+                    };
+
+                    tile_map_position test_top_right_corner {
+                        abs_tile_x, abs_tile_y, abs_tile_z,
+                        0.5f, 0.5f
+                    };
+
+                    tile_map_position test_bottom_right_corner {
+                        abs_tile_x, abs_tile_y, abs_tile_z,
+                        0.5f, -0.5f
+                    };
+
+                    tile_map_position test_bottom_left_corner {
+                        abs_tile_x, abs_tile_y, abs_tile_z,
+                        -0.5f, -0.5f
+                    };
+
+                    v2 wall = PositionDifference(tilemap, test_top_right_corner, test_top_left_corner);
+                    v2 normal = { -wall.y, wall.x }; // normal = wall * i
+
+                    if (math::dot(v0, normal) < 0) {
+                        int test_ = 0; // do something
+                    }
+
+                    wall = PositionDifference(tilemap, test_bottom_right_corner, test_top_right_corner);
+                    normal = { -wall.y, wall.x };
+
+                    if (math::dot(v0, normal) < 0) {
+                        v2 p0 = PositionDifference(tilemap, test_top_right_corner, origin);
+                        v2 p1 = PositionDifference(tilemap, test_bottom_right_corner, origin);
+
+                        // @Debug
+                        // Something wrong with the calculations here!!!
+                        v2 q0 = PositionDifference(tilemap, normalized_player_position, origin);
+                        v2 q1 = PositionDifference(tilemap, GameState->player_position, origin);
+
+                        auto res = segment_segment_intersection(p0, p1, q0, q1);
+                        if (res.found) {
+                            normalized_player_position.relative_position_on_tile = res.intersection;
+                            normalized_player_position = NormalizeTilemapPosition(tilemap, normalized_player_position);
+                            int intersection_valid_do_something = 0;
+                        }
+
+                        int test_ = 0; // do something
+                    }
+
+                    wall = PositionDifference(tilemap, test_bottom_left_corner, test_bottom_right_corner);
+                    normal = { -wall.y, wall.x };
+
+                    if (math::dot(v0, normal) < 0) {
+                        int test_ = 0; // do something
+                    }
+
+                    wall = PositionDifference(tilemap, test_top_left_corner, test_bottom_left_corner);
+                    normal = { -wall.y, wall.x };
+
+                    if (math::dot(v0, normal) < 0) {
+                        int test_ = 0; // do something
+                    }
+
+
                 }
+            }
+        }
+
+        GameState->player_position = normalized_player_position;
+
+#endif
+
+        if (math::absolute(GameState->player_velocity.x) > math::absolute(GameState->player_velocity.y)) {
+            if (GameState->player_velocity.x > 0) {
+                GameState->player_face_direction = PLAYER_FACE_RIGHT;
             } else {
-                if (GameState->player_velocity.y > 0) {
-                    GameState->player_face_direction = PLAYER_FACE_UP;
-                } else {
-                    GameState->player_face_direction = PLAYER_FACE_DOWN;
-                }
+                GameState->player_face_direction = PLAYER_FACE_LEFT;
+            }
+        } else {
+            if (GameState->player_velocity.y > 0) {
+                GameState->player_face_direction = PLAYER_FACE_UP;
+            } else {
+                GameState->player_face_direction = PLAYER_FACE_DOWN;
             }
         }
     }
 
     // Game_OutputSound(SoundBuffer, GameState);
+
+    // ===================== RENDERING ===================== //
 
     // Rendering pink background to really see if there are some pixels I didn't drew
     RenderRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Buffer->Height}, {1.f, 0.f, 1.f});
@@ -488,8 +591,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     tile_chunk_position player_chunk_pos = GetChunkPosition(tilemap, GameState->player_position);
 
-    int32 render_tiles_count_y = 6;
-    int32 render_tiles_count_x = 9;
+    int32 render_tiles_half_count_y = (int32)((f32)Buffer->Height / ((f32)tilemap->tile_side_in_meters * (f32)pixels_per_meter));
+    int32 render_tiles_count_x = (int32)((f32)Buffer->Width / ((f32)tilemap->tile_side_in_meters * (f32)pixels_per_meter));
 
     int32 tile_side_in_pixels = (int32) (GameState->world->tilemap.tile_side_in_meters * pixels_per_meter);
 
@@ -499,18 +602,18 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #define DEBUG_CAMERA_FOLLOW_PLAYER (1 && ASUKA_DEBUG)
 
 #if DEBUG_CAMERA_FOLLOW_PLAYER
-    GameState->camera_position = GameState->player_position;
+    GameState->camera_position = *player_p;
 #else
-    int32 player_room_x = GameState->player_position.absolute_tile_x / room_width_in_tiles;
-    int32 player_room_y = GameState->player_position.absolute_tile_y / room_height_in_tiles;
+    int32 player_room_x = player_p->absolute_tile_x / room_width_in_tiles;
+    int32 player_room_y = player_p->absolute_tile_y / room_height_in_tiles;
 
     GameState->camera_position = {};
     GameState->camera_position.absolute_tile_x = player_room_x * room_width_in_tiles + room_width_in_tiles / 2;
     GameState->camera_position.absolute_tile_y = player_room_y * room_height_in_tiles + room_height_in_tiles / 2;
-    GameState->camera_position.absolute_tile_z = GameState->player_position.absolute_tile_z;
+    GameState->camera_position.absolute_tile_z = player_p->absolute_tile_z;
 #endif
 
-    for (int32 relative_row = -render_tiles_count_y; relative_row < render_tiles_count_y; relative_row++) {
+    for (int32 relative_row = -render_tiles_half_count_y; relative_row < render_tiles_half_count_y; relative_row++) {
         for (int32 relative_column = -render_tiles_count_x; relative_column < render_tiles_count_x; relative_column++) {
 
             int32 row = camera_p->absolute_tile_y + relative_row;
@@ -606,6 +709,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         (player_p->absolute_tile_x - camera_p->absolute_tile_x) * tilemap->tile_side_in_meters * pixels_per_meter +
         (player_p->relative_position_on_tile.x - camera_p->relative_position_on_tile.x) * pixels_per_meter +
         0.5f * tilemap->tile_side_in_meters * pixels_per_meter,
+    // ===================== RENDERING CHARACTERS ===================== //
 
         (f32) Buffer->Height / 2.0f +
         (player_p->absolute_tile_y - camera_p->absolute_tile_y) * tilemap->tile_side_in_meters * pixels_per_meter +

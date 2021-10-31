@@ -55,17 +55,11 @@ struct Game_ControllerInput {
         };
     };
 
-    float32 StickLXStarted;
-    float32 StickLYStarted;
+    math::v2 LeftStickStarted;
+    math::v2 LeftStickEnded;
 
-    float32 StickLXEnded;
-    float32 StickLYEnded;
-
-    float32 StickRXStarted;
-    float32 StickRYStarted;
-
-    float32 StickRXEnded;
-    float32 StickRYEnded;
+    math::v2 RightStickStarted;
+    math::v2 RightStickEnded;
 
     float32 TriggerLeftStarted;
     float32 TriggerLeftEnded;
@@ -105,10 +99,16 @@ enum Debug_PlaybackLoopState {
 
 struct Game_Input {
     Game_MouseState Mouse;
-    Game_ControllerInput KeyboardController;
-    // 0 - Keyboard controller
-    // 1-5 - Gamepad controllers
-    Game_ControllerInput Controllers[4];
+
+    union {
+        // 0 - Keyboard controller
+        // 1-5 - Gamepad controllers
+        Game_ControllerInput AllControllers[5];
+        struct {
+            Game_ControllerInput KeyboardController;
+            Game_ControllerInput Controllers[4];
+        };
+    };
 
     // Probably should go to a game no in controller input?
     float32 dt;
@@ -120,8 +120,8 @@ struct Game_Input {
 
 
 inline Game_ControllerInput* GetController(Game_Input* Input, int ControllerIndex) {
-    ASSERT(ControllerIndex < ARRAY_COUNT(Input->Controllers));
-    return &Input->Controllers[ControllerIndex];
+    ASSERT(ControllerIndex < ARRAY_COUNT(Input->AllControllers));
+    return &Input->AllControllers[ControllerIndex];
 }
 
 
