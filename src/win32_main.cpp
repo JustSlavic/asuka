@@ -31,6 +31,7 @@
 
 
 #define DRAW_DEBUG_SOUND_CURSORS (0 && ASUKA_DEBUG)
+#define DEBUG_WINDOW_ON_TOP (1 && ASUKA_DEBUG)
 
 
 struct Win32_GameDLL {
@@ -522,13 +523,15 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
             break;
         }
         case WM_ACTIVATEAPP: {
+#if DEBUG_WINDOW_ON_TOP
             if (wParam == TRUE) {
-                // LONG_PTR SetExtendedStyleResult = SetWindowLongPtrA(Window, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED);
-                // SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 255, LWA_ALPHA);
+                LONG_PTR SetExtendedStyleResult = SetWindowLongPtrA(Window, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED);
+                SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 255, LWA_ALPHA);
             } else {
-                // LONG_PTR SetExtendedStyleResult = SetWindowLongPtrA(Window, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT);
-                // SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 64, LWA_ALPHA);
+                LONG_PTR SetExtendedStyleResult = SetWindowLongPtrA(Window, GWL_EXSTYLE, WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT);
+                SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 64, LWA_ALPHA);
             }
+#endif
             break;
         }
         case WM_SYSKEYDOWN:
@@ -821,7 +824,11 @@ int WINAPI WinMain(
     }
 
     HWND Window = CreateWindowExA(
-        0, // WS_EX_TOPMOST | WS_EX_LAYERED,
+#if DEBUG_WINDOW_ON_TOP
+        WS_EX_TOPMOST | WS_EX_LAYERED,
+#else
+        0,
+#endif
         WindowClass.lpszClassName,
         "AsukaWindow",
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
@@ -1146,7 +1153,7 @@ int WINAPI WinMain(
                 DWORD SleepMS = truncate_cast_to_uint32(1000.f * (TargetSecondsPerFrame - SecondsElapsedForFrame));
                 if (SleepMS > 0) {
                     // @todo
-                    // Sleep(SleepMS);
+                    Sleep(SleepMS);
                 }
             }
 

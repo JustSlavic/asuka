@@ -28,7 +28,6 @@ struct vector2 {
     union {
         struct { float32  x,  y; };
         struct { float32  u,  v; };
-        struct { float32 _1, _2; };
         float32 at[2];
     };
 
@@ -163,43 +162,86 @@ inline vector2 mul_per_axis(vector2 a, vector2 b) {
     return result;
 }
 
+enum intersection_type {
+    INTERSECTION_FOUND,      //
+    INTERSECTION_PARALLEL,   //
+    INTERSECTION_COLLINEAR,  //
+    INTERSECTION_SKEW,       //
+    INTERSECTION_OUT_BOUNDS, //
+};
+
+inline vector2 project(vector2 a, vector2 b) {
+    vector2 result = b * math::dot(a, b) / b.length_2();
+    return result;
+}
+
+inline float32 projection(vector2 a, vector2 b) {
+    float32 result = math::dot(a, b) / b.length();
+    return result;
+}
+
 struct intersection_result {
-    bool32 found;
+    intersection_type found;
     v2 intersection;
 };
 
-inline intersection_result segment_segment_intersection(vector2 p0, vector2 p1, vector2 q0, vector2 q1) {
+inline
+vector2 line_line_intersection(vector2 r0, vector2 r1, vector2 s0, vector2 s1) {
+    vector2 result;
+
+    vector2 r = r1 - r0;
+    vector2 s = s1 - s0;
+
+    float32 denom = r.x * s.y - r.y * s.x;
+    float32 nom = ((s0.x - r0.x) * s.y - (s0.y - r0.y) * s.x);
+
+    float32 t = nom / denom;
+    result = r0 + t * r;
+
+    return result;
+}
+
+inline
+intersection_result segment_segment_intersection(vector2 p0, vector2 p1, vector2 q0, vector2 q1) {
     intersection_result result {};
 
     vector2 r = p1 - p0;
     vector2 s = q1 - q0;
 
     float32 denom = r.x * s.y - r.y * s.x;
-    if (absolute(denom) < ASUKA_EPS) {
-        result = { false, v2::nan() };
+    float32 nom = ((q0.x - p0.x) * s.y - (q0.y - p0.y) * s.x);
+
+    if (absolute(denom) < EPSILON && absolute(nom) < EPSILON) {
+        result = { INTERSECTION_COLLINEAR, v2::nan() };
         return result;
     }
 
-    float32 nom = ((q0.x - p0.x) * s.y - (q0.y - p0.y) * s.x);
-    if (absolute(nom) < ASUKA_EPS) {
-        result = { false, v2::nan() };
+    if (absolute(denom) < EPSILON && absolute(nom) > EPSILON) {
+        result = { INTERSECTION_PARALLEL, v2::nan() };
         return result;
     }
 
     float32 t = nom / denom;
     v2 intersection = p0 + t * r;
 
-    if ((t < 0) || (t > 0 && intersection.length_2() > r.length_2())) {
-        result = { false, intersection };
+    // t < 0 checks for  X<-p0-->p1 situation
+    // t > 0 requires us to check whether it's p0-->p1->X situation
+    if ((t + EPSILON < 0) || (t > 0 && intersection.length_2() - EPSILON > r.length_2())) {
+        result = { INTERSECTION_OUT_BOUNDS, intersection };
         return result;
     }
 
-    if ((dot(intersection - q0, q1 - q0) < 0) || ((intersection - q0).length_2() > s.length_2())) {
-        result = { false, intersection };
+    // dot(intersection - q0, q1 - q0) < 0           checks for X<-q0-->q1 situation
+    float32 vector_alignment = dot(intersection - q0, q1 - q0);
+    // (intersection - q0).length_2() > s.length_2() checks for q0-->q1->X situation
+    float32 vector_iq0_length = (intersection - q0).length_2();
+    float32 vector_s_length = s.length_2();
+    if ((vector_alignment + EPSILON < 0) || (vector_iq0_length - EPSILON > vector_s_length)) {
+        result = { INTERSECTION_OUT_BOUNDS, intersection };
         return result;
     }
 
-    result = { true, intersection };
+    result = { INTERSECTION_FOUND, intersection };
     return result;
 }
 

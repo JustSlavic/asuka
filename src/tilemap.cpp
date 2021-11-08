@@ -103,8 +103,8 @@ void NormalizeCoordinate(tile_map *map, i32 *tile, f32 *relative_coord) {
     *tile += offset;
     *relative_coord -= offset * map->tile_side_in_meters;
 
-    ASSERT(*relative_coord - (0.5f * map->tile_side_in_meters) < ASUKA_EPS);
-    ASSERT(*relative_coord + (0.5f * map->tile_side_in_meters) > -ASUKA_EPS);
+    ASSERT(*relative_coord - (0.5f * map->tile_side_in_meters) < EPSILON);
+    ASSERT(*relative_coord + (0.5f * map->tile_side_in_meters) > -EPSILON);
 }
 
 tile_map_position NormalizeTilemapPosition(tile_map* map, tile_map_position position) {

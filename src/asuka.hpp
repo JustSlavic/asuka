@@ -26,7 +26,28 @@ struct ThreadContext {
 //
 
 struct Game_ButtonState {
+    // HalfTransitionCount helps detect very quick pressing, but we are bad at slow pressing
     int32  HalfTransitionCount;
+    /*
+
+    @todo: make "PulsePress" and "HoldPress" variables, to distinguish slow pressing from
+            holding when I need to.
+
+                  +-+
+                  | |
+    PulsePress ---+ +---------------------
+
+                  +------------+
+                  |            |
+    HoldPress  ---+            +----------
+                             ^
+                             | second "press" on second frame which I want not to happen
+                             v
+    Frames     |------------|------------|
+
+
+
+    */
     bool32 EndedDown;
 };
 
@@ -165,12 +186,16 @@ enum PlayerFaceDirection {
     PLAYER_FACE_UP = 3,
 };
 
+struct game_entity {
+    tile_map_position position;
+    math::v2 velocity;
+    PlayerFaceDirection face_direction;
+    math::v2 hitbox;
+};
+
 struct game_state {
     tile_map_position camera_position;
-
-    tile_map_position player_position;
-    math::v2 player_velocity;
-    PlayerFaceDirection player_face_direction;
+    game_entity player;
 
     game_world *world;
 

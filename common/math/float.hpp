@@ -78,6 +78,26 @@ inline int32 floor_to_int32(float32 x) {
     return (int32) result;
 }
 
+inline float32 min(float32 x, float32 y) {
+    float32 result = (x < y) ? x : y;
+    return result;
+}
+
+inline float32 max(float32 x, float32 y) {
+    float32 result = (x < y) ? y : x;
+    return result;
+}
+
+inline int32 min(int32 x, int32 y) {
+    int32 result = (x < y) ? x : y;
+    return result;
+}
+
+inline int32 max(int32 x, int32 y) {
+    int32 result = (x < y) ? y : x;
+    return result;
+}
+
 inline float32 square(float32 x) {
     float32 result = x*x;
     return result;
@@ -99,10 +119,20 @@ inline float32 clamp(f32 x, f32 min, f32 max) {
     return result;
 }
 
-inline f32 lerp (f32 a, f32 b, f32 t) {
+inline f32 lerp(f32 a, f32 b, f32 t) {
     ASSERT(0.f <= t && t <= 1.f);
 
     return (1.f - t) * a + t * b;
+}
+
+inline int32 sign(int32 value) {
+    int32 result = (value > 0) - (value < 0);
+    return result;
+}
+
+inline int32 sign(float32 value) {
+    int32 result = (value > 0) - (value < 0);
+    return result;
 }
 
 } // namespace math

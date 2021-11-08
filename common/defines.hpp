@@ -108,7 +108,7 @@ typedef signed long long   int64;
 #define GIGABYTES(VALUE) (MEGABYTES((uint64)(VALUE))*1024)
 #define TERABYTES(VALUE) (GIGABYTES((uint64)(VALUE))*1024)
 
-#define ASUKA_EPS (1e-7)
+#define EPSILON (1e-7f)
 
 #define INT8_MIN (0x80)
 #define INT8_MAX (0x7F)
