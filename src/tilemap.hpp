@@ -81,6 +81,7 @@ bool32 IsTileValueEmpty(tile_t tile_value);
 bool32 IsWorldPointEmpty(tile_map *map, tile_map_position pos);
 tile_map_position NormalizeTilemapPosition(tile_map* map, tile_map_position position);
 math::vector2 PositionDifference(tile_map *tilemap, tile_map_position p1, tile_map_position p2);
+tile_map_position MovePosition(tile_map *tilemap, tile_map_position pos, math::v2 offset);
 
 #ifdef UNITY_BUILD
 #include "tilemap.cpp"

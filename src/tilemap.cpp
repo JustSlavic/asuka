@@ -141,3 +141,10 @@ math::vector2 PositionDifference(tile_map *tilemap, tile_map_position p1, tile_m
 
     return result;
 }
+
+tile_map_position MovePosition(tile_map *tilemap, tile_map_position pos, math::v2 offset) {
+    pos.relative_position_on_tile += offset;
+    tile_map_position result = NormalizeTilemapPosition(tilemap, pos);
+
+    return result;
+}

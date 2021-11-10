@@ -31,7 +31,7 @@
 
 
 #define DRAW_DEBUG_SOUND_CURSORS (0 && ASUKA_DEBUG)
-#define DEBUG_WINDOW_ON_TOP (1 && ASUKA_DEBUG)
+#define DEBUG_WINDOW_ON_TOP (0 && ASUKA_DEBUG)
 
 
 struct Win32_GameDLL {
