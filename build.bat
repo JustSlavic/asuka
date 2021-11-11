@@ -20,7 +20,7 @@ DEL *.pdb 2>NUL
 
 SET HOUR=%time:~0,2%
 IF "%HOUR:~0,1%" == " " SET HOUR=0%HOUR:~1,1%
-SET PDB_FILENAME=%date:~10,4%_%date:~7,2%_%date:~4,2%_%HOUR%_%time:~3,2%_%time:~6,2%_asuka.pdb
+SET PDB_FILENAME=%date:~6,4%_%date:~3,2%_%date:~0,2%_%HOUR%_%time:~3,2%_%time:~6,2%_asuka.pdb
 
 echo WAITING FOR PDB > lock.tmp
 cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DLL_BUILD /Feasuka ../src/asuka.cpp      /LD  /link /PDB:%PDB_FILENAME% %COMMON_LINKER_FLAGS%

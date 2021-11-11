@@ -26,7 +26,28 @@ struct ThreadContext {
 //
 
 struct Game_ButtonState {
+    // HalfTransitionCount helps detect very quick pressing, but we are bad at slow pressing
     int32  HalfTransitionCount;
+    /*
+
+    @todo: make "PulsePress" and "HoldPress" variables, to distinguish slow pressing from
+            holding when I need to.
+
+                  +-+
+                  | |
+    PulsePress ---+ +---------------------
+
+                  +------------+
+                  |            |
+    HoldPress  ---+            +----------
+                             ^
+                             | second "press" on second frame which I want not to happen
+                             v
+    Frames     |------------|------------|
+
+
+
+    */
     bool32 EndedDown;
 };
 
@@ -55,17 +76,11 @@ struct Game_ControllerInput {
         };
     };
 
-    float32 StickLXStarted;
-    float32 StickLYStarted;
+    math::v2 LeftStickStarted;
+    math::v2 LeftStickEnded;
 
-    float32 StickLXEnded;
-    float32 StickLYEnded;
-
-    float32 StickRXStarted;
-    float32 StickRYStarted;
-
-    float32 StickRXEnded;
-    float32 StickRYEnded;
+    math::v2 RightStickStarted;
+    math::v2 RightStickEnded;
 
     float32 TriggerLeftStarted;
     float32 TriggerLeftEnded;
@@ -105,10 +120,16 @@ enum Debug_PlaybackLoopState {
 
 struct Game_Input {
     Game_MouseState Mouse;
-    Game_ControllerInput KeyboardController;
-    // 0 - Keyboard controller
-    // 1-5 - Gamepad controllers
-    Game_ControllerInput Controllers[4];
+
+    union {
+        // 0 - Keyboard controller
+        // 1-5 - Gamepad controllers
+        Game_ControllerInput AllControllers[5];
+        struct {
+            Game_ControllerInput KeyboardController;
+            Game_ControllerInput Controllers[4];
+        };
+    };
 
     // Probably should go to a game no in controller input?
     float32 dt;
@@ -120,8 +141,8 @@ struct Game_Input {
 
 
 inline Game_ControllerInput* GetController(Game_Input* Input, int ControllerIndex) {
-    ASSERT(ControllerIndex < ARRAY_COUNT(Input->Controllers));
-    return &Input->Controllers[ControllerIndex];
+    ASSERT(ControllerIndex < ARRAY_COUNT(Input->AllControllers));
+    return &Input->AllControllers[ControllerIndex];
 }
 
 
@@ -165,12 +186,16 @@ enum PlayerFaceDirection {
     PLAYER_FACE_UP = 3,
 };
 
+struct game_entity {
+    tile_map_position position;
+    math::v2 velocity;
+    PlayerFaceDirection face_direction;
+    math::v2 hitbox;
+};
+
 struct game_state {
     tile_map_position camera_position;
-
-    tile_map_position player_position;
-    math::v2 player_velocity;
-    PlayerFaceDirection player_face_direction;
+    game_entity player;
 
     game_world *world;
 
