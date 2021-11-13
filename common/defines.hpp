@@ -114,28 +114,24 @@ typedef signed long long   int64;
 
 #define EPSILON (1e-7f)
 
-#define INT8_MIN (0x80)
-#define INT8_MAX (0x7F)
-
-#define UINT8_MIN (0)
-#define UINT8_MAX (0xFF)
-
-#define INT16_MIN (0x8000)
-#define INT16_MAX (0x7FFF)
-
-#define UINT16_MIN (0)
-#define UINT16_MAX (0xFFFF)
-
-#define INT32_MIN (0x8000'0000)
-#define INT32_MAX (0x7FFF'FFFF)
-
-#define UINT32_MIN (0)
-#define UINT32_MAX (0xFFFF'FFFF)
-
+#define INT8_MIN   (0x80)
+#define INT16_MIN  (0x8000)
+#define INT32_MIN  (0x8000'0000)
 #define INT64_MIN  (0x8000'0000'0000'0000)
+
+#define INT8_MAX   (0x7F)
+#define INT16_MAX  (0x7FFF)
+#define INT32_MAX  (0x7FFF'FFFF)
 #define INT64_MAX  (0x7FFF'FFFF'FFFF'FFFF)
 
+#define UINT8_MIN  (0)
+#define UINT16_MIN (0)
+#define UINT32_MIN (0)
 #define UINT64_MIN (0)
+
+#define UINT8_MAX  (0xFF)
+#define UINT16_MAX (0xFFFF)
+#define UINT32_MAX (0xFFFF'FFFF)
 #define UINT64_MAX (0xFFFF'FFFF'FFFF'FFFF)
 
 typedef int16 sound_sample_t;
@@ -157,5 +153,9 @@ typedef float  float32;
 typedef float  f32;
 typedef double float64;
 typedef double f64;
+
+#define loop while(true)
+
+#define memespace namespace
 
 #endif // ASUKA_COMMON_DEFINES_HPP

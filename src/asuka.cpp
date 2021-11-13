@@ -546,6 +546,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                                     velocity_at_closest_destination = math::project(current_velocity, wall);
                                 }
                             }
+
                             if (res.found == math::INTERSECTION_FOUND) {
                                 if ((res.intersection - current_position).length_2() < (closest_destination - current_position).length_2()) {
                                     closest_destination = res.intersection;
@@ -565,9 +566,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
             current_position = closest_destination;
             current_velocity = velocity_at_closest_destination;
-
             current_destination = current_position + current_velocity * (dt - time_spent_moving);
         }
+
         tile_map_position new_tilemap_position = entity->position;
         new_tilemap_position.relative_position_on_tile = current_position;
 
@@ -715,12 +716,13 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
     }
 
+    // ===================== RENDERING CHARACTERS ===================== //
+
     v2 player_position_in_bottom_up_screen_pixel_coordinates = {
         (f32) Buffer->Width / 2.0f +
         (player_p->absolute_tile_x - camera_p->absolute_tile_x) * tilemap->tile_side_in_meters * pixels_per_meter +
         (player_p->relative_position_on_tile.x - camera_p->relative_position_on_tile.x) * pixels_per_meter +
         0.5f * tilemap->tile_side_in_meters * pixels_per_meter,
-    // ===================== RENDERING CHARACTERS ===================== //
 
         (f32) Buffer->Height / 2.0f +
         (player_p->absolute_tile_y - camera_p->absolute_tile_y) * tilemap->tile_side_in_meters * pixels_per_meter +
