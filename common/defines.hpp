@@ -45,6 +45,10 @@ typedef unsigned __int64 uint64;
 #define ASUKA_DLL_EXPORT
 #endif // ASUKA_DLL_BUILD
 
+#define WRITE_BARRIER _WriteBarrier()
+#define READ_BARRIER _ReadBarrier()
+#define READ_WRITE_BARRIER _ReadWriteBarrier()
+
 #endif // ASUKA_COMPILER_MICROSOFT
 
 #ifdef ASUKA_COMPILER_GNU
