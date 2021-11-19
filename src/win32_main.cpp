@@ -593,27 +593,27 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
                         Win32_ProcessKeyboardEvent(&KeyboardController->Start, IsDown);
                     } else if (VKCode == 'W') {
                         if (IsDown) {
-                            KeyboardController->LeftStickEnded.y = 1;
+                            KeyboardController->LeftStickEnded.y = math::clamp(KeyboardController->LeftStickEnded.y + 1, -1, 1);
                         } else {
-                            KeyboardController->LeftStickEnded.y = 0;
+                            KeyboardController->LeftStickEnded.y = math::clamp(KeyboardController->LeftStickEnded.y - 1, -1, 1);
                         }
                     } else if (VKCode == 'A') {
                         if (IsDown) {
-                            KeyboardController->LeftStickEnded.x = -1;
+                            KeyboardController->LeftStickEnded.x = math::clamp(KeyboardController->LeftStickEnded.x - 1, -1, 1);
                         } else {
-                            KeyboardController->LeftStickEnded.x = 0;
+                            KeyboardController->LeftStickEnded.x = math::clamp(KeyboardController->LeftStickEnded.x + 1, -1, 1);
                         }
                     } else if (VKCode == 'S') {
                         if (IsDown) {
-                            KeyboardController->LeftStickEnded.y = -1;
+                            KeyboardController->LeftStickEnded.y = math::clamp(KeyboardController->LeftStickEnded.y - 1, -1, 1);
                         } else {
-                            KeyboardController->LeftStickEnded.y = 0;
+                            KeyboardController->LeftStickEnded.y = math::clamp(KeyboardController->LeftStickEnded.y + 1, -1, 1);
                         }
                     } else if (VKCode == 'D') {
                         if (IsDown) {
-                            KeyboardController->LeftStickEnded.x = 1;
+                            KeyboardController->LeftStickEnded.x = math::clamp(KeyboardController->LeftStickEnded.x + 1, -1, 1);
                         } else {
-                            KeyboardController->LeftStickEnded.x = 0;
+                            KeyboardController->LeftStickEnded.x = math::clamp(KeyboardController->LeftStickEnded.x - 1, -1, 1);
                         }
                     } else if (VKCode == 'Q') {
                         Win32_ProcessKeyboardEvent(&KeyboardController->ShoulderLeft, IsDown);
@@ -957,8 +957,11 @@ int WINAPI WinMain(
         Game_ControllerInput* OldKeyboardController = &OldInput->KeyboardInput;
         Game_ControllerInput* NewKeyboardController = &NewInput->KeyboardInput;
 
-        Game_ControllerInput ZeroController{};
         *NewKeyboardController = *OldKeyboardController;
+
+        for (uint32 ButtonIndex = 0; ButtonIndex < ARRAY_COUNT(NewKeyboardController->Buttons); ButtonIndex++) {
+            NewKeyboardController->Buttons[ButtonIndex].HalfTransitionCount = 0;
+        }
 
         // Save EndedDown state between frames so that we could hold buttons
         // for (uint32 ButtonIndex = 0; ButtonIndex < ARRAY_COUNT(OldKeyboardController->Buttons); ButtonIndex++) {
