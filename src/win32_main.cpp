@@ -217,9 +217,10 @@ void Win32_UnloadGameDLL(Win32_GameDLL* GameCode) {
 
 INTERNAL_FUNCTION
 void Win32_ProcessKeyboardEvent(Game_ButtonState* NewState, bool32 IsDown) {
-    ASSERT(NewState->EndedDown != IsDown);
-    NewState->EndedDown = IsDown;
-    NewState->HalfTransitionCount++;
+    if (NewState->EndedDown != IsDown) {
+        NewState->EndedDown = IsDown;
+        NewState->HalfTransitionCount++;
+    }
 }
 
 
@@ -953,8 +954,8 @@ int WINAPI WinMain(
             Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath, LockFilepath);
         }
 
-        Game_ControllerInput* OldKeyboardController = &OldInput->KeyboardController;
-        Game_ControllerInput* NewKeyboardController = &NewInput->KeyboardController;
+        Game_ControllerInput* OldKeyboardController = &OldInput->KeyboardInput;
+        Game_ControllerInput* NewKeyboardController = &NewInput->KeyboardInput;
 
         Game_ControllerInput ZeroController{};
         *NewKeyboardController = *OldKeyboardController;
@@ -968,20 +969,21 @@ int WINAPI WinMain(
         OldInput->Mouse = NewInput->Mouse;
 
         DWORD MaxControllerCount = XUSER_MAX_COUNT;
-        if (MaxControllerCount > ARRAY_COUNT(Input[0].Controllers)) {
-            MaxControllerCount = ARRAY_COUNT(Input[0].Controllers);
+        if (MaxControllerCount > ARRAY_COUNT(Input[0].ControllerInputs)) {
+            MaxControllerCount = ARRAY_COUNT(Input[0].ControllerInputs);
         }
 
         for (DWORD GamepadXInputIndex = 0; GamepadXInputIndex < MaxControllerCount; GamepadXInputIndex++ ) {
             DWORD GamepadIndex = GamepadXInputIndex;
 
             XINPUT_STATE InputState;
-            auto CONTROLLER_STATE_EC = XInputGetState(0, &InputState);
+            auto CONTROLLER_STATE_EC = XInputGetState(GamepadXInputIndex, &InputState);
             if (CONTROLLER_STATE_EC == ERROR_SUCCESS) {
                 XINPUT_GAMEPAD Gamepad = InputState.Gamepad;
 
-                Game_ControllerInput* OldGamepadInput = GetController(OldInput, GamepadIndex);
-                Game_ControllerInput* NewGamepadInput = GetController(NewInput, GamepadIndex);
+                Game_ControllerInput* OldGamepadInput = GetGamepadInput(OldInput, GamepadIndex);
+                Game_ControllerInput* NewGamepadInput = GetGamepadInput(NewInput, GamepadIndex);
+                *NewGamepadInput = {};
 
                 Win32_ProcessXInputButton(&OldGamepadInput->A, &NewGamepadInput->A, Gamepad.wButtons, XINPUT_GAMEPAD_A);
                 Win32_ProcessXInputButton(&OldGamepadInput->B, &NewGamepadInput->B, Gamepad.wButtons, XINPUT_GAMEPAD_B);

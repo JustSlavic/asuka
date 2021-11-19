@@ -396,15 +396,15 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     f32 friction_coefficient = 1.0f;
 
     {
-        Game_ControllerInput* Input0 = GetController(Input, 0);
-        Input0 = &Input->KeyboardController;
+        Game_ControllerInput* ControllerInput = GetGamepadInput(Input, 0);
+        ControllerInput = &Input->KeyboardInput;
 
-        if (Input0->Y.EndedDown) {
+        if (GetPressCount(ControllerInput->Y)) {
             Memory->IsInitialized = false;
         }
 
-        if (Input0->X.EndedDown) {
             tile_map_position *pos = &GameState->player.position;
+        if (GetPressCount(ControllerInput->X)) {
             tile_t tile_value = GetTileValue(tilemap, pos->absolute_tile_x, pos->absolute_tile_y, pos->absolute_tile_z);
 
             if (tile_value == TILE_DOOR_UP) {
@@ -416,6 +416,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     pos->absolute_tile_z += 1;
                 }
             }
+
             if (tile_value == TILE_DOOR_DOWN) {
                 tile_map_position move_down_position = *pos;
                 move_down_position.absolute_tile_z -= 1;
@@ -432,12 +433,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_entity* entity = &GameState->player;
 
         // [units]
-        v2 input_direction = Input0->LeftStickEnded.normalized();
-        f32 input_strength = math::clamp(Input0->LeftStickEnded.norm(), 0, 1);
+        v2 input_direction = ControllerInput->LeftStickEnded.normalized();
+        f32 input_strength = math::clamp(ControllerInput->LeftStickEnded.norm(), 0, 1);
 
         // [m/s^2]
         float32 acceleration_coefficient = 30.0f;
-        if (Input0->A.EndedDown) {
+        if (ControllerInput->A.EndedDown) {
             acceleration_coefficient = 200.0f;
         }
 

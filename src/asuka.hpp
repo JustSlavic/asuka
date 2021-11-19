@@ -26,12 +26,8 @@ struct ThreadContext {
 //
 
 struct Game_ButtonState {
-    // HalfTransitionCount helps detect very quick pressing, but we are bad at slow pressing
-    int32  HalfTransitionCount;
     /*
-
-    @todo: make "PulsePress" and "HoldPress" variables, to distinguish slow pressing from
-            holding when I need to.
+    HalfTransitionCount helps detect very quick pressing, but we are bad at slow pressing
 
                   +-+
                   | |
@@ -45,10 +41,12 @@ struct Game_ButtonState {
                              v
     Frames     |------------|------------|
 
-
-
+    to get number of "presses" happened on this frame, call 'uint32 GetPressCount(Game_ButtonState)' function
+    to get number of "holds" happened on this frame, call 'uint32 GetHoldsCount(Game_ButtonState)' function
     */
-    bool32 EndedDown;
+
+    bool32 EndedDown;  // Was it ended down?
+    int32  HalfTransitionCount; // How many times state was changed
 };
 
 struct Game_AxisState {
@@ -124,10 +122,10 @@ struct Game_Input {
     union {
         // 0 - Keyboard controller
         // 1-5 - Gamepad controllers
-        Game_ControllerInput AllControllers[5];
+        Game_ControllerInput ControllerInputs[5];
         struct {
-            Game_ControllerInput KeyboardController;
-            Game_ControllerInput Controllers[4];
+            Game_ControllerInput KeyboardInput;
+            Game_ControllerInput GamepadInputs[4];
         };
     };
 
@@ -140,9 +138,29 @@ struct Game_Input {
 };
 
 
-inline Game_ControllerInput* GetController(Game_Input* Input, int ControllerIndex) {
-    ASSERT(ControllerIndex < ARRAY_COUNT(Input->AllControllers));
-    return &Input->AllControllers[ControllerIndex];
+INLINE_FUNCTION
+Game_ControllerInput* GetControllerInput(Game_Input* Input, int ControllerIndex) {
+    ASSERT(ControllerIndex < ARRAY_COUNT(Input->ControllerInputs));
+    return &Input->ControllerInputs[ControllerIndex];
+}
+
+
+INLINE_FUNCTION
+Game_ControllerInput* GetGamepadInput(Game_Input *Input, int32 GamepadIndex) {
+    ASSERT(GamepadIndex < ARRAY_COUNT(Input->GamepadInputs));
+    return &Input->GamepadInputs[GamepadIndex];
+}
+
+INLINE_FUNCTION
+uint32 GetPressCount(Game_ButtonState button) {
+    uint32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
+    return result;
+}
+
+INLINE_FUNCTION
+uint32 GetHoldsCount(Game_ButtonState button) {
+    uint32 result = (button.HalfTransitionCount > 0) || (button.EndedDown > 0);
+    return result;
 }
 
 
