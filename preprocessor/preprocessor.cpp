@@ -139,7 +139,21 @@ struct lexer {
 
     token next_token;
     bool32 next_token_ready;
+
+    token_type keyword_to_token_type[64];
+    string keywords[64];
+    uint32 keyword_count;
 };
+
+
+inline
+void add_keyword(lexer *lex, string kw, token_type type) {
+    ASSERT(keyword_count < ARRAY_COUNT(lex->keywords))
+    lex->keywords[lex->keyword_count] = kw;
+    lex->keyword_to_token_type[lex->keyword_count] = type;
+
+    lex->keyword_count += 1;
+}
 
 
 inline
@@ -342,6 +356,12 @@ token get_token(lexer *lex) {
                 result.span.size += 1;
                 c = get_char(lex);
             }
+
+            for (uint32 keyword_index = 0; keyword_index < lex->keyword_count; keyword_index++) {
+                if (compare(lex->keywords[keyword_index], result.span) == 0) {
+                    result.type = lex->keyword_to_token_type[keyword_index];
+                }
+            }
         } else {
             result.type = (token_type)c;
             result.line = lex->line;
@@ -372,14 +392,64 @@ static token eat_token(lexer *lex) {
 
 
 static
+bool32 parse_preprocessor_directive(lexer *lex) {
+    string kw_include;
+    kw_include.memory = "include";
+    kw_include.size = c_string_size(kw_include.memory);
+
+    string kw_define;
+    kw_define.memory = "define";
+    kw_define.size = c_string_size(kw_define.memory);
+
+    token pound = get_token(lex);
+    if (pound.type == TOKEN_HASH) {
+        eat_token(lex);
+        token directive = eat_token(lex);
+        if (directive.type == TOKEN_ID) {
+            if (compare(directive.span, kw_include) == 0) {
+                token open_angle = eat_token(lex);
+                token header_name = eat_token(lex);
+                token close_angle_or_dot = eat_token(lex);
+                if (close_angle_or_dot.type == TOKEN_DOT) {
+                    token extension = eat_token(lex);
+                    token close_angle = eat_token(lex);
+                }
+                printf("                include (header=\"%.*s\")\n",
+                    (int)header_name.span.size, header_name.span.memory);
+            } else if (compare(directive.span, kw_define) == 0) {
+                token macro_name = eat_token(lex);
+                token open_paren = get_token(lex);
+                if (open_paren.type == TOKEN_OPEN_PAREN) {
+                    eat_token(lex); // (
+                    eat_token(lex); // CATEGORY
+                    eat_token(lex); // )
+                }
+                printf("                define (macro=\"%.*s\")\n",
+                    (int)macro_name.span.size, macro_name.span.memory);
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
+
+static
 bool32 parse_introspect(lexer *lex) {
-    string introspect_keyword;
-    introspect_keyword.memory = "introspect";
-    introspect_keyword.size = c_string_size(introspect_keyword.memory);
+    string kw_introspect;
+    kw_introspect.memory = "introspect";
+    kw_introspect.size = c_string_size(kw_introspect.memory);
 
     token t = get_token(lex);
     if (t.type == TOKEN_ID) {
-        if (compare(t.span, introspect_keyword) == 0) {
+        if (compare(t.span, kw_introspect) == 0) {
             eat_token(lex);
             token open_paren = eat_token(lex);
             token property = eat_token(lex);
@@ -403,18 +473,82 @@ bool32 parse_introspect(lexer *lex) {
 
 
 static
-void parse(char *filename) {
-    lexer lex = {};
-    lex.buffer = load_entire_file(filename);
+bool32 parse_struct_members(lexer *lex) {
+    token t = get_token(lex);
 
-    if (lex.buffer.size > 0) {
-        token t {};
+    if (t.type == TOKEN_ID) {
+        eat_token(lex);
+        token var = eat_token(lex);
+        token punctuation = eat_token(lex);
+        while (punctuation.type == TOKEN_COMMA) {
+            var = eat_token(lex);
+            punctuation = eat_token(lex);
+        }
+
+        if (punctuation.type != TOKEN_SEMICOLON) {
+            return false;
+        }
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
+
+static
+bool32 parse_struct(lexer *lex) {
+    token t = get_token(lex);
+
+    if (t.type == TOKEN_KW_STRUCT) {
+        eat_token(lex); // struct
+        token id = eat_token(lex);
+        if (id.type == TOKEN_ID) {
+            eat_token(lex); // {
+        }
+
+        t = get_token(lex);
+        while(true) {
+            if (!parse_struct_members(lex)) {
+                break;
+            }
+        }
+
+        eat_token(lex); // }
+        eat_token(lex); // ;
+
+        printf("                struct (name=\"%.*s\")\n",
+                (int)id.span.size, id.span.memory);
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
+
+static
+void parse(char *filename) {
+    lexer lex_ = {};
+    lex_.buffer = load_entire_file(filename);
+
+    string kw_struct;
+    kw_struct.memory = "struct";
+    kw_struct.size = c_string_size(kw_struct.memory);
+
+    lexer *lex = &lex_;
+    add_keyword(lex, kw_struct, TOKEN_KW_STRUCT);
+
+    if (lex->buffer.size > 0) {
+        token t = get_token(lex);
         do {
-            bool32 success = parse_introspect(&lex);
-            if (success) {
-                printf("SUCCESS!!!\n");
+            if (parse_preprocessor_directive(lex)) {
+                printf("SUCCESS DIRECTIVE!!!\n");
+            } else if (parse_introspect(lex)) {
+                printf("SUCCESS INTROSPECT!!!\n");
+                parse_struct(lex);
             } else {
-                t = get_token(&lex);
+                t = get_token(lex);
                 if (t.type == TOKEN_EOF) {
                     printf("EOF\n");
                 } else if (t.type == TOKEN_ID) {
@@ -422,7 +556,7 @@ void parse(char *filename) {
                 } else {
                     printf("%s('%c')\n", to_string(t.type), t.type);
                 }
-                eat_token(&lex);
+                eat_token(lex);
             }
         } while (t.type != TOKEN_EOF && t.type != TOKEN_INVALID);
     }
