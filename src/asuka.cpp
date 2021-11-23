@@ -3,16 +3,20 @@
 #include <debug/casts.hpp>
 
 
+#define DEBUG_CAMERA_FOLLOW_PLAYER (1 && ASUKA_DEBUG)
+#define ASUKA_MAX_MOVE_TRIES 5
+
+
 INTERNAL_FUNCTION
-void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, game_state* GameState) {
+void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, Game_State* game_state) {
     sound_sample_t* SampleOut = SoundBuffer->Samples;
 
     for (int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
-        uint64 left_idx = (GameState->test_current_sound_cursor++) % GameState->test_wav_file.samples_count;
-        uint64 right_idx = (GameState->test_current_sound_cursor++) % GameState->test_wav_file.samples_count;
+        uint64 left_idx = (game_state->test_current_sound_cursor++) % game_state->test_wav_file.samples_count;
+        uint64 right_idx = (game_state->test_current_sound_cursor++) % game_state->test_wav_file.samples_count;
 
-        sound_sample_t LeftSample =  GameState->test_wav_file.samples[left_idx];
-        sound_sample_t RightSample = GameState->test_wav_file.samples[right_idx];
+        sound_sample_t LeftSample =  game_state->test_wav_file.samples[left_idx];
+        sound_sample_t RightSample = game_state->test_wav_file.samples[right_idx];
 
         f32 volume = 0.05f;
 
@@ -163,6 +167,176 @@ math::v2 ClosestPointInRectangle(math::v2 min_corner, math::v2 max_corner, math:
 }
 
 
+INTERNAL_FUNCTION
+void initialize_player(game_entity *entity) {
+    *entity = {};
+
+    entity->initialized = true;
+    entity->position.absolute_tile_x = 3;
+    entity->position.absolute_tile_y = 3;
+    entity->position.absolute_tile_z = 0;
+    entity->position.relative_position_on_tile = { 0.0f, 0.0f }; // in meters relative to the tile
+    entity->hitbox = math::v2{ 0.75f, 0.35f };
+    entity->face_direction = PLAYER_FACE_DOWN;
+}
+
+
+INTERNAL_FUNCTION
+Entity *get_entity(Game_State *gs, uint32 entity_index) {
+    Entity *result = NULL;
+
+    if (entity_index < gs->entity_count) {
+        result = gs->entities + entity_index;
+    }
+
+    return result;
+}
+
+
+INTERNAL_FUNCTION
+Entity *add_entity(Game_State *state) {
+    ASSERT(state->entity_count < ARRAY_COUNT(state->entities));
+
+    Entity *result = state->entities + state->entity_count++;
+    *result = {};
+
+    return result;
+}
+
+
+INTERNAL_FUNCTION
+void move_entity(Tilemap *tilemap, Entity* entity, math::v2 acceleration, float32 dt) {
+    using math::v2;
+
+    v2 velocity = entity->velocity + acceleration * dt;
+    v2 position = entity->position.relative_position_on_tile;
+
+    v2 new_position = position + velocity * dt;
+
+    // ================= COLLISION DETECTION ====================== //
+
+    TilemapPosition origin {
+        entity->position.absolute_tile_x,
+        entity->position.absolute_tile_y,
+        entity->position.absolute_tile_z,
+        0.0f, 0.0f
+    };
+
+    f32 min_x = min(position.x, new_position.x) - 0.5f * entity->hitbox.x;
+    f32 min_y = min(position.y, new_position.y) - 0.5f * entity->hitbox.y;
+
+    f32 max_x = max(position.x, new_position.x) + 0.5f * entity->hitbox.x;
+    f32 max_y = max(position.y, new_position.y) + 0.5f * entity->hitbox.y;
+
+    TilemapPosition min_test_tile_position = origin;
+    min_test_tile_position.relative_position_on_tile = v2{ min_x, min_y };
+    min_test_tile_position = NormalizeTilemapPosition(tilemap, min_test_tile_position);
+
+    TilemapPosition max_test_tile_position = origin;
+    max_test_tile_position.relative_position_on_tile = v2{ max_x, max_y };
+    max_test_tile_position = NormalizeTilemapPosition(tilemap, max_test_tile_position);
+
+    int32 min_tile_x = min_test_tile_position.absolute_tile_x;
+    int32 min_tile_y = min_test_tile_position.absolute_tile_y;
+
+    int32 max_tile_x = max_test_tile_position.absolute_tile_x;
+    int32 max_tile_y = max_test_tile_position.absolute_tile_y;
+
+    int32 abs_tile_z = entity->position.absolute_tile_z;
+
+    v2 current_position = position;
+    v2 current_velocity = velocity;
+    v2 current_destination = new_position;
+    f32 time_spent_moving = 0.0f;
+
+    f32 original_move_distance = (new_position - position).length();
+
+    for (int32 move_try = 0; move_try < ASUKA_MAX_MOVE_TRIES; move_try++) {
+        v2 closest_destination = current_destination;
+        v2 velocity_at_closest_destination = current_velocity;
+
+        for (int32 abs_tile_y = min_tile_y; abs_tile_y <= max_tile_y; abs_tile_y++) {
+            for (int32 abs_tile_x = min_tile_x; abs_tile_x <= max_tile_x; abs_tile_x++) {
+                tile_t tile_value = GetTileValue(tilemap, abs_tile_x, abs_tile_y, abs_tile_z);
+                if (IsTileValueEmpty(tile_value)) { continue; }
+
+                float32 tile_diameter_width = tilemap->tile_side_in_meters + entity->hitbox.x;
+                float32 tile_diameter_height = tilemap->tile_side_in_meters + entity->hitbox.y;
+
+                TilemapPosition test_top_right_corner {
+                    abs_tile_x, abs_tile_y, abs_tile_z,
+                    0.5f * tile_diameter_width, 0.5f * tile_diameter_height
+                };
+
+                TilemapPosition test_bottom_right_corner {
+                    abs_tile_x, abs_tile_y, abs_tile_z,
+                    0.5f * tile_diameter_width, -0.5f * tile_diameter_height
+                };
+
+                TilemapPosition test_bottom_left_corner {
+                    abs_tile_x, abs_tile_y, abs_tile_z,
+                    -0.5f * tile_diameter_width, -0.5f * tile_diameter_height
+                };
+
+                TilemapPosition test_top_left_corner {
+                    abs_tile_x, abs_tile_y, abs_tile_z,
+                    -0.5f * tile_diameter_width, 0.5f * tile_diameter_height
+                };
+
+                v2 vertices[4] = {
+                    PositionDifference(tilemap, test_top_right_corner, origin),
+                    PositionDifference(tilemap, test_bottom_right_corner, origin),
+                    PositionDifference(tilemap, test_bottom_left_corner, origin),
+                    PositionDifference(tilemap, test_top_left_corner, origin),
+                };
+
+                for (int32 vertex_idx = 0; vertex_idx < ARRAY_COUNT(vertices); vertex_idx++) {
+                    v2 w0 = vertices[vertex_idx];
+                    v2 w1 = vertices[(vertex_idx + 1) % ARRAY_COUNT(vertices)];
+
+                    v2 wall = w1 - w0;
+                    v2 normal = v2{ -wall.y, wall.x }.normalized();
+
+                    if (math::dot(current_velocity, normal) < 0) {
+                        auto res = segment_segment_intersection(w0, w1, current_position, current_destination);
+
+                        if (res.found == math::INTERSECTION_COLLINEAR) {
+                            if ((current_destination - current_position).length_2() < (closest_destination - current_position).length_2()) {
+                                closest_destination = current_destination;
+                                velocity_at_closest_destination = math::project(current_velocity, wall);
+                            }
+                        }
+
+                        if (res.found == math::INTERSECTION_FOUND) {
+                            if ((res.intersection - current_position).length_2() < (closest_destination - current_position).length_2()) {
+                                closest_destination = res.intersection;
+                                velocity_at_closest_destination = math::project(current_velocity, wall); // wall * math::dot(current_velocity, wall) / wall.length_2();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        f32 move_distance = (closest_destination - current_position).length();
+        if (move_distance > EPSILON) {
+            f32 dt_prime = move_distance / current_velocity.length();
+            time_spent_moving += dt_prime;
+        }
+
+        current_position = closest_destination;
+        current_velocity = velocity_at_closest_destination;
+        current_destination = current_position + current_velocity * (dt - time_spent_moving);
+    }
+
+    TilemapPosition new_tilemap_position = entity->position;
+    new_tilemap_position.relative_position_on_tile = current_position;
+
+    entity->position = NormalizeTilemapPosition(tilemap, new_tilemap_position);
+    entity->velocity = current_velocity;
+}
+
+
 #include <time.h>
 #include <stdlib.h>
 GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
@@ -170,11 +344,11 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     using math::v2;
     using math::color24;
 
-    ASSERT(sizeof(game_state) <= Memory->PermanentStorageSize);
+    ASSERT(sizeof(Game_State) <= Memory->PermanentStorageSize);
 
     float32 dt = Input->dt;
 
-    game_state* GameState = (game_state*)Memory->PermanentStorage;
+    Game_State* game_state = (Game_State*)Memory->PermanentStorage;
 
     i32 room_width_in_tiles = 16;
     i32 room_height_in_tiles = 9;
@@ -183,50 +357,45 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     if (!Memory->IsInitialized) {
         srand((unsigned int)time(NULL));
-        GameState->player.position.absolute_tile_x = 3;
-        GameState->player.position.absolute_tile_y = 3;
-        GameState->player.position.absolute_tile_z = 0;
 
-        GameState->player.position.relative_position_on_tile = { 0.0f, 0.0f }; // in meters relative to the tile
-
-        GameState->player.face_direction = PLAYER_FACE_DOWN;
-        GameState->player.hitbox = v2{ 0.75f, 0.35f };
+        Entity* player = add_entity(game_state);
+        initialize_player(player);
 
         const char *wav_filename = "piano2.wav";
-        GameState->test_wav_file = load_wav_file(wav_filename);
-        GameState->test_current_sound_cursor = 0;
+        game_state->test_wav_file = load_wav_file(wav_filename);
+        game_state->test_current_sound_cursor = 0;
 
         const char *floor_texture_filename = "tile_16x16.png";
-        GameState->floor_texture = load_png_file_myself(floor_texture_filename);
+        game_state->floor_texture = load_png_file_myself(floor_texture_filename);
 
         const char *grass_texture_filename = "grass_texture.png";
-        GameState->grass_texture = load_png_file(grass_texture_filename);
+        game_state->grass_texture = load_png_file(grass_texture_filename);
 
         const char *wall_texture_filename = "tile_60x60.bmp";
-        GameState->wall_texture = load_bmp_file(wall_texture_filename);
+        game_state->wall_texture = load_bmp_file(wall_texture_filename);
 
         const char *player_face_texture_filename = "character_1.png";
         const char *player_left_texture_filename = "character_2.png";
         const char *player_right_texture_filename = "character_3.png";
         const char *player_back_texture_filename = "character_4.png";
 
-        GameState->player_textures[0] = load_png_file(player_face_texture_filename);
-        GameState->player_textures[1] = load_png_file(player_left_texture_filename);
-        GameState->player_textures[2] = load_png_file(player_right_texture_filename);
-        GameState->player_textures[3] = load_png_file(player_back_texture_filename);
+        game_state->player_textures[0] = load_png_file(player_face_texture_filename);
+        game_state->player_textures[1] = load_png_file(player_left_texture_filename);
+        game_state->player_textures[2] = load_png_file(player_right_texture_filename);
+        game_state->player_textures[3] = load_png_file(player_back_texture_filename);
 
-        memory_arena *arena = &GameState->world_arena;
+        MemoryArena *arena = &game_state->world_arena;
 
         initialize_arena(
             arena,
-            (uint8 *) Memory->PermanentStorage + sizeof(game_state),
-            Memory->PermanentStorageSize - sizeof(game_state));
+            (uint8 *) Memory->PermanentStorage + sizeof(Game_State),
+            Memory->PermanentStorageSize - sizeof(Game_State));
 
         // ===================== WORLD GENERATION ===================== //
 
-        GameState->world = push_struct(arena, game_world);
-        game_world *world = GameState->world;
-        tile_map *tilemap = &world->tilemap;
+        game_state->world = push_struct(arena, Game_World);
+        Game_World *world = game_state->world;
+        Tilemap *tilemap = &world->tilemap;
 
         tilemap->tile_side_in_meters = 1.0f; // [meters]
         tilemap->chunk_count_x = 40;
@@ -361,8 +530,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         Memory->IsInitialized = true;
     }
 
-    game_world *world = GameState->world;
-    tile_map *tilemap = &world->tilemap;
+    Game_World *world = game_state->world;
+    Tilemap *tilemap = &world->tilemap;
 
 #if ASUKA_PLAYBACK_LOOP
     color24 BorderColor {};
@@ -395,20 +564,29 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     f32 gravity_acceleration = 9.8f; // [m/s^2]
     f32 friction_coefficient = 1.0f;
 
-    {
-        Game_ControllerInput* ControllerInput = GetGamepadInput(Input, 0);
-        ControllerInput = &Input->KeyboardInput;
+    for (uint32 ControllerIndex = 0; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++) {
+        Game_ControllerInput* ControllerInput = GetControllerInput(Input, ControllerIndex);
+        auto *entity = get_entity(game_state, game_state->player_index_for_controller[ControllerIndex]);
+
+        if (!entity) {
+            if (GetPressCount(ControllerInput->Start)) {
+                entity = add_entity(game_state);
+                initialize_player(entity);
+            } else {
+                continue;
+            }
+        }
 
         if (GetPressCount(ControllerInput->Y)) {
             Memory->IsInitialized = false;
         }
 
-            tile_map_position *pos = &GameState->player.position;
         if (GetPressCount(ControllerInput->X)) {
+            TilemapPosition *pos = &entity->position;
             tile_t tile_value = GetTileValue(tilemap, pos->absolute_tile_x, pos->absolute_tile_y, pos->absolute_tile_z);
 
             if (tile_value == TILE_DOOR_UP) {
-                tile_map_position move_up_position = *pos;
+                TilemapPosition move_up_position = *pos;
                 move_up_position.absolute_tile_z += 1;
 
                 bool up_tile_empty = IsWorldPointEmpty(tilemap, move_up_position);
@@ -418,7 +596,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             }
 
             if (tile_value == TILE_DOOR_DOWN) {
-                tile_map_position move_down_position = *pos;
+                TilemapPosition move_down_position = *pos;
                 move_down_position.absolute_tile_z -= 1;
 
                 bool down_tile_empty = IsWorldPointEmpty(tilemap, move_down_position);
@@ -429,8 +607,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
 
         // ================= MOVEMENT SIMULATION ====================== //
-
-        game_entity* entity = &GameState->player;
 
         // [units]
         v2 input_direction = ControllerInput->LeftStickEnded.normalized();
@@ -448,133 +624,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // @todo: why units do not add up?
         v2 friction_acceleration = (entity->velocity) * friction_coefficient * gravity_acceleration;
 
-        v2 velocity = entity->velocity + (acceleration - friction_acceleration) * dt;
-        v2 position = entity->position.relative_position_on_tile;
-
-        v2 new_position = position + velocity * dt;
-
-        // ================= COLLISION DETECTION ====================== //
-
-        tile_map_position origin {
-            entity->position.absolute_tile_x,
-            entity->position.absolute_tile_y,
-            entity->position.absolute_tile_z,
-            0.0f, 0.0f
-        };
-
-        f32 min_x = min(position.x, new_position.x) - 0.5f * entity->hitbox.x;
-        f32 min_y = min(position.y, new_position.y) - 0.5f * entity->hitbox.y;
-
-        f32 max_x = max(position.x, new_position.x) + 0.5f * entity->hitbox.x;
-        f32 max_y = max(position.y, new_position.y) + 0.5f * entity->hitbox.y;
-
-        tile_map_position min_test_tile_position = origin;
-        min_test_tile_position.relative_position_on_tile = v2{ min_x, min_y };
-        min_test_tile_position = NormalizeTilemapPosition(tilemap, min_test_tile_position);
-
-        tile_map_position max_test_tile_position = origin;
-        max_test_tile_position.relative_position_on_tile = v2{ max_x, max_y };
-        max_test_tile_position = NormalizeTilemapPosition(tilemap, max_test_tile_position);
-
-        int32 min_tile_x = min_test_tile_position.absolute_tile_x;
-        int32 min_tile_y = min_test_tile_position.absolute_tile_y;
-
-        int32 max_tile_x = max_test_tile_position.absolute_tile_x;
-        int32 max_tile_y = max_test_tile_position.absolute_tile_y;
-
-        int32 abs_tile_z = entity->position.absolute_tile_z;
-
-        v2 current_position = position;
-        v2 current_velocity = velocity;
-        v2 current_destination = new_position;
-        f32 time_spent_moving = 0.0f;
-
-        f32 original_move_distance = (new_position - position).length();
-
-#define ASUKA_MAX_MOVE_TRIES 5
-        for (int32 move_try = 0; move_try < ASUKA_MAX_MOVE_TRIES; move_try++) {
-            v2 closest_destination = current_destination;
-            v2 velocity_at_closest_destination = current_velocity;
-
-            for (int32 abs_tile_y = min_tile_y; abs_tile_y <= max_tile_y; abs_tile_y++) {
-                for (int32 abs_tile_x = min_tile_x; abs_tile_x <= max_tile_x; abs_tile_x++) {
-                    tile_t tile_value = GetTileValue(tilemap, abs_tile_x, abs_tile_y, abs_tile_z);
-                    if (IsTileValueEmpty(tile_value)) { continue; }
-
-                    float32 tile_diameter_width = tilemap->tile_side_in_meters + entity->hitbox.x;
-                    float32 tile_diameter_height = tilemap->tile_side_in_meters + entity->hitbox.y;
-
-                    tile_map_position test_top_right_corner {
-                        abs_tile_x, abs_tile_y, abs_tile_z,
-                        0.5f * tile_diameter_width, 0.5f * tile_diameter_height
-                    };
-
-                    tile_map_position test_bottom_right_corner {
-                        abs_tile_x, abs_tile_y, abs_tile_z,
-                        0.5f * tile_diameter_width, -0.5f * tile_diameter_height
-                    };
-
-                    tile_map_position test_bottom_left_corner {
-                        abs_tile_x, abs_tile_y, abs_tile_z,
-                        -0.5f * tile_diameter_width, -0.5f * tile_diameter_height
-                    };
-
-                    tile_map_position test_top_left_corner {
-                        abs_tile_x, abs_tile_y, abs_tile_z,
-                        -0.5f * tile_diameter_width, 0.5f * tile_diameter_height
-                    };
-
-                    v2 vertices[4] = {
-                        PositionDifference(tilemap, test_top_right_corner, origin),
-                        PositionDifference(tilemap, test_bottom_right_corner, origin),
-                        PositionDifference(tilemap, test_bottom_left_corner, origin),
-                        PositionDifference(tilemap, test_top_left_corner, origin),
-                    };
-
-                    for (int32 vertex_idx = 0; vertex_idx < ARRAY_COUNT(vertices); vertex_idx++) {
-                        v2 w0 = vertices[vertex_idx];
-                        v2 w1 = vertices[(vertex_idx + 1) % ARRAY_COUNT(vertices)];
-
-                        v2 wall = w1 - w0;
-                        v2 normal = v2{ -wall.y, wall.x }.normalized();
-
-                        if (math::dot(current_velocity, normal) < 0) {
-                            auto res = segment_segment_intersection(w0, w1, current_position, current_destination);
-
-                            if (res.found == math::INTERSECTION_COLLINEAR) {
-                                if ((current_destination - current_position).length_2() < (closest_destination - current_position).length_2()) {
-                                    closest_destination = current_destination;
-                                    velocity_at_closest_destination = math::project(current_velocity, wall);
-                                }
-                            }
-
-                            if (res.found == math::INTERSECTION_FOUND) {
-                                if ((res.intersection - current_position).length_2() < (closest_destination - current_position).length_2()) {
-                                    closest_destination = res.intersection;
-                                    velocity_at_closest_destination = math::project(current_velocity, wall); // wall * math::dot(current_velocity, wall) / wall.length_2();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            f32 move_distance = (closest_destination - current_position).length();
-            if (move_distance > EPSILON) {
-                f32 dt_prime = move_distance / current_velocity.length();
-                time_spent_moving += dt_prime;
-            }
-
-            current_position = closest_destination;
-            current_velocity = velocity_at_closest_destination;
-            current_destination = current_position + current_velocity * (dt - time_spent_moving);
-        }
-
-        tile_map_position new_tilemap_position = entity->position;
-        new_tilemap_position.relative_position_on_tile = current_position;
-
-        entity->position = NormalizeTilemapPosition(tilemap, new_tilemap_position);
-        entity->velocity = current_velocity;
+        move_entity(tilemap, entity, acceleration - friction_acceleration, dt);
 
         if (input_direction.length_2() > 0) {
             if (math::absolute(input_direction.x) > math::absolute(input_direction.y)) {
@@ -593,37 +643,45 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
     }
 
-    // Game_OutputSound(SoundBuffer, GameState);
+    // Game_OutputSound(SoundBuffer, game_state);
 
     // ===================== RENDERING ===================== //
 
     // Rendering pink background to really see if there are some pixels I didn't drew
     RenderRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Buffer->Height}, {1.f, 0.f, 1.f});
 
-    // RenderBitmap(Buffer, { 0, 0 }, { (float32)Buffer->Width, (f32)Buffer->Height }, &GameState->grass_texture);
+    // RenderBitmap(Buffer, { 0, 0 }, { (float32)Buffer->Width, (f32)Buffer->Height }, &game_state->grass_texture);
 
-    tile_chunk_position player_chunk_pos = GetChunkPosition(tilemap, GameState->player.position);
+    auto *camera_p = &game_state->camera_position;
 
     int32 render_tiles_half_count_y = (int32)((f32)Buffer->Height / ((f32)tilemap->tile_side_in_meters * (f32)pixels_per_meter));
     int32 render_tiles_count_x = (int32)((f32)Buffer->Width / ((f32)tilemap->tile_side_in_meters * (f32)pixels_per_meter));
 
-    int32 tile_side_in_pixels = (int32) (GameState->world->tilemap.tile_side_in_meters * pixels_per_meter);
+    int32 tile_side_in_pixels = (int32) (game_state->world->tilemap.tile_side_in_meters * pixels_per_meter);
 
-    auto *player_p = &GameState->player.position;
-    auto *camera_p = &GameState->camera_position;
+    ASSERT(game_state->index_of_entity_for_camera_to_follow == 0);
 
-#define DEBUG_CAMERA_FOLLOW_PLAYER (1 && ASUKA_DEBUG)
+    TilemapPosition position_for_camera_to_follow;
+
+    Entity *followed_entity = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
+    if (followed_entity) {
+        position_for_camera_to_follow = followed_entity->position;
+    } else {
+        position_for_camera_to_follow = {};
+    }
+
+    auto chunk_pos_for_camera_to_follow = GetChunkPosition(tilemap, position_for_camera_to_follow);
 
 #if DEBUG_CAMERA_FOLLOW_PLAYER
-    GameState->camera_position = *player_p;
+    game_state->camera_position = position_for_camera_to_follow;
 #else
-    int32 player_room_x = player_p->absolute_tile_x / room_width_in_tiles;
-    int32 player_room_y = player_p->absolute_tile_y / room_height_in_tiles;
+    int32 player_room_x = position_for_camera_to_follow.absolute_tile_x / room_width_in_tiles;
+    int32 player_room_y = position_for_camera_to_follow.absolute_tile_y / room_height_in_tiles;
 
-    GameState->camera_position = {};
-    GameState->camera_position.absolute_tile_x = player_room_x * room_width_in_tiles + room_width_in_tiles / 2;
-    GameState->camera_position.absolute_tile_y = player_room_y * room_height_in_tiles + room_height_in_tiles / 2;
-    GameState->camera_position.absolute_tile_z = player_p->absolute_tile_z;
+    game_state->camera_position = {};
+    game_state->camera_position.absolute_tile_x = player_room_x * room_width_in_tiles + room_width_in_tiles / 2;
+    game_state->camera_position.absolute_tile_y = player_room_y * room_height_in_tiles + room_height_in_tiles / 2;
+    game_state->camera_position.absolute_tile_z = position_for_camera_to_follow.absolute_tile_z;
 #endif
 
     for (int32 relative_row = -render_tiles_half_count_y; relative_row < render_tiles_half_count_y; relative_row++) {
@@ -659,8 +717,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 case TILE_FREE: {
                     TileColor = color24{ 0.5f, 0.5f, 0.5f };
 
-                    if (row == (int32)(player_chunk_pos.chunk_relative_y + player_chunk_pos.chunk_y * tilemap->tile_count_y) &&
-                        column == (int32)(player_chunk_pos.chunk_relative_x + player_chunk_pos.chunk_x * tilemap->tile_count_x)) {
+                    if (row == (int32)(chunk_pos_for_camera_to_follow.chunk_relative_y + chunk_pos_for_camera_to_follow.chunk_y * tilemap->tile_count_y) &&
+                        column == (int32)(chunk_pos_for_camera_to_follow.chunk_relative_x + chunk_pos_for_camera_to_follow.chunk_x * tilemap->tile_count_x)) {
                         TileColor = color24{ 0.8f, 0.4f, 0.0f };
                     }
                     // else
@@ -673,7 +731,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     break;
                 }
                 case TILE_WALL: {
-                    RenderBitmap(Buffer, upper_left_in_up_down_screen_pixel_coords, bottom_right_in_up_down_screen_pixel_coords, &GameState->wall_texture);
+                    RenderBitmap(Buffer, upper_left_in_up_down_screen_pixel_coords, bottom_right_in_up_down_screen_pixel_coords, &game_state->wall_texture);
                     continue;
 
                     // TileColor = color24{ 0.2f, 0.3f, 0.2f };
@@ -717,51 +775,56 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
     }
 
-    // ===================== RENDERING CHARACTERS ===================== //
+    // ===================== RENDERING ENTITIES ===================== //
 
-    v2 player_position_in_bottom_up_screen_pixel_coordinates = {
-        (f32) Buffer->Width / 2.0f +
-        (player_p->absolute_tile_x - camera_p->absolute_tile_x) * tilemap->tile_side_in_meters * pixels_per_meter +
-        (player_p->relative_position_on_tile.x - camera_p->relative_position_on_tile.x) * pixels_per_meter +
-        0.5f * tilemap->tile_side_in_meters * pixels_per_meter,
+    for (uint32 entity_index = 0; entity_index < ARRAY_COUNT(game_state->entities); entity_index++) {
+        if (entity_index == game_state->index_of_entity_for_camera_to_follow) {
+            game_entity *entity = get_entity(game_state, entity_index);
+            auto *entity_p = &entity->position;
 
-        (f32) Buffer->Height / 2.0f +
-        (player_p->absolute_tile_y - camera_p->absolute_tile_y) * tilemap->tile_side_in_meters * pixels_per_meter +
-        (player_p->relative_position_on_tile.y - camera_p->relative_position_on_tile.y) * pixels_per_meter,
-    };
+            v2 entity_position_in_meters = v2{
+                (f32)entity_p->absolute_tile_x - camera_p->absolute_tile_x,
+                (f32)entity_p->absolute_tile_y - camera_p->absolute_tile_y,
+            } * tilemap->tile_side_in_meters
+              + (entity_p->relative_position_on_tile - camera_p->relative_position_on_tile)
+              + v2{ 0.5f, 0.0f } * tilemap->tile_side_in_meters;
 
-    v2 player_position_in_top_bottom_screen_pixel_coordinates = {
-        player_position_in_bottom_up_screen_pixel_coordinates.x,
-        (f32)Buffer->Height - player_position_in_bottom_up_screen_pixel_coordinates.y,
-    };
+            // in top-down screen pixel coordinates
+            v2 entity_position_in_pixels = v2{
+                0.5f * Buffer->Width  + entity_position_in_meters.x * pixels_per_meter,
+                0.5f * Buffer->Height + entity_position_in_meters.y * pixels_per_meter,
+            };
 
-    v2 top_left = {
-        player_position_in_top_bottom_screen_pixel_coordinates.x - 0.5f * character_dimensions.x * pixels_per_meter,
-        player_position_in_top_bottom_screen_pixel_coordinates.y - 1.0f * character_dimensions.y * pixels_per_meter,
-    };
 
-    v2 bottom_right = {
-        player_position_in_top_bottom_screen_pixel_coordinates.x + 0.5f * character_dimensions.x * pixels_per_meter,
-        player_position_in_top_bottom_screen_pixel_coordinates.y
-    };
 
-    RenderRectangle(
-        Buffer,
-        player_position_in_top_bottom_screen_pixel_coordinates - 0.5f * GameState->player.hitbox * pixels_per_meter,
-        player_position_in_top_bottom_screen_pixel_coordinates + 0.5f * GameState->player.hitbox * pixels_per_meter,
-        color24{ 1.f, 1.f, 0.f });
+            RenderRectangle(
+                Buffer,
+                entity_position_in_pixels - 0.5f * entity->hitbox * pixels_per_meter,
+                entity_position_in_pixels + 0.5f * entity->hitbox * pixels_per_meter,
+                color24{ 1.f, 1.f, 0.f });
 
-    RenderRectangle(
-        Buffer,
-        player_position_in_top_bottom_screen_pixel_coordinates - v2{ 3.f, 3.f },
-        player_position_in_top_bottom_screen_pixel_coordinates + v2{ 3.f, 3.f },
-        color24{ 0.f, 0.f, 0.f });
+            RenderRectangle(
+                Buffer,
+                entity_position_in_pixels - v2{ 3.f, 3.f },
+                entity_position_in_pixels + v2{ 3.f, 3.f },
+                color24{ 0.f, 0.f, 0.f });
 
-    RenderBitmap(
-        Buffer,
-        top_left,
-        v2{ (f32)Buffer->Width, (f32)Buffer->Height },
-        &GameState->player_textures[GameState->player.face_direction]);
+            v2 top_left = {
+                entity_position_in_pixels.x - 0.5f * character_dimensions.x * pixels_per_meter,
+                entity_position_in_pixels.y - 1.0f * character_dimensions.y * pixels_per_meter,
+            };
+
+            auto *texture = &game_state->player_textures[entity->face_direction];
+            v2 bottom_right = top_left + v2{ (f32)texture->width, (f32)texture->height };
+
+            RenderBitmap(
+                Buffer,
+                top_left,
+                bottom_right,
+                texture);
+        }
+    }
+
 
 #if ASUKA_PLAYBACK_LOOP
     if (BorderVisible) {

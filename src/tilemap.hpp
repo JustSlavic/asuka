@@ -31,7 +31,7 @@ struct tile_chunk_position {
     uint32 chunk_relative_y;
 };
 
-struct tile_map {
+struct Tilemap {
     float32 tile_side_in_meters;
 
     uint32 tile_count_x;
@@ -47,7 +47,7 @@ struct tile_map {
     uint32 chunk_mask;
 };
 
-struct tile_map_position {
+struct TilemapPosition {
     /*
 
     Higher bits represent coordinates of a chunk;
@@ -73,15 +73,15 @@ struct tile_map_position {
 };
 
 
-tile_chunk_position GetChunkPosition(tile_map *map, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
-tile_chunk_position GetChunkPosition(tile_map *map, tile_map_position pos);
-tile_t GetTileValue(tile_map* map, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
-void SetTileValue(memory_arena *arena, tile_map *tilemap, int32 abs_x, int32 abs_y, int32 abs_z, tile_t tile_value);
+tile_chunk_position GetChunkPosition(Tilemap *map, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
+tile_chunk_position GetChunkPosition(Tilemap *map, TilemapPosition pos);
+tile_t GetTileValue(Tilemap* map, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
+void SetTileValue(MemoryArena *arena, Tilemap *tilemap, int32 abs_x, int32 abs_y, int32 abs_z, tile_t tile_value);
 bool32 IsTileValueEmpty(tile_t tile_value);
-bool32 IsWorldPointEmpty(tile_map *map, tile_map_position pos);
-tile_map_position NormalizeTilemapPosition(tile_map* map, tile_map_position position);
-math::vector2 PositionDifference(tile_map *tilemap, tile_map_position p1, tile_map_position p2);
-tile_map_position MovePosition(tile_map *tilemap, tile_map_position pos, math::v2 offset);
+bool32 IsWorldPointEmpty(Tilemap *map, TilemapPosition pos);
+TilemapPosition NormalizeTilemapPosition(Tilemap* map, TilemapPosition position);
+math::vector2 PositionDifference(Tilemap *tilemap, TilemapPosition p1, TilemapPosition p2);
+TilemapPosition MovePosition(Tilemap *tilemap, TilemapPosition pos, math::v2 offset);
 
 #ifdef UNITY_BUILD
 #include "tilemap.cpp"

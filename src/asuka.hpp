@@ -159,7 +159,7 @@ uint32 GetPressCount(Game_ButtonState button) {
 
 INLINE_FUNCTION
 uint32 GetHoldsCount(Game_ButtonState button) {
-    uint32 result = (button.HalfTransitionCount > 0) || (button.EndedDown > 0);
+    uint32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
     return result;
 }
 
@@ -193,8 +193,8 @@ struct Game_Memory {
 
 
 
-struct game_world {
-    tile_map tilemap;
+struct Game_World {
+    Tilemap tilemap;
 };
 
 enum PlayerFaceDirection {
@@ -205,19 +205,30 @@ enum PlayerFaceDirection {
 };
 
 struct game_entity {
-    tile_map_position position;
+    bool32 initialized;
+
+    TilemapPosition position;
     math::v2 velocity;
-    PlayerFaceDirection face_direction;
     math::v2 hitbox;
+
+    PlayerFaceDirection face_direction;
 };
 
-struct game_state {
-    tile_map_position camera_position;
-    game_entity player;
+typedef game_entity Entity;
 
-    game_world *world;
+struct Game_State {
+    TilemapPosition camera_position;
 
-    memory_arena world_arena;
+    // Note: 0-th entity is invalid and should not be used
+    game_entity entities[256];
+    uint32 entity_count;
+
+    uint32 player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
+    uint32 index_of_entity_for_camera_to_follow;
+
+    Game_World *world;
+
+    MemoryArena world_arena;
 
     wav_file_contents test_wav_file;
 

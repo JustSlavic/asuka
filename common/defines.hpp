@@ -98,6 +98,8 @@ typedef signed long long   int64;
 #define STRINGIFY2(X) #X
 #define STRINGIFY(X) STRINGIFY2(X)
 
+#define OFFSET_OF(STRUCT, MEMBER) ((size_t)&(((STRUCT *)0)->MEMBER(STRUCT, MEMBER)))
+
 #define INTERNAL_FUNCTION static
 #define IN_CLASS_FUNCTION static
 #define STATIC_VARIABLE static
@@ -138,6 +140,9 @@ typedef int16 sound_sample_t;
 
 typedef int32  bool32;
 typedef size_t usize;
+typedef uint64 uintptr;
+typedef int64  intptr;
+typedef int64  ptrdiff;
 
 typedef int8   i8;
 typedef int16  i16;

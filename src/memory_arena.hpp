@@ -4,7 +4,7 @@
 #include <defines.hpp>
 
 
-struct memory_arena {
+struct MemoryArena {
     void *memory;
     usize size; // bytes
     usize used; // bytes
@@ -12,7 +12,7 @@ struct memory_arena {
 
 
 INLINE_FUNCTION
-void initialize_arena(memory_arena *arena, void* memory, usize size) {
+void initialize_arena(MemoryArena *arena, void* memory, usize size) {
     arena->memory = memory;
     arena->size = size;
     arena->used = 0;
@@ -28,7 +28,7 @@ void initialize_arena(memory_arena *arena, void* memory, usize size) {
 #define push_array(ARENA, TYPE, SIZE) (TYPE*)push_memory(ARENA, sizeof(TYPE)*SIZE)
 
 INLINE_FUNCTION
-void* push_memory(memory_arena *arena, usize size) {
+void* push_memory(MemoryArena *arena, usize size) {
     ASSERT((arena->used + size) < arena->size);
 
     void* result = (uint8*)arena->memory + arena->used;
