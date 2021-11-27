@@ -34,19 +34,29 @@ enum token_type {
     TOKEN_COLON = ':',
     TOKEN_SEMICOLON = ';',
     TOKEN_ASTERICKS = '*',
+    TOKEN_AMPERSAND = '&',
+    TOKEN_VERTICAL_LINE = '|',
+    TOKEN_CARET = '^',
+    TOKEN_TILDA = '~',
     TOKEN_PLUS = '+',
     TOKEN_MINUS = '-',
     TOKEN_SLASH = '/',
+    TOKEN_BACKSLASH = '\\',
     TOKEN_DOT = '.',
     TOKEN_COMMA = ',',
     TOKEN_HASH = '#',
+    TOKEN_BANG = '!',
 
     TOKEN_ID = 256,
     TOKEN_KEYWORD,
     TOKEN_CHAR,
     TOKEN_STRING,
+    TOKEN_COMMENT,
 
-    TOKEN_RIGHT_ARROW,
+    // TOKEN_LEFT_ARROW,  // <-
+    TOKEN_RIGHT_ARROW, // ->
+    TOKEN_DOUBLE_AMPERSAND, // &&
+    TOKEN_DOUBLE_VERTICAL_LINE, // ||
 
     TOKEN_KW_RETURN = 300,
     TOKEN_KW_IF,
@@ -88,16 +98,26 @@ char *to_string(token_type type) {
         case TOKEN_PLUS: return "PLUS";
         case TOKEN_MINUS: return "MINUS";
         case TOKEN_SLASH: return "SLASH";
+        case TOKEN_BACKSLASH: return "BACKSLASH";
         case TOKEN_DOT: return "DOT";
         case TOKEN_COMMA: return "COMMA";
         case TOKEN_HASH: return "HASH";
+
+        case TOKEN_AMPERSAND: return "AMPERSAND";
+        case TOKEN_VERTICAL_LINE: return "VERTICAL_LINE";
+        case TOKEN_CARET: return "CARET";
+        case TOKEN_TILDA: return "TILDA";
 
         case TOKEN_ID: return "ID";
         case TOKEN_KEYWORD: return "KEYWORD";
         case TOKEN_CHAR: return "CHAR";
         case TOKEN_STRING: return "STRING";
+        case TOKEN_COMMENT: return "COMMENT";
 
         case TOKEN_RIGHT_ARROW: return "RIGHT_ARROW";
+        case TOKEN_BANG: return "BANG";
+        case TOKEN_DOUBLE_AMPERSAND: return "AND";
+        case TOKEN_DOUBLE_VERTICAL_LINE: return "OR";
 
         case TOKEN_KW_RETURN: return "KW_RETURN";
         case TOKEN_KW_IF: return "KW_IF";
@@ -132,17 +152,23 @@ struct token {
 
 struct lexer {
     string buffer;
-    size_t current;
+    uint32 current;
 
     uint32 line;
     uint32 column;
 
-    token next_token;
+    token  next_token;
     bool32 next_token_ready;
 
     token_type keyword_to_token_type[64];
     string keywords[64];
     uint32 keyword_count;
+};
+
+
+struct attribute {
+    string name;
+    string category;
 };
 
 
@@ -153,6 +179,47 @@ void add_keyword(lexer *lex, string kw, token_type type) {
     lex->keyword_to_token_type[lex->keyword_count] = type;
 
     lex->keyword_count += 1;
+}
+
+
+inline
+bool32 is_newline(char c) {
+    bool32 result = (c == '\r') || (c == '\n');
+    return result;
+}
+
+inline
+bool32 is_space(char c) {
+    bool32 result = (c == ' ') || (c == '\t') || is_newline(c);
+    return result;
+}
+
+
+inline
+bool32 is_alphabetical(char c) {
+    bool32 result = ((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'));
+    return result;
+}
+
+
+inline
+bool32 is_digit(char c) {
+    bool32 result = (c >= '0') && (c <= '9');
+    return result;
+}
+
+
+inline
+bool32 is_valid_identifier_head(char c) {
+    bool32 result = (c == '_') || is_alphabetical(c);
+    return result;
+}
+
+
+inline
+bool32 is_valid_identifier_body(char c) {
+    bool32 result = (c == '_') || is_alphabetical(c) || is_digit(c);
+    return result;
 }
 
 
@@ -173,6 +240,13 @@ char eat_char(lexer *lex) {
     char c = get_char(lex);
     lex->current++;
     lex->column++;
+    char next_c = get_char(lex);
+
+    if (c == '\n') {
+        lex->line += 1;
+        lex->column = 0;
+    }
+
     return c;
 }
 
@@ -275,58 +349,11 @@ int32 c_string_size(char *str) {
 
 
 inline
-bool32 is_newline(char c) {
-    bool32 result = (c == '\r') || (c == '\n');
-    return result;
-}
-
-inline
-bool32 is_space(char c) {
-    bool32 result = (c == ' ') || (c == '\t') || is_newline(c);
-    return result;
-}
-
-
-inline
-bool32 is_alphabetical(char c) {
-    bool32 result = ((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'));
-    return result;
-}
-
-
-inline
-bool32 is_digit(char c) {
-    bool32 result = (c >= '0') && (c <= '9');
-    return result;
-}
-
-
-inline
-bool32 is_valid_identifier_head(char c) {
-    bool32 result = (c == '_') || is_alphabetical(c);
-    return result;
-}
-
-
-inline
-bool32 is_valid_identifier_body(char c) {
-    bool32 result = (c == '_') || is_alphabetical(c) || is_digit(c);
-    return result;
-}
-
-
-inline
 void consume_whitespaces(lexer *lex) {
     char c = get_char(lex);
     while (is_space(c)) {
         eat_char(lex);
         char next_c = get_char(lex);
-
-        if (is_newline(c) && !is_newline(next_c)) {
-            lex->line += 1;
-            lex->column = 1;
-        }
-
         c = next_c;
     }
 }
@@ -362,6 +389,87 @@ token get_token(lexer *lex) {
                     result.type = lex->keyword_to_token_type[keyword_index];
                 }
             }
+        } else if (c == '"') {
+            result.type = TOKEN_STRING;
+            result.line = lex->line;
+            result.column = lex->column;
+            result.span.memory = lex->buffer.memory + lex->current;
+            result.span.size = lex->current;
+
+            eat_char(lex);
+            while ((c = get_char(lex)) > 0) {
+                if (c == '\\') {
+                    eat_char(lex); // eat backslash
+                    eat_char(lex); // next character
+                } else if (c == '"') {
+                    eat_char(lex);
+                    break;
+                } else if (is_newline(c)) {
+                    // error
+                    // !!!
+                    fprintf(stderr, "Error: newline inside string\n");
+                    return {};
+                } else {
+                    eat_char(lex);
+                }
+            }
+
+            if (c == 0) {
+                // error
+                // !!!
+                fprintf(stderr, "Error: unexpected end of buffer\n");
+                return {};
+            }
+
+            result.span.size = lex->current - result.span.size;
+
+            // @todo: allocate new buffer for strings to copy with quotes removed and escape sequences replaced
+        } else if (c == '-') {
+            result.line = lex->line;
+            result.column = lex->column;
+            result.span.memory = lex->buffer.memory + lex->current;
+            result.span.size = lex->current;
+
+            eat_char(lex);
+            c = get_char(lex);
+
+            if (c == '>') {
+                eat_char(lex);
+                result.type = TOKEN_RIGHT_ARROW;
+            } else {
+                result.type = TOKEN_MINUS;
+            }
+
+            result.span.size = lex->current - result.span.size;
+        } else if (c == '/') {
+            result.line = lex->line;
+            result.column = lex->column;
+            result.span.memory = lex->buffer.memory + lex->current;
+            result.span.size = lex->current;
+
+            eat_char(lex);
+            c = get_char(lex);
+            if (c == '/') {
+                result.type = TOKEN_COMMENT;
+
+                while (!is_newline(c = get_char(lex))) {
+                    eat_char(lex);
+                }
+            } else if (c == '*') {
+                result.type = TOKEN_COMMENT;
+
+                while (!(c == '*' && get_char(lex) == '/')) {
+                    c = eat_char(lex);
+                }
+
+                eat_char(lex); // eat '/'
+
+            } else {
+                // This is just a slash (division or something)
+                result.type = TOKEN_SLASH;
+            }
+
+            result.span.size = lex->current - result.span.size;
         } else {
             result.type = (token_type)c;
             result.line = lex->line;
@@ -407,26 +515,55 @@ bool32 parse_preprocessor_directive(lexer *lex) {
         token directive = eat_token(lex);
         if (directive.type == TOKEN_ID) {
             if (compare(directive.span, kw_include) == 0) {
-                token open_angle = eat_token(lex);
-                token header_name = eat_token(lex);
-                token close_angle_or_dot = eat_token(lex);
-                if (close_angle_or_dot.type == TOKEN_DOT) {
-                    token extension = eat_token(lex);
-                    token close_angle = eat_token(lex);
+                token open_angle_or_string = eat_token(lex);
+                if (open_angle_or_string.type == TOKEN_STRING) {
+                    printf("import (header=%.*s)\n",
+                        (int)open_angle_or_string.span.size, open_angle_or_string.span.memory);
+                } else if (open_angle_or_string.type == TOKEN_OPEN_ANGLE) {
+                    string include_path {};
+                    include_path.memory = lex->buffer.memory + lex->current;
+                    include_path.size = lex->current;
+
+                    token t = get_token(lex);
+                    while (t.type != TOKEN_CLOSE_ANGLE) {
+                        if (t.type == TOKEN_SLASH ||
+                            t.type == TOKEN_BACKSLASH ||
+                            t.type == TOKEN_ID ||
+                            t.type == TOKEN_DOT)
+                        {
+                            eat_token(lex);
+                            t = get_token(lex);
+                        }
+                        else
+                        {
+                            // Error!
+                            fprintf(stderr, "Error: unrecognized token while tokenizing include directive\n"
+                                "%s:%d:%d %.*s\n", "filename", t.line, t.column, (int)t.span.size, t.span.memory);
+                        }
+                    }
+
+                    // (- 1) because at that point we got '>' but we don't want it in the include_path
+                    include_path.size = lex->current - include_path.size - 1;
+                    // Eat '>'
+                    eat_token(lex);
+
+                    printf("import (header=\"%.*s\")\n",
+                        (int)include_path.size, include_path.memory);
+                } else {
+                    // Error!
+                    return false;
                 }
-                printf("                include (header=\"%.*s\")\n",
-                    (int)header_name.span.size, header_name.span.memory);
-            } else if (compare(directive.span, kw_define) == 0) {
-                token macro_name = eat_token(lex);
-                token open_paren = get_token(lex);
-                if (open_paren.type == TOKEN_OPEN_PAREN) {
-                    eat_token(lex); // (
-                    eat_token(lex); // CATEGORY
-                    eat_token(lex); // )
-                }
-                printf("                define (macro=\"%.*s\")\n",
-                    (int)macro_name.span.size, macro_name.span.memory);
-                return true;
+            // } else if (compare(directive.span, kw_define) == 0) {
+            //     token macro_name = eat_token(lex);
+            //     token open_paren = get_token(lex);
+            //     if (open_paren.type == TOKEN_OPEN_PAREN) {
+            //         eat_token(lex); // (
+            //         eat_token(lex); // CATEGORY
+            //         eat_token(lex); // )
+            //     }
+            //     printf("define (macro=\"%.*s\")\n",
+            //         (int)macro_name.span.size, macro_name.span.memory);
+            //     return true;
             } else {
                 return false;
             }
@@ -442,7 +579,7 @@ bool32 parse_preprocessor_directive(lexer *lex) {
 
 
 static
-bool32 parse_introspect(lexer *lex) {
+bool32 parse_introspect(lexer *lex, attribute *attr) {
     string kw_introspect;
     kw_introspect.memory = "introspect";
     kw_introspect.size = c_string_size(kw_introspect.memory);
@@ -457,9 +594,14 @@ bool32 parse_introspect(lexer *lex) {
             token value = eat_token(lex);
             token close_paren = eat_token(lex);
 
-            printf("                introspect (property=\"%.*s\"; value=\"%.*s\")\n",
+            printf("introspect (property=\"%.*s\"; value=\"%.*s\")\n",
                 (int)property.span.size, property.span.memory,
                 (int)value.span.size, value.span.memory);
+
+            if (attr) {
+                attr->name = kw_introspect;
+                attr->category = value.span;
+            }
 
             return true;
         }
@@ -480,9 +622,18 @@ bool32 parse_struct_members(lexer *lex) {
         eat_token(lex);
         token var = eat_token(lex);
         token punctuation = eat_token(lex);
+
+        printf("    TypeInfo_%.*s %.*s;\n",
+                (int)t.span.size, t.span.memory,
+                (int)var.span.size, var.span.memory);
+
         while (punctuation.type == TOKEN_COMMA) {
             var = eat_token(lex);
             punctuation = eat_token(lex);
+
+            printf("    TypeInfo_%.*s %.*s;\n",
+                (int)t.span.size, t.span.memory,
+                (int)var.span.size, var.span.memory);
         }
 
         if (punctuation.type != TOKEN_SEMICOLON) {
@@ -497,7 +648,7 @@ bool32 parse_struct_members(lexer *lex) {
 
 
 static
-bool32 parse_struct(lexer *lex) {
+bool32 parse_struct(lexer *lex, attribute *attr = NULL) {
     token t = get_token(lex);
 
     if (t.type == TOKEN_KW_STRUCT) {
@@ -505,6 +656,12 @@ bool32 parse_struct(lexer *lex) {
         token id = eat_token(lex);
         if (id.type == TOKEN_ID) {
             eat_token(lex); // {
+        }
+
+        if (attr) {
+            printf(
+                "struct TypeInfo_%.*s {\n",
+                (int)id.span.size, id.span.memory);
         }
 
         t = get_token(lex);
@@ -517,8 +674,9 @@ bool32 parse_struct(lexer *lex) {
         eat_token(lex); // }
         eat_token(lex); // ;
 
-        printf("                struct (name=\"%.*s\")\n",
-                (int)id.span.size, id.span.memory);
+        if (attr) {
+            printf("};\n");
+        }
     } else {
         return false;
     }
@@ -528,9 +686,9 @@ bool32 parse_struct(lexer *lex) {
 
 
 static
-void parse(char *filename) {
+void parse(string source_code) {
     lexer lex_ = {};
-    lex_.buffer = load_entire_file(filename);
+    lex_.buffer = source_code;
 
     string kw_struct;
     kw_struct.memory = "struct";
@@ -541,20 +699,25 @@ void parse(char *filename) {
 
     if (lex->buffer.size > 0) {
         token t = get_token(lex);
+        attribute attr {};
         do {
             if (parse_preprocessor_directive(lex)) {
-                printf("SUCCESS DIRECTIVE!!!\n");
-            } else if (parse_introspect(lex)) {
-                printf("SUCCESS INTROSPECT!!!\n");
-                parse_struct(lex);
+            } else if (parse_introspect(lex, &attr)) {
+                parse_struct(lex, &attr);
             } else {
                 t = get_token(lex);
                 if (t.type == TOKEN_EOF) {
                     printf("EOF\n");
                 } else if (t.type == TOKEN_ID) {
                     printf("ID (%d:%d) %.*s\n", t.line, t.column, (int)t.span.size, t.span.memory);
+                } else if (t.type == TOKEN_STRING) {
+                    printf("STRING (%d:%d) %.*s\n", t.line, t.column, (int)t.span.size, t.span.memory);
+                } else if (t.type == TOKEN_COMMENT) {
+                    printf("COMMENT (%d:%d) %.*s\n", t.line, t.column, (int)t.span.size, t.span.memory);
+                } else if (t.type == TOKEN_RIGHT_ARROW) {
+                    printf("RIGHT_ARROW (%d:%d)\n", t.line, t.column);
                 } else {
-                    printf("%s('%c')\n", to_string(t.type), t.type);
+                    printf("%s (%d:%d) ('%c')\n", to_string(t.type), t.line, t.column, t.type);
                 }
                 eat_token(lex);
             }
@@ -567,13 +730,11 @@ void parse(char *filename) {
 
 
 int main() {
-    char* filename = "example.cpp";
+    // char* filename = "../src/win32_main.cpp";
+    char *filename = "example.cpp";
 
-    preprocessor::string category_keyword;
-    category_keyword.memory = "category";
-    category_keyword.size = preprocessor::c_string_size(category_keyword.memory);
-
-    preprocessor::parse(filename);
+    preprocessor::string source_code = preprocessor::load_entire_file(filename);
+    preprocessor::parse(source_code);
 
     return 0;
 }
