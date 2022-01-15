@@ -1,0 +1,24 @@
+{
+    "folders":
+    [
+        {
+            "path": ".",
+        },
+    ],
+    "build_systems":
+    [
+        {
+            "name": "Asuka",
+            
+            "windows": {
+                "shell_cmd": "call $folder\\build.bat",
+                "working_dir": "$folder"
+            },
+
+            "linux": {
+                "shell_cmd": "$folder/build.sh",
+                "working_dir": "$folder"
+            }
+        },
+    ],
+}

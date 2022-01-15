@@ -1,0 +1,206 @@
+%YAML 1.2
+---
+name: Asuka
+file_extensions:
+  - cpp
+  - hpp
+scope: asuka
+contexts:
+  main:
+    # Strings begin and end with quotes, and use backslashes as an escape
+    # character
+    - match: '"'
+      scope: asuka.string.begin
+      push: string
+
+    # Comments begin with a '//' and finish at the end of the line
+    - match: '//'
+      scope: asuka.comment
+      push: line_comment
+
+    - match: '\/\*'
+      scope: asuka.comment
+      push: multiline_comment
+
+    - match: '\b(if|else|while|for|break|switch|case|return|typedef)\b'
+      scope: asuka.keyword
+
+    - match: '\b(-)?[0-9.]+f?\b'
+      scope: asuka.constant.numeric
+
+    - match: 'NULL'
+      scope: asuka.constant
+
+    - match: '#\w+'
+      scope: asuka.preprocessor.head
+      push: preprocessor
+
+    - match: 'struct'
+      scope: asuka.keyword.struct
+      push: struct
+
+    - match: 'enum'
+      scope: asuka.keyword.enum
+      push: enum
+
+    - match: '[\-=+<&!\|\*>%/]'
+      scope: asuka.operator
+    - match: '[\.::\(\),;]'
+      scope: asuka.punctuation
+
+    - match: '([\w_][\w\d_]*)\s*(\()'
+      captures:
+        1: asuka.function.name meta.function.c++ entity.name.function.c++
+        2: asuka.punctuation
+
+    - match: '\{'
+      scope: asuka.punctuation
+      push: block
+
+  block:
+    - meta_scope: asuka.block
+    - match: '\b(\.\d+f?|\d+\.(\d+)?f?|\d+(e[+-]\d+)?)\b'
+      scope: asuka.constant.numeric
+    - match: '\b(NULL|TRUE|FALSE|true|false)\b'
+      scope: asuka.constant
+    - match: '\b(if|else|while|for|break|switch|case|return|typedef)\b'
+      scope: asuka.keyword
+    - match: '"'
+      scope: asuka.string.begin
+      push: string
+    - match: ''''
+      scope: asuka.string.begin
+      push: character
+    - match: '\{'
+      scope: asuka.punctuation
+      push: block
+    - match: '//'
+      push: line_comment
+    - match: '/\*'
+      push: multiline_comment
+    - match: '[\-=+<&!\|\*>%/]'
+      scope: asuka.operator
+    - match: '[\.::\(\),;\[\]]'
+      scope: asuka.punctuation
+    - match: '([\w_][\w\d_]*)\s*(\()'
+      captures:
+        1: asuka.function.name meta.function
+        2: asuka.punctuation punctuation
+    - match: '#\w+'
+      scope: asuka.preprocessor.head
+      push: preprocessor
+    - match: '\}'
+      scope: asuka.punctuation
+      pop: true
+
+  struct:
+    - meta_scope: asuka.struct
+    - match: '\b\w+\b'
+      scope: asuka.struct.name source.c++ meta.struct.c++ entity.name.struct.c++
+    - match: '\{'
+      push: struct_body
+    - match: '\;'
+      pop: true
+
+    - match: '//'
+      scope: asuka.comment
+      push: line_comment
+
+    - match: '\/\*'
+      scope: asuka.comment
+      push: multiline_comment
+
+  enum:
+    - meta_scope: asuka.enum
+    - match: '\b\w+\b'
+      scope: asuka.enum.name entity.name.enum.c++
+    - match: '\{'
+      push: struct_body
+    - match: '\;'
+      pop: true
+
+    - match: '//'
+      scope: asuka.comment
+      push: line_comment
+
+    - match: '\/\*'
+      scope: asuka.comment
+      push: multiline_comment
+
+  struct_body:
+    - meta_scope: asuka.struct.body
+    - match: '\b(\.\d+f?|\d+\.(\d+)?f?|\d+(e[+-]\d+)?)\b'
+      scope: asuka.constant.numeric
+    - match: '"'
+      scope: asuka.string.begin
+      push: string
+    - match: ''''
+      scope: asuka.string.begin
+      push: character
+    - match: '\{'
+      push: block
+    - match: '//'
+      push: line_comment
+    - match: '/\*'
+      push: multiline_comment
+    - match: '[\-=+<&!\|\*>%/]'
+      scope: asuka.operator
+    - match: '[\.::\(\),;\[\]]'
+      scope: asuka.punctuation
+    - match: '([\w_][\w\d_]*)(\()'
+      captures:
+        1: asuka.function.name meta.function.c++
+        2: asuka.punctuation punctuation
+    - match: '#\w+'
+      scope: asuka.preprocessor.head
+      push: preprocessor
+    - match: '\}'
+      pop: true
+
+  string:
+    - meta_scope: asuka.string
+    - match: '\\.'
+      scope: asuka.constant.character.escape
+    - match: '"'
+      scope: asuka.string.end
+      pop: true
+
+  character:
+    - meta_scope: asuka.string
+    - match: '\\.'
+      scope: asuka.constant.character.escape
+    - match: ''''
+      scope: asuka.string.end
+      pop: true
+
+
+  line_comment:
+    - meta_scope: asuka.comment.line
+    - match: '@todo:?'
+      scope: asuka.todo
+    - match: '@note:?'
+      scope: asuka.note
+    - match: '@nocommit\b'
+      scope: asuka.nocommit
+    - match: '@\w+:?'
+      scope: asuka.at
+    - match: $
+      pop: true
+
+  multiline_comment:
+    - meta_scope: asuka.comment.multiline
+    - match: '@todo:?'
+      scope: asuka.todo
+    - match: '@note:?'
+      scope: asuka.note
+    - match: '@nocommit\b'
+      scope: asuka.nocommit
+    - match: '\*\/'
+      pop: true
+
+  preprocessor:
+    - meta_scope: asuka.preprocessor.body
+    - match: '//'
+      push: line_comment
+    - match: '$'
+      pop: true

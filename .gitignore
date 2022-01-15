@@ -1,6 +1,9 @@
 # Build directory
 build/
 
+# Sublime Text
+*.sublime-workspace
+
 # Visual Studio
 .vs/
 
