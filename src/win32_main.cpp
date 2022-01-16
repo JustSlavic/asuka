@@ -20,12 +20,17 @@
 //
 
 #include <defines.hpp>
-#include "asuka.hpp"
+#include <asuka.hpp>
 #include <os/time.hpp>
 #include <debug/casts.hpp>
 
+// Windows
 #include <windows.h>
+
+// XInput
 #include <xinput.h>
+
+// Direct Sound
 #include <dsound.h>
 #include <stdio.h>
 

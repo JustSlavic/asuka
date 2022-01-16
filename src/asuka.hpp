@@ -6,6 +6,7 @@
 #include <wav.hpp>
 #include <bmp.hpp>
 #include <png.hpp>
+#include <string.hpp>
 #include "tilemap.hpp"
 #include "memory_arena.hpp"
 
@@ -27,22 +28,23 @@ struct ThreadContext {
 
 struct Game_ButtonState {
     /*
-    HalfTransitionCount helps detect very quick pressing, but we are bad at slow pressing
+    HalfTransitionCount helps detect very quick pressing.
 
+                  frame 1       frame 2
                   +-+
                   | |
-    PulsePress ---+ +---------------------
+    PulsePress |--+ +-------|------------|
 
                   +------------+
                   |            |
-    HoldPress  ---+            +----------
-                             ^
-                             | second "press" on second frame which I want not to happen
-                             v
-    Frames     |------------|------------|
+    HoldPress  |--+         |  +---------|
+                               ^
+                               second "press" on second frame which I want not to happen
 
-    to get number of "presses" happened on this frame, call 'uint32 GetPressCount(Game_ButtonState)' function
-    to get number of "holds" happened on this frame, call 'uint32 GetHoldsCount(Game_ButtonState)' function
+    To get number of "presses" happened on this frame, call 'uint32 GetPressCount(Game_ButtonState)' function.
+    To get number of "holds" happened on this frame, call 'uint32 GetHoldsCount(Game_ButtonState)' function.
+
+    In the example, on frame one there should be 1 press and 1 hold. On frame 2 there should be 0 presses and 1 hold.
     */
 
     bool32 EndedDown;  // Was it ended down?
@@ -180,6 +182,7 @@ struct Game_SoundOutputBuffer {
     int32 SamplesPerSecond;
 };
 
+
 struct Game_Memory {
     uint64 PermanentStorageSize;
     void*  PermanentStorage;
@@ -191,37 +194,55 @@ struct Game_Memory {
 };
 
 
-
-
 struct Game_World {
     Tilemap tilemap;
 };
 
-enum PlayerFaceDirection {
-    PLAYER_FACE_DOWN = 0,
-    PLAYER_FACE_LEFT = 1,
-    PLAYER_FACE_RIGHT = 2,
-    PLAYER_FACE_UP = 3,
+
+enum FaceDirection {
+    FACE_DIRECTION_DOWN = 0,
+    FACE_DIRECTION_LEFT = 1,
+    FACE_DIRECTION_RIGHT = 2,
+    FACE_DIRECTION_UP = 3,
 };
 
-struct game_entity {
-    bool32 initialized;
+enum EntityResidence {
+    ENTITY_RESIDENCE_NOT_EXIST = 0,
+    ENTITY_RESIDENCE_LOW,
+    ENTITY_RESIDENCE_HIGH,
+};
 
-    TilemapPosition position;
+struct HighFrequencyEntity {
+    math::v2 position; // Relative to the camera
     math::v2 velocity;
-    math::v2 hitbox;
+    int32 absolute_tile_z; // for moving up and down "stairs"
 
-    PlayerFaceDirection face_direction;
+    FaceDirection face_direction;
 };
 
-typedef game_entity Entity;
+struct LowFrequencyEntity {
+    TilemapPosition tilemap_position;
+    bool32 collidable;
+    math::v2 hitbox;
+    // @note: for "stairs"
+    int32 d_abs_tile_z;
+};
+
+struct Entity {
+    EntityResidence residence;
+    HighFrequencyEntity *high;
+    LowFrequencyEntity  *low;
+};
 
 struct Game_State {
     TilemapPosition camera_position;
 
     // Note: 0-th entity is invalid and should not be used
-    game_entity entities[256];
     uint32 entity_count;
+    Entity entities[256];
+    EntityResidence     residence_table[256];
+    HighFrequencyEntity high_frequency_entity_table[256];
+    LowFrequencyEntity  low_frequency_entity_table[256];
 
     uint32 player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
     uint32 index_of_entity_for_camera_to_follow;

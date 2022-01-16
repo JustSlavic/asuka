@@ -8,6 +8,8 @@ namespace math {
 
 struct color24 {
     struct { f32 r; f32 g; f32 b; };
+
+    static color24 white;
 };
 
 inline uint32 pack_to_uint32(color24 color) {
@@ -35,5 +37,9 @@ inline color24 lerp (const color24& a, const color24& b, f32 t) {
 }
 
 } // namespace math
+
+#if UNITY_BUILD
+#include "color.cpp"
+#endif
 
 #endif // ASUKA_COMMON_MATH_COLOR_HPP

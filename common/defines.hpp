@@ -100,6 +100,13 @@ typedef signed long long   int64;
 
 #define OFFSET_OF(STRUCT, MEMBER) ((size_t)&(((STRUCT *)0)->MEMBER(STRUCT, MEMBER)))
 
+#define osOutputDebugString(MSG, ...) \
+{ \
+    char OutputBuffer_##__LINE__[256]; \
+    sprintf(OutputBuffer_##__LINE__, MSG, __VA_ARGS__); \
+    OutputDebugStringA(OutputBuffer_##__LINE__); \
+} void(0)
+
 #define INTERNAL_FUNCTION static
 #define IN_CLASS_FUNCTION static
 #define STATIC_VARIABLE static

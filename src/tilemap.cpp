@@ -1,8 +1,8 @@
 #include "tilemap.hpp"
 
 
-tile_chunk_position GetChunkPosition(Tilemap *tilemap, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z) {
-    tile_chunk_position result {};
+TileChunkPosition GetChunkPosition(Tilemap *tilemap, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z) {
+    TileChunkPosition result {};
 
     result.chunk_x = abs_tile_x >> tilemap->chunk_shift;
     result.chunk_y = abs_tile_y >> tilemap->chunk_shift;
@@ -14,8 +14,8 @@ tile_chunk_position GetChunkPosition(Tilemap *tilemap, int32 abs_tile_x, int32 a
     return result;
 }
 
-tile_chunk_position GetChunkPosition(Tilemap *tilemap, TilemapPosition pos) {
-    tile_chunk_position result;
+TileChunkPosition GetChunkPosition(Tilemap *tilemap, TilemapPosition pos) {
+    TileChunkPosition result;
     result = GetChunkPosition(tilemap, pos.absolute_tile_x, pos.absolute_tile_y, pos.absolute_tile_z);
     return result;
 }
@@ -25,10 +25,6 @@ INLINE_FUNCTION
 tile_chunk* GetTileChunk(Tilemap* tilemap, int32 chunk_x, int32 chunk_y, int32 chunk_z) {
     // Allow negative coordinates of chunks so that chunks can grow
     // from the center of the tilemap in any direction.
-
-    // @todo: what asserts should I use here?
-    // ASSERT(world->tilechunk_count_x - tilechunk_x > 0);
-    // ASSERT(world->tilechunk_count_y - tilechunk_y > 0);
 
     tile_chunk* result = NULL;
 
@@ -58,7 +54,7 @@ tile_t GetTileValue_Unchecked(Tilemap* tilemap, tile_chunk* tilechunk, uint32 ti
 tile_t GetTileValue(Tilemap* tilemap, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z) {
     tile_t result = TILE_INVALID;
 
-    tile_chunk_position chunk_pos = GetChunkPosition(tilemap, abs_tile_x, abs_tile_y, abs_tile_z);
+    TileChunkPosition chunk_pos = GetChunkPosition(tilemap, abs_tile_x, abs_tile_y, abs_tile_z);
     tile_chunk *chunk = GetTileChunk(tilemap, chunk_pos.chunk_x, chunk_pos.chunk_y, chunk_pos.chunk_z);
 
     if (chunk != NULL && chunk->tiles != NULL) {
@@ -69,7 +65,7 @@ tile_t GetTileValue(Tilemap* tilemap, int32 abs_tile_x, int32 abs_tile_y, int32 
 }
 
 void SetTileValue(MemoryArena *arena, Tilemap *tilemap, int32 abs_x, int32 abs_y, int32 abs_z, tile_t tile_value) {
-    tile_chunk_position chunk_pos = GetChunkPosition(tilemap, abs_x, abs_y, abs_z);
+    TileChunkPosition chunk_pos = GetChunkPosition(tilemap, abs_x, abs_y, abs_z);
     tile_chunk *chunk = GetTileChunk(tilemap, chunk_pos.chunk_x, chunk_pos.chunk_y, chunk_pos.chunk_z);
 
     ASSERT(chunk);
@@ -107,8 +103,10 @@ void NormalizeCoordinate(Tilemap *tilemap, i32 *tile, f32 *relative_coord) {
     ASSERT(*relative_coord + (0.5f * tilemap->tile_side_in_meters) > -EPSILON);
 }
 
-TilemapPosition NormalizeTilemapPosition(Tilemap* tilemap, TilemapPosition position) {
-    TilemapPosition result = position;
+
+TilemapPosition map_into_tile_space(Tilemap* tilemap, TilemapPosition base_position, math::v2 offset) {
+    TilemapPosition result = base_position;
+    result.relative_position_on_tile += (offset - math::v2{0.5f, 0.0f});
 
     float32 tile_top   = -0.5f * tilemap->tile_side_in_meters;
     float32 tile_bottom = 0.5f * tilemap->tile_side_in_meters;
@@ -138,13 +136,6 @@ math::vector2 PositionDifference(Tilemap *tilemap, TilemapPosition p1, TilemapPo
     result.y =
         (p1.absolute_tile_y * tilemap->tile_side_in_meters + p1.relative_position_on_tile.y) -
         (p2.absolute_tile_y * tilemap->tile_side_in_meters + p2.relative_position_on_tile.y);
-
-    return result;
-}
-
-TilemapPosition MovePosition(Tilemap *tilemap, TilemapPosition pos, math::v2 offset) {
-    pos.relative_position_on_tile += offset;
-    TilemapPosition result = NormalizeTilemapPosition(tilemap, pos);
 
     return result;
 }

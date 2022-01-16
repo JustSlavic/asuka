@@ -72,7 +72,12 @@ struct vector2 {
     IN_CLASS_FUNCTION
     constexpr vector2 nan() {
         vector2 result { NaN, NaN };
+        return result;
+    }
 
+    IN_CLASS_FUNCTION
+    constexpr vector2 zero() {
+        vector2 result { 0, 0 };
         return result;
     }
 };
@@ -143,7 +148,7 @@ inline vector2 lerp (vector2 a, vector2 b, f32 t) {
 }
 
 inline vector2i round_to_vector2i(vector2 v) {
-    vector2i result = vector2i{ round_to_i32(v.x), round_to_i32(v.y) };
+    vector2i result = vector2i{ round_to_int32(v.x), round_to_int32(v.y) };
     return result;
 }
 
@@ -170,10 +175,22 @@ enum intersection_type {
     INTERSECTION_OUT_BOUNDS, //
 };
 
+//
+// Projects 'a' onto 'b'
+//
 inline vector2 project(vector2 a, vector2 b) {
     vector2 result = b * math::dot(a, b) / b.length_2();
     return result;
 }
+
+//
+// Projects 'a' onto line with normal 'norm'
+//
+inline vector2 project_normal(vector2 a, vector2 norm) {
+    vector2 result = a - dot(a, norm) * norm;
+    return result;
+}
+
 
 inline float32 projection(vector2 a, vector2 b) {
     float32 result = math::dot(a, b) / b.length();
@@ -226,7 +243,7 @@ intersection_result segment_segment_intersection(vector2 p0, vector2 p1, vector2
 
     // t < 0 checks for  X<-p0-->p1 situation
     // t > 0 requires us to check whether it's p0-->p1->X situation
-    if ((t + EPSILON < 0) || (t > 0 && intersection.length_2() - EPSILON > r.length_2())) {
+    if ((t + EPSILON < 0) || (t > 0 && (intersection - p0).length_2() - EPSILON > r.length_2())) {
         result = { INTERSECTION_OUT_BOUNDS, intersection };
         return result;
     }

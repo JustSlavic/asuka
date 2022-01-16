@@ -20,7 +20,7 @@ struct tile_chunk {
     tile_t *tiles;
 };
 
-struct tile_chunk_position {
+struct TileChunkPosition {
     // Allow chunks grow from the center of a map in any direction
     int32 chunk_x;
     int32 chunk_y;
@@ -55,11 +55,10 @@ struct TilemapPosition {
 
     Chunk coordinates can be negative:
 
-                     |                   |
-      chunk_x = -1   |   chunk_x = 0     |   chunk_x = 1
-      chunk_y = 0    |   chunk_y = 0     |   chunk_y = 0
-    ---------------(0,0)-----------------+-----
-      chunk_x = -1   |   chunk_x = 0     |   chunk_x = 1
+      chunk_x = -1   |   chunk_x =  0    |   chunk_x =  1
+      chunk_y =  0   |   chunk_y =  0    |   chunk_y =  0
+    ---------------(0,0)-----------------+-----------------
+      chunk_x = -1   |   chunk_x =  0    |   chunk_x =  1
       chunk_y = -1   |   chunk_y = -1    |   chunk_y = -1
 
     */
@@ -73,13 +72,13 @@ struct TilemapPosition {
 };
 
 
-tile_chunk_position GetChunkPosition(Tilemap *map, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
-tile_chunk_position GetChunkPosition(Tilemap *map, TilemapPosition pos);
-tile_t GetTileValue(Tilemap* map, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
+TileChunkPosition GetChunkPosition(Tilemap *tilemap, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
+TileChunkPosition GetChunkPosition(Tilemap *tilemap, TilemapPosition pos);
+tile_t GetTileValue(Tilemap *tilemap, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
 void SetTileValue(MemoryArena *arena, Tilemap *tilemap, int32 abs_x, int32 abs_y, int32 abs_z, tile_t tile_value);
 bool32 IsTileValueEmpty(tile_t tile_value);
-bool32 IsWorldPointEmpty(Tilemap *map, TilemapPosition pos);
-TilemapPosition NormalizeTilemapPosition(Tilemap* map, TilemapPosition position);
+bool32 IsWorldPointEmpty(Tilemap *tilemap, TilemapPosition pos);
+TilemapPosition map_into_tile_space(Tilemap* tilemap, TilemapPosition base_position, math::v2 offset);
 math::vector2 PositionDifference(Tilemap *tilemap, TilemapPosition p1, TilemapPosition p2);
 TilemapPosition MovePosition(Tilemap *tilemap, TilemapPosition pos, math::v2 offset);
 

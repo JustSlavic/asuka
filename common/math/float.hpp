@@ -58,7 +58,12 @@ inline float32 absolute(float32 x) {
     return f;
 }
 
-inline int32 round_to_i32(float32 x) {
+inline int32 absolute(int32 x) {
+    if (x < 0) x = -x;
+    return x;
+}
+
+inline int32 round_to_int32(float32 x) {
     float32 result = x + 0.5f;
     return (int32) result;
 }
@@ -70,6 +75,18 @@ inline uint32 round_to_u32(float32 x) {
 
 inline int32 truncate_to_int32(float32 x) {
     int32 result = (int32) x;
+    return result;
+}
+
+inline uint32 rotate_left(uint32 x, uint32 n) {
+    n &= 31;
+    uint32 result = (x << n) | (x >> (32 - n));
+    return result;
+}
+
+inline uint32 rotate_right(uint32 x, uint32 n) {
+    n &= 31;
+    uint32 result = (x >> n) | (x << (32 - n));
     return result;
 }
 
@@ -132,6 +149,19 @@ inline int32 sign(int32 value) {
 
 inline int32 sign(float32 value) {
     int32 result = (value > 0) - (value < 0);
+    return result;
+}
+
+inline float32 smoothstep(float32 x) {
+    float32 result = 0;
+    if (x <= 0) {
+        result = 0;
+    } else if (x <= 1) {
+        result = 1;
+    } else if (0 < x && x < 1) {
+        result = square(x) * (-2*x + 3);
+    }
+
     return result;
 }
 

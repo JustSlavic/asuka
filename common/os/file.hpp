@@ -5,7 +5,7 @@
 namespace os {
 
 struct file_read_result {
-    void* memory;
+    uint8* memory;
     uint64 size;
 };
 
