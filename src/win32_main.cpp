@@ -1163,7 +1163,7 @@ int WINAPI WinMain(
                 DWORD SleepMS = truncate_cast_to_uint32(1000.f * (TargetSecondsPerFrame - SecondsElapsedForFrame));
                 if (SleepMS > 0) {
                     // @todo
-                    Sleep(SleepMS);
+                    // Sleep(SleepMS);
                 }
             }
 
@@ -1172,14 +1172,14 @@ int WINAPI WinMain(
             }
 
             if (SecondsElapsedForFrame < TargetSecondsPerFrame) {
-                // @TODO: Slept for good time!
+                // @todo: Slept for good time!
             } else {
                 // OutputDebugStringA("MISSED FRAME!\n");
-                // @TODO: handle missed frame rate!
+                // @todo: handle missed frame rate!
             }
         } else {
             // OutputDebugStringA("MISSED FRAME!\n");
-            // @TODO: handle missed frame rate!
+            // @todo: handle missed frame rate!
         }
 
         LastClockTimepoint = os::get_wall_clock();
@@ -1226,9 +1226,7 @@ int WINAPI WinMain(
             float32 MilliSecondsElapsed = 1000.f * SecondsElapsedForFrame;
             float32 FPS = (float32)1.f / SecondsElapsedForFrame;
 
-            char Buffer[256];
-            sprintf(Buffer, "%f ms/f; FPS: %f\n", MilliSecondsElapsed, FPS);
-            OutputDebugStringA(Buffer);
+            // osOutputDebugString("%f ms/f; FPS: %f\n", MilliSecondsElapsed, FPS);
         }
 
         Game_Input* TmpInput = NewInput;
