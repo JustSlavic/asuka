@@ -1,0 +1,19 @@
+%YAML 1.2
+---
+name: Asuka_BuildResults
+file_extensions:
+  - cpp
+  - hpp
+scope: asuka
+contexts:
+  main:
+    # Strings begin and end with quotes, and use backslashes as an escape
+    # character
+    - match: '\['
+      scope: asuka.punctuation
+      push: brackets
+
+    brackets:
+      - meta_scope: asuka.win32_build.brackets asuka.string
+      - match: '\]'
+        pop: true

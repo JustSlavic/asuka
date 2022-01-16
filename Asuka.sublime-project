@@ -12,15 +12,15 @@
             
             "windows": {
                 "shell_cmd": "call $folder\\build.bat",
-                "working_dir": "$folder\\build"
+                "working_dir": "$folder\\build",
+                "file_regex": "^((?:\\w\\:|\\.{1,2})[\\d\\w\\\\\\.\\/]+)\\((\\d+)\\)\\:()(.*)$",
+                "syntax": "Packages/User/Win32_BuildResults.sublime-syntax",
             },
 
             "linux": {
                 "shell_cmd": "$folder/build.sh",
                 "working_dir": "$folder"
             },
-
-            "file_regex": "^((?:\\w\\:|\\.{1,2})[\\d\\w\\\\\\.\\/]+)\\((\\d+)\\)\\:()(.*)$",
         },
     ],
 }
