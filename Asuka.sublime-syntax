@@ -201,6 +201,34 @@ contexts:
   preprocessor:
     - meta_scope: asuka.preprocessor.body
     - match: '//'
+      scope: asuka.comment
       push: line_comment
+    - match: '\/\*'
+      scope: asuka.comment
+      push: multiline_comment
+    - match: '\b(if|else|while|for|break|switch|case|return|typedef)\b'
+      scope: asuka.keyword
+    - match: '\b(-)?[0-9.]+f?\b'
+      scope: asuka.constant.numeric
+    - match: 'NULL'
+      scope: asuka.constant
+    - match: 'struct'
+      scope: asuka.keyword.struct
+      push: struct
+    - match: 'enum'
+      scope: asuka.keyword.enum
+      push: enum
+    - match: '[\-=+<&!\|\*>%/]'
+      scope: asuka.operator
+    - match: '[\.::\(\),;]'
+      scope: asuka.punctuation
+    - match: '([\w_][\w\d_]*)\s*(\()'
+      captures:
+        1: asuka.function.name meta.function.c++ entity.name.function.c++
+        2: asuka.punctuation
+    - match: '\{'
+      scope: asuka.punctuation
+      push: block
+
     - match: '$'
       pop: true

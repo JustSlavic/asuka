@@ -12,13 +12,15 @@
             
             "windows": {
                 "shell_cmd": "call $folder\\build.bat",
-                "working_dir": "$folder"
+                "working_dir": "$folder\\build"
             },
 
             "linux": {
                 "shell_cmd": "$folder/build.sh",
                 "working_dir": "$folder"
-            }
+            },
+
+            "file_regex": "^((?:\\w\\:|\\.{1,2})[\\d\\w\\\\\\.\\/]+)\\((\\d+)\\)\\:()(.*)$",
         },
     ],
 }

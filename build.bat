@@ -6,7 +6,7 @@ SET COMMON_MY_FLAGS=/DUNITY_BUILD=1 /DASUKA_DEBUG=1 /DASUKA_OS_WINDOWS=1 /I../co
 SET COMMON_LIBS=User32.lib Xinput.lib Gdi32.lib Winmm.lib
 
 IF NOT EXIST build mkdir build
-pushd build
+REM pushd build
 
 REM 32-bit build
 REM cl %COMMON_CL_FLAGS% %COMMIN_MY_FLAGS% ../src/win32_main.cpp /link %COMMON_LINKER_FLAGS% /subsystem:windows,5.1 %COMMON_LIBS%
@@ -27,4 +27,4 @@ cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DLL_BUILD /Feasuka ../src/asuka.c
 del lock.tmp
 cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DLL_BUILD /Femain  ../src/win32_main.cpp      /link %COMMON_LINKER_FLAGS% %COMMON_LIBS%
 
-popd
+REM popd
