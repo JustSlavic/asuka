@@ -32,6 +32,15 @@
 
 // Direct Sound
 #include <dsound.h>
+
+// Direct 3D
+#include <d3d11.h>
+// #include <d3dx11.h>
+
+#pragma comment(lib, "d3d11.lib")
+// #pragma comment(lib, "d3dx11.lib")
+// #pragma comment(lib, "d3dx10.lib")
+
 #include <stdio.h>
 
 
@@ -89,6 +98,7 @@ struct Win32_DebugSoundCursors {
 };
 #endif // DRAW_DEBUG_SOUND_CURSORS
 
+
 #if ASUKA_PLAYBACK_LOOP
 struct Win32_DebugInputRecording {
     uint64 InitialGameMemorySize;
@@ -116,6 +126,19 @@ GLOBAL_VARIABLE LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
 GLOBAL_VARIABLE bool Global_CursorIsVisible;
 GLOBAL_VARIABLE WINDOWPLACEMENT Global_WindowPosition = { sizeof(Global_WindowPosition) };
 GLOBAL_VARIABLE bool Global_IsFullscreen;
+GLOBAL_VARIABLE int32 Global_ResolutionPresets[6][2] = {
+    { 800, 600 },
+    { 960, 540 }, // Test Resolution
+    { 1280, 1024 },
+    { 1600, 900 },
+    { 1920, 1080 },
+    { 2560, 1440 },
+};
+
+GLOBAL_VARIABLE IDXGISwapChain *swapchain;
+GLOBAL_VARIABLE ID3D11Device *d3d11_device;
+GLOBAL_VARIABLE ID3D11DeviceContext *d3d11_device_context;
+GLOBAL_VARIABLE ID3D11RenderTargetView *d3d11_back_buffer;
 
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -158,7 +181,7 @@ void Win32_LoadXInputFunctions() {
         XInputGetState = (Win32_XInputGetStateT*)GetProcAddress(XInputLibrary, "XInputGetState");
         XInputSetState = (Win32_XInputSetStateT*)GetProcAddress(XInputLibrary, "XInputSetState");
     } else {
-        // Diagnostic
+        // @todo Diagnostic
     }
 }
 
@@ -260,6 +283,58 @@ float32 Win32_ProcessXInputTrigger(uint8 value, uint8 deadzone) {
     }
 
     return 0.f;
+}
+
+
+INTERNAL_FUNCTION
+void Win32_InitDirect3D(HWND Window) {
+    DXGI_SWAP_CHAIN_DESC sd;
+    ZeroMemory(&sd, sizeof(sd));
+    sd.BufferCount = 1;
+    // sd.BufferDesc.Width = 640;
+    // sd.BufferDesc.Height = 480;
+    sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    // sd.BufferDesc.RefreshRate.Numerator = 60;
+    // sd.BufferDesc.RefreshRate.Denominator = 1;
+    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    sd.OutputWindow = Window;
+    sd.SampleDesc.Count = 1;
+    // sd.SampleDesc.Quality = 0;
+    sd.Windowed = TRUE;
+
+    D3D_FEATURE_LEVEL FeatureLevels = D3D_FEATURE_LEVEL_11_0;
+    if(FAILED(D3D11CreateDeviceAndSwapChain(
+        NULL,
+        D3D_DRIVER_TYPE_HARDWARE, // D3D_DRIVER_TYPE_REFERENCE,
+        NULL,
+        NULL, // 0,
+        NULL, // &FeatureLevels,
+        NULL, // 1,
+        D3D11_SDK_VERSION,
+        &sd,
+        &swapchain,
+        &d3d11_device,
+        NULL, // &FeatureLevel,
+        &d3d11_device_context)))
+    {
+        return;
+    }
+
+    ID3D11Texture2D *pBackBuffer;
+    swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+
+    d3d11_device->CreateRenderTargetView(pBackBuffer, NULL, &d3d11_back_buffer);
+    pBackBuffer->Release();
+
+    d3d11_device_context->OMSetRenderTargets(1, &d3d11_back_buffer, NULL);
+}
+
+
+INTERNAL_FUNCTION
+void Win32_CleanDirect3D() {
+    swapchain->Release();
+    d3d11_device->Release();
+    d3d11_device_context->Release();
 }
 
 
@@ -806,8 +881,10 @@ int WINAPI WinMain(
     }
     DWORD ProgramPathNoFilenameSize = IndexOfLastSlash + 1;
 
+    int32 *Resolution = Global_ResolutionPresets[1];
+
     Win32_LoadXInputFunctions();
-    Win32_ResizeDIBSection(&Global_BackBuffer, 960, 540);
+    Win32_ResizeDIBSection(&Global_BackBuffer, Resolution[0], Resolution[1]);
 
 #ifdef ASUKA_DEBUG
     Global_CursorIsVisible = true;
@@ -829,6 +906,12 @@ int WINAPI WinMain(
         return 1;
     }
 
+    RECT client_rectangle { 0, 0, Resolution[0], Resolution[1] };
+    if (!AdjustWindowRect(&client_rectangle, WS_OVERLAPPEDWINDOW, false)) {
+        // @error: handle not correct window size ?
+        return 1;
+    }
+
     HWND Window = CreateWindowExA(
 #if DEBUG_WINDOW_ON_TOP
         WS_EX_TOPMOST | WS_EX_LAYERED,
@@ -837,11 +920,11 @@ int WINAPI WinMain(
 #endif
         WindowClass.lpszClassName,
         "AsukaWindow",
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE, // WS_OVERLAPPEDWINDOW | WS_VISIBLE,
         CW_USEDEFAULT, // int X,
         CW_USEDEFAULT, // int Y,
-        CW_USEDEFAULT, // int nWidth,
-        CW_USEDEFAULT, // int nHeight,
+        client_rectangle.right - client_rectangle.left, // CW_USEDEFAULT, // int nWidth,
+        client_rectangle.bottom - client_rectangle.top, // CW_USEDEFAULT, // int nHeight,
         0, 0, hInstance, 0);
 
     if (!Window) {
@@ -856,12 +939,15 @@ int WINAPI WinMain(
         ReleaseDC(Window, DeviceContext);
     }
 
-    int GameUpdateHz = MonitorRefreshHz / 2;
+    // Win32_InitDirect3D(Window);
+
+    int GameUpdateHz = 60; //MonitorRefreshHz / 2;
     float32 TargetSecondsPerFrame = 1.f / GameUpdateHz;
 
-    // @TODO: remove this assert
+    // @todo: remove this assert
+    // @todo: remove this assert
     // Require this to be 60 Hz for now, this may be different for different monitors, but for testing purposes that's fine
-    ASSERT(MonitorRefreshHz == 60);
+    // ASSERT(MonitorRefreshHz == 60);
 
     Win32_SoundOutput SoundOutput {};
 
@@ -1148,6 +1234,9 @@ int WINAPI WinMain(
         }
 #endif // ASUKA_PLAYBACK_LOOP
 
+        // @todo: Clear screen via Direct3D.
+        // @todo: See how to give graphics-api rendering stuff into game engine and render through it.
+
         if (Game.UpdateAndRender) {
             Game.UpdateAndRender(&GameThread, &GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
         }
@@ -1170,6 +1259,7 @@ int WINAPI WinMain(
             while (SecondsElapsedForFrame < TargetSecondsPerFrame) {
                 SecondsElapsedForFrame = (float32)(os::get_wall_clock() - LastClockTimepoint) / (float32)WallClockFrequency;
             }
+
 
             if (SecondsElapsedForFrame < TargetSecondsPerFrame) {
                 // @TODO: Slept for good time!
@@ -1235,6 +1325,8 @@ int WINAPI WinMain(
         NewInput = OldInput;
         OldInput = TmpInput;
     }
+
+    // Win32_CleanDirect3D();
 
     return 0;
 }
