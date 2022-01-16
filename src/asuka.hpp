@@ -260,6 +260,15 @@ struct Game_State {
     bitmap player_textures[4];
 
     uint32 test_current_sound_cursor;
+
+    bitmap text_bitmap;
+    string text_to_render;
+
+    // FT_Library freetype_library;
+    // FT_Face freetype_face;
+    // FT_GlyphSlot freetype_slot;
+    // FT_Matrix freetype_matrix;
+    // FT_Vector freetype_pen; // untransformed origin
 };
 
 

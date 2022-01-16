@@ -34,6 +34,9 @@
 #include <dsound.h>
 #include <stdio.h>
 
+// #include <ft2build.h>
+// #include FT_FREETYPE_H
+
 
 #define DRAW_DEBUG_SOUND_CURSORS (0 && ASUKA_DEBUG)
 #define DEBUG_WINDOW_ON_TOP (0 && ASUKA_DEBUG)
@@ -161,6 +164,40 @@ void Win32_LoadXInputFunctions() {
         // Diagnostic
     }
 }
+
+
+// #define FT_INIT_LIBRARY_SIGNATURE(name) FT_EXPORT(FT_Error) name(FT_Library *library)
+// typedef FT_INIT_LIBRARY_SIGNATURE(Win32_FT_Init_FreeTypeT);
+// FT_INIT_LIBRARY_SIGNATURE(Win32_FT_Init_FreeTypeStub) {
+//     return 1;
+// }
+// GLOBAL_VARIABLE Win32_FT_Init_FreeTypeT *FT_Init_FreeType_ = Win32_FT_Init_FreeTypeStub;
+// #define FT_Init_FreeType FT_Init_FreeType_
+
+// #define FT_INIT_LIBRARY_SIGNATURE(name) FT_EXPORT(FT_Error) name(FT_Library *library)
+// typedef FT_INIT_LIBRARY_SIGNATURE(Win32_FT_Init_FreeTypeT);
+// FT_INIT_LIBRARY_SIGNATURE(Win32_FT_Init_FreeTypeStub) {
+//     return 1;
+// }
+// GLOBAL_VARIABLE Win32_FT_Init_FreeTypeT *FT_Init_FreeType_ = Win32_FT_Init_FreeTypeStub;
+// #define FT_Init_FreeType FT_Init_FreeType_
+
+// FT_EXPORT( FT_Error )
+//   FT_New_Face( FT_Library   library,
+//                const char*  filepathname,
+//                FT_Long      face_index,
+//                FT_Face     *aface );
+
+// FT_New_Face
+// FT_Set_Char_Size
+// FT_Load_Char
+// FT_Set_Transform
+
+
+// INTERNAL_FUNCTION
+// void Win32_LoadFreeTypeFunctions() {
+
+// }
 
 
 INTERNAL_FUNCTION

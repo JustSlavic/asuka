@@ -165,6 +165,27 @@ void RenderRectangle(
 }
 
 
+// void render_text_into_bitmap(FT_Bitmap *ft_bitmap, FT_Int x, FT_Int y, bitmap *target_bitmap) {
+//     FT_Int i, j, p, q;
+//     FT_Int x_max = x + ft_bitmap->width;
+//     FT_Int y_max = y + ft_bitmap->rows;
+
+//     /* for simplicity, we assume that `bitmap->pixel_mode' */
+//     /* is `FT_PIXEL_MODE_GRAY' (i.e., not a bitmap font)   */
+
+//     for (i = x, p = 0; i < x_max; i++, p++)
+//     {
+//         for (j = y, q = 0; j < y_max; j++, q++)
+//         {
+//             if (i < 0 || j < 0 || i >= (int)target_bitmap->width || j >= (int)target_bitmap->height)
+//                 continue;
+
+//             ((uint8*)target_bitmap->pixels)[j * target_bitmap->width + i] |= ft_bitmap->buffer[q * ft_bitmap->width + p];
+//         }
+//     }
+// }
+
+
 #if ASUKA_PLAYBACK_LOOP
 INTERNAL_FUNCTION
 void RenderBorder(Game_OffscreenBuffer* Buffer, uint32 Width, math::color24 Color) {
@@ -421,6 +442,29 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         game_state->camera_position.absolute_tile_x = 16 / 2;
         game_state->camera_position.absolute_tile_y = 9 / 2;
+
+        game_state->text_bitmap.width = 640;
+        game_state->text_bitmap.height = 480;
+        game_state->text_bitmap.pixels = push_array(arena, uint8, 640*480);
+        game_state->text_bitmap.size = 640*480;
+        game_state->text_bitmap.bytes_per_pixel = 1;
+
+        char text_to_render[] = "Hello Sailor!";
+        game_state->text_to_render.buffer = text_to_render;
+        game_state->text_to_render.size = sizeof(text_to_render) - 1;
+
+        // FT_Error freetype_error;
+        // freetype_error = FT_Init_FreeType(&game_state->freetype_library);
+        // freetype_error = FT_New_Face(game_state->freetype_library, "mangat.ttf", 0, &game_state->freetype_face);
+        // freetype_error = FT_Set_Char_Size(game_state->freetype_face, 50*64, 0, 100, 0);
+        // game_state->freetype_slot = game_state->freetype_face->glyph;
+
+        /* set up matrix */
+        // float angle = 0;
+        // game_state->freetype_matrix.xx = (FT_Fixed)( cos( angle ) * 0x10000L );
+        // game_state->freetype_matrix.xy = (FT_Fixed)(-sin( angle ) * 0x10000L );
+        // game_state->freetype_matrix.yx = (FT_Fixed)( sin( angle ) * 0x10000L );
+        // game_state->freetype_matrix.yy = (FT_Fixed)( cos( angle ) * 0x10000L );
 
         // ===================== WORLD GENERATION ===================== //
 
@@ -893,7 +937,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 0.5f * Buffer->Height + entity_position_in_meters.y * pixels_per_meter,
             };
 
-
             RenderRectangle(
                 Buffer,
                 entity_position_in_pixels - 0.5f * entity->hitbox * pixels_per_meter,
@@ -923,6 +966,42 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #endif
     }
 
+    // ===================== RENDERING TEXT ===================== //
+
+    // {
+    //     /* the pen position in 26.6 cartesian space coordinates; */
+    //     /* start at (300,200) relative to the upper left corner  */
+    //     game_state->freetype_pen.x = 50; //300*64;
+    //     game_state->freetype_pen.y = 50; //(game_state->text_bitmap.height - 200)*64;
+
+    //     static int32 text_rendered = 0;
+    //     if (!text_rendered)
+    //     for (int n = 0; n < game_state->text_to_render.size; n++)
+    //     {
+    //         /* set transformation */
+    //         FT_Set_Transform(game_state->freetype_face, &game_state->freetype_matrix, &game_state->freetype_pen);
+
+    //         /* load glyph image into the slot (erase previous one) */
+    //         FT_Error error = FT_Load_Char(game_state->freetype_face, game_state->text_to_render.buffer[n], FT_LOAD_RENDER);
+    //         if (error)
+    //             continue;                 /* ignore errors */
+
+    //         /* now, draw to our target surface (convert position) */
+    //         render_text_into_bitmap(
+    //             &game_state->freetype_slot->bitmap,
+    //             game_state->freetype_slot->bitmap_left,
+    //             game_state->text_bitmap.height - game_state->freetype_slot->bitmap_top,
+    //             &game_state->text_bitmap);
+
+    //         /* increment pen position */
+    //         game_state->freetype_pen.x += game_state->freetype_slot->advance.x;
+    //         game_state->freetype_pen.y += game_state->freetype_slot->advance.y;
+    //     }
+
+    //     text_rendered = 1;
+
+    //     RenderBitmap(Buffer, v2{0, 0}, v2{(f32)game_state->text_bitmap.width, (f32)game_state->text_bitmap.height}, &game_state->text_bitmap);
+    // }
     // ===================== RENDERING SIGNALING BORDERS ===================== //
 
 #if ASUKA_PLAYBACK_LOOP
