@@ -6,11 +6,22 @@
 
 namespace math {
 
+
 struct color24 {
     struct { f32 r; f32 g; f32 b; };
 
     static color24 white;
 };
+
+
+struct color32 {
+    union {
+        struct { f32 r, g, b, a; };
+        struct { color24 rgb; f32 pad_; };
+        f32 components[4];
+    };
+};
+
 
 inline uint32 pack_to_uint32(color24 color) {
     uint32 result =
