@@ -126,16 +126,22 @@ GLOBAL_VARIABLE LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
 GLOBAL_VARIABLE bool Global_CursorIsVisible;
 GLOBAL_VARIABLE WINDOWPLACEMENT Global_WindowPosition = { sizeof(Global_WindowPosition) };
 GLOBAL_VARIABLE bool Global_IsFullscreen;
-GLOBAL_VARIABLE int32 Global_ResolutionPresets[6][2] = {
+GLOBAL_VARIABLE int32 Global_ResolutionPresets[12][2] = {
     { 800, 600 },
     { 960, 540 }, // Test Resolution
+    { 1024, 768 },
+    { 1152, 864 },
     { 1280, 1024 },
+    { 1440, 900 },
     { 1600, 900 },
+    { 1600, 1200 },
+    { 1680, 1050 },
     { 1920, 1080 },
+    { 1920, 1200 },
     { 2560, 1440 },
 };
 
-GLOBAL_VARIABLE IDXGISwapChain *swapchain;
+GLOBAL_VARIABLE IDXGISwapChain *d3d11_swapchain;
 GLOBAL_VARIABLE ID3D11Device *d3d11_device;
 GLOBAL_VARIABLE ID3D11DeviceContext *d3d11_device_context;
 GLOBAL_VARIABLE ID3D11RenderTargetView *d3d11_back_buffer;
@@ -287,12 +293,14 @@ float32 Win32_ProcessXInputTrigger(uint8 value, uint8 deadzone) {
 
 
 INTERNAL_FUNCTION
-void Win32_InitDirect3D(HWND Window) {
-    DXGI_SWAP_CHAIN_DESC sd;
-    ZeroMemory(&sd, sizeof(sd));
-    sd.BufferCount = 1;
-    // sd.BufferDesc.Width = 640;
-    // sd.BufferDesc.Height = 480;
+void Win32_InitDirect3D(HWND Window, int32 resolution_index) {
+    // Direct 3D initialization.
+    int32 *ScreenResolution = Global_ResolutionPresets[resolution_index];
+
+    DXGI_SWAP_CHAIN_DESC sd {};
+    sd.BufferCount       = 1;
+    sd.BufferDesc.Width  = ScreenResolution[0];
+    sd.BufferDesc.Height = ScreenResolution[1];
     sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     // sd.BufferDesc.RefreshRate.Numerator = 60;
     // sd.BufferDesc.RefreshRate.Denominator = 1;
@@ -301,6 +309,7 @@ void Win32_InitDirect3D(HWND Window) {
     sd.SampleDesc.Count = 1;
     // sd.SampleDesc.Quality = 0;
     sd.Windowed = TRUE;
+    sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
     D3D_FEATURE_LEVEL FeatureLevels = D3D_FEATURE_LEVEL_11_0;
     if(FAILED(D3D11CreateDeviceAndSwapChain(
@@ -312,7 +321,7 @@ void Win32_InitDirect3D(HWND Window) {
         NULL, // 1,
         D3D11_SDK_VERSION,
         &sd,
-        &swapchain,
+        &d3d11_swapchain,
         &d3d11_device,
         NULL, // &FeatureLevel,
         &d3d11_device_context)))
@@ -320,19 +329,46 @@ void Win32_InitDirect3D(HWND Window) {
         return;
     }
 
+    // Set render target.
+
     ID3D11Texture2D *pBackBuffer;
-    swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+    d3d11_swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&pBackBuffer);
 
     d3d11_device->CreateRenderTargetView(pBackBuffer, NULL, &d3d11_back_buffer);
     pBackBuffer->Release();
 
     d3d11_device_context->OMSetRenderTargets(1, &d3d11_back_buffer, NULL);
+
+    // Set the viewport.
+
+    D3D11_VIEWPORT viewport {};
+    viewport.TopLeftX = 0;
+    viewport.TopLeftY = 0;
+    viewport.Width  = (f32) ScreenResolution[0];
+    viewport.Height = (f32) ScreenResolution[1];
+
+    d3d11_device_context->RSSetViewports(1, &viewport);
 }
 
 
 INTERNAL_FUNCTION
-void Win32_CleanDirect3D() {
-    swapchain->Release();
+void Win32_Direct3D_Clean(math::color32 color) {
+    d3d11_device_context->ClearRenderTargetView(d3d11_back_buffer, color.components);
+}
+
+
+INTERNAL_FUNCTION
+void Win32_Direct3D_SwapBuffers() {
+    d3d11_swapchain->Present(0, 0);
+}
+
+
+INTERNAL_FUNCTION
+void Win32_Direct3D_ReleaseLibrary() {
+    d3d11_swapchain->SetFullscreenState(false, NULL);
+
+    d3d11_swapchain->Release();
+    d3d11_back_buffer->Release();
     d3d11_device->Release();
     d3d11_device_context->Release();
 }
@@ -881,7 +917,8 @@ int WINAPI WinMain(
     }
     DWORD ProgramPathNoFilenameSize = IndexOfLastSlash + 1;
 
-    int32 *Resolution = Global_ResolutionPresets[1];
+    int32 ResolutionIndex = 1;
+    int32 *Resolution = Global_ResolutionPresets[ResolutionIndex];
 
     Win32_LoadXInputFunctions();
     Win32_ResizeDIBSection(&Global_BackBuffer, Resolution[0], Resolution[1]);
@@ -939,7 +976,7 @@ int WINAPI WinMain(
         ReleaseDC(Window, DeviceContext);
     }
 
-    // Win32_InitDirect3D(Window);
+    Win32_InitDirect3D(Window, ResolutionIndex);
 
     int GameUpdateHz = 60; //MonitorRefreshHz / 2;
     float32 TargetSecondsPerFrame = 1.f / GameUpdateHz;
@@ -1237,9 +1274,14 @@ int WINAPI WinMain(
         // @todo: Clear screen via Direct3D.
         // @todo: See how to give graphics-api rendering stuff into game engine and render through it.
 
+#if 1
         if (Game.UpdateAndRender) {
             Game.UpdateAndRender(&GameThread, &GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
         }
+#else
+        Win32_Direct3D_Clean({0.5f, 0.5f, 1.f, 1.f});
+        Win32_Direct3D_SwapBuffers();
+#endif
 
         Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
 
@@ -1252,7 +1294,7 @@ int WINAPI WinMain(
                 DWORD SleepMS = truncate_cast_to_uint32(1000.f * (TargetSecondsPerFrame - SecondsElapsedForFrame));
                 if (SleepMS > 0) {
                     // @todo
-                    Sleep(SleepMS);
+                    // Sleep(SleepMS);
                 }
             }
 
@@ -1262,14 +1304,14 @@ int WINAPI WinMain(
 
 
             if (SecondsElapsedForFrame < TargetSecondsPerFrame) {
-                // @TODO: Slept for good time!
+                // @todo: Slept for good time!
             } else {
                 // OutputDebugStringA("MISSED FRAME!\n");
-                // @TODO: handle missed frame rate!
+                // @todo: handle missed frame rate!
             }
         } else {
             // OutputDebugStringA("MISSED FRAME!\n");
-            // @TODO: handle missed frame rate!
+            // @todo: handle missed frame rate!
         }
 
         LastClockTimepoint = os::get_wall_clock();
@@ -1326,7 +1368,7 @@ int WINAPI WinMain(
         OldInput = TmpInput;
     }
 
-    // Win32_CleanDirect3D();
+    Win32_Direct3D_ReleaseLibrary();
 
     return 0;
 }
