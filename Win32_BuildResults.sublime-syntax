@@ -1,9 +1,6 @@
 %YAML 1.2
 ---
 name: Asuka_BuildResults
-file_extensions:
-  - cpp
-  - hpp
 scope: asuka
 contexts:
   main:

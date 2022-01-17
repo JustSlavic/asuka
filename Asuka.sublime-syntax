@@ -4,7 +4,7 @@ name: Asuka
 file_extensions:
   - cpp
   - hpp
-scope: asuka
+scope: asuka source.c++
 contexts:
   main:
     # Strings begin and end with quotes, and use backslashes as an escape
@@ -43,6 +43,10 @@ contexts:
       scope: asuka.keyword.enum
       push: enum
 
+    - match: 'namespace'
+      scope: asuka.keyword.namespace
+      push: namespace
+
     - match: '[\-=+<&!\|\*>%/]'
       scope: asuka.operator
     - match: '[\.::\(\),;]'
@@ -58,7 +62,7 @@ contexts:
       push: block
 
   block:
-    - meta_scope: asuka.block
+    - meta_scope: asuka.block meta.block.c++
     - match: '\b(\.\d+f?|\d+\.(\d+)?f?|\d+(e[+-]\d+)?)\b'
       scope: asuka.constant.numeric
     - match: '\b(NULL|TRUE|FALSE|true|false)\b'
@@ -95,11 +99,14 @@ contexts:
 
   struct:
     - meta_scope: asuka.struct
-    - match: '\b\w+\b'
+    - match: '\b\w*\b'
       scope: asuka.struct.name source.c++ meta.struct.c++ entity.name.struct.c++
     - match: '\{'
+      scope: asuka.punctuation
       push: struct_body
+
     - match: '\;'
+      scope: asuka.punctuation
       pop: true
 
     - match: '//'
@@ -127,6 +134,13 @@ contexts:
       scope: asuka.comment
       push: multiline_comment
 
+  namespace:
+    - meta_scope: asuka.namespace
+    - match: '\b\w+\b'
+      scope: asuka.namespace.name entity.name.namespace.c++
+    - match: '\{'
+      pop: true
+
   struct_body:
     - meta_scope: asuka.struct.body
     - match: '\b(\.\d+f?|\d+\.(\d+)?f?|\d+(e[+-]\d+)?)\b'
@@ -138,6 +152,7 @@ contexts:
       scope: asuka.string.begin
       push: character
     - match: '\{'
+      scope: asuka.punctuation
       push: block
     - match: '//'
       push: line_comment
@@ -155,6 +170,7 @@ contexts:
       scope: asuka.preprocessor.head
       push: preprocessor
     - match: '\}'
+      scope: asuka.punctuation
       pop: true
 
   string:
