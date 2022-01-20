@@ -5,7 +5,7 @@
 #include <bitmap.hpp>
 
 
-bitmap load_bmp_file(const char* filename);
+Bitmap load_bmp_file(const char* filename);
 
 
 #ifdef UNITY_BUILD

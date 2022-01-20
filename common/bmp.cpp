@@ -48,8 +48,8 @@ enum {
 };
 
 
-bitmap load_bmp_file(const char* filename) {
-    bitmap result {};
+Bitmap load_bmp_file(const char* filename) {
+    Bitmap result {};
 
     os::file_read_result file_contents = os::load_entire_file(filename);
     if (file_contents.memory == NULL) {

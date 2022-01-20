@@ -26,7 +26,7 @@ INTERNAL_FUNCTION
 void DrawBitmap(
     Game_OffscreenBuffer* buffer,
     math::v2 top_left, math::v2 bottom_right,
-    bitmap *image,
+    Bitmap *image,
     bool32 stroke = false)
 {
     using math::vector2i;
