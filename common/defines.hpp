@@ -75,22 +75,18 @@ typedef signed long long   int64;
 #endif // ASUKA_COMPILER_GNU
 
 #ifdef ASUKA_DEBUG
-#define ASSERT(COND) \
-    if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
-#define ASSERT_MSG(COND, MSG) \
-    if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
-#define ASSERT_FAIL(MSG) \
-    { ASUKA_DEBUG_BREAK(); } void(0)
+#define ASSERT(COND)  if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
+#define ASSERT_MSG(COND, MSG)  if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
 #else // ASUKA_DEBUG
 #define ASSERT(COND)
 #define ASSERT_MSG(COND, MSG)
-#define ASSERT_FAIL(MSG)
 #endif // ASUKA_DEBUG
 
-#define STATIC_ASSERT(COND) \
-    static_assert(COND, "")
-#define STATIC_ASSERT_MSG(COND, MSG) \
-    static_assert(COND, MSG)
+#define ASSERT_FAIL(MSG)  ASSERT_MSG(NULL, MSG)
+#define INVALID_CODE_PATH  ASSERT_FAIL("Invalid code path.")
+
+#define STATIC_ASSERT(COND)  static_assert(COND, "")
+#define STATIC_ASSERT_MSG(COND, MSG)  static_assert(COND, MSG)
 
 #define ASUKA_PLAYBACK_LOOP ASUKA_DEBUG
 

@@ -406,25 +406,41 @@ INTERNAL_FUNCTION
 void SetCameraPosition(GameState *game_state, TilemapPosition new_camera_position) {
     auto *tilemap = &game_state->world->tilemap;
     math::vector2 diff = PositionDifference(tilemap, game_state->camera_position, new_camera_position);
+    game_state->camera_position = new_camera_position;
 
-    math::rectangle2 high_entity_zone = math::rectangle2::from_center_dim(math::v2::zero(), tilemap->tile_side_in_meters * math::v2{ 16, 9 });
+    math::vector2i   high_zone_in_tiles = math::vector2i { 16, 9 };
+    math::rectangle2 high_zone_in_float = math::rectangle2::from_center_dim(math::v2::zero(), tilemap->tile_side_in_meters * math::upcast_to_vector2(high_zone_in_tiles));
 
     for (uint32 index = 1; index < game_state->entity_count; index++) {
         if (game_state->residence_table[index] == ENTITY_RESIDENCE_HIGH) {
             HighFrequencyEntity* high = game_state->high_frequency_entity_table + index;
             high->position.xy += diff;
 
-            if (!in_rectangle(high_entity_zone, high->position.xy)) {
+            if (!in_rectangle(high_zone_in_float, high->position.xy)) {
                 change_entity_residence(game_state, ENTITY_RESIDENCE_LOW, index);
             }
         }
     }
 
-    // @todo: Move entities into high set here.
+    i32 min_tile_x = new_camera_position.absolute_tile_x - high_zone_in_tiles.x / 2;
+    i32 max_tile_x = new_camera_position.absolute_tile_x + high_zone_in_tiles.x / 2 + high_zone_in_tiles.x % 2;
+    i32 min_tile_y = new_camera_position.absolute_tile_y - high_zone_in_tiles.y / 2;
+    i32 max_tile_y = new_camera_position.absolute_tile_y + high_zone_in_tiles.y / 2 + high_zone_in_tiles.y % 2;
 
-    game_state->camera_position = new_camera_position;
+    for (uint32 index = 1; index < game_state->entity_count; index++) {
+        if (game_state->residence_table[index] == ENTITY_RESIDENCE_LOW) {
+            LowFrequencyEntity *low = game_state->low_frequency_entity_table + index;
 
-    // @todo: map walls and stairs (doors) into the entity set
+            if ((low->tilemap_position.absolute_tile_z == new_camera_position.absolute_tile_z) &&
+                (low->tilemap_position.absolute_tile_x >= min_tile_x) &&
+                (low->tilemap_position.absolute_tile_x <= max_tile_x) &&
+                (low->tilemap_position.absolute_tile_y >= min_tile_y) &&
+                (low->tilemap_position.absolute_tile_y <= max_tile_y))
+            {
+                change_entity_residence(game_state, ENTITY_RESIDENCE_HIGH, index);
+            }
+        }
+    }
 }
 
 
@@ -488,10 +504,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_state->world = push_struct(arena, Game_World);
         Game_World *world = game_state->world;
         Tilemap *tilemap = &world->tilemap;
-
-        game_state->camera_position.absolute_tile_x = 16 / 2;
-        game_state->camera_position.absolute_tile_y = 9 / 2;
-        game_state->camera_position.relative_position_on_tile = { -0.5f, 0.0f }; // @note: Offset because the center of the room lies on the edge between tiles.
 
         // ===================== WORLD GENERATION ===================== //
 
@@ -625,6 +637,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
             previous_choice = choice;
         }
+
+        TilemapPosition camera_position;
+        camera_position.absolute_tile_x = room_width_in_tiles / 2;
+        camera_position.absolute_tile_y = room_height_in_tiles / 2;
+        camera_position.relative_position_on_tile = { -0.5f, 0.0f }; // @note: Offset because the center of the room lies on the edge between tiles.
+        SetCameraPosition(game_state, camera_position);
 
         Memory->IsInitialized = true;
     }
@@ -886,7 +904,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     break;
                 }
                 // Walls are entities now
-                
+
                 // case TILE_WALL: {
                 //     // DrawBitmap(Buffer, upper_left_in_up_down_screen_pixel_coords, bottom_right_in_up_down_screen_pixel_coords, &game_state->wall_texture);
                 //     // continue;
@@ -935,7 +953,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     // ===================== RENDERING ENTITIES ===================== //
 
     for (uint32 entity_index = 0; entity_index < game_state->entity_count; entity_index++) {
-        if (game_state->residence_table[entity_index] != ENTITY_RESIDENCE_NOT_EXIST) {
+        if (game_state->residence_table[entity_index] == ENTITY_RESIDENCE_HIGH) {
             Entity entity = get_entity(game_state, ENTITY_RESIDENCE_HIGH, entity_index);
 
             if (entity.low->tilemap_position.absolute_tile_z != game_state->camera_position.absolute_tile_z) {

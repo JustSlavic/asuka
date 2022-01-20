@@ -242,6 +242,7 @@ struct Entity {
     LowFrequencyEntity  *low;
 };
 
+
 struct GameState {
     TilemapPosition camera_position;
 
