@@ -10,7 +10,13 @@ namespace math {
 struct vector2i {
     union {
         struct { int32  x, y; };
+        int32 coordinates[2];
     };
+
+    inline int32 operator[] (int32 idx) {
+        int32 result = coordinates[idx];
+        return result;
+    }
 };
 
 
@@ -28,11 +34,11 @@ struct vector2 {
     union {
         struct { float32  x,  y; };
         struct { float32  u,  v; };
-        float32 at[2];
+        float32 coordinates[2];
     };
 
     IN_CLASS_FUNCTION INLINE_FUNCTION
-    vector2 from(float32 v) {
+    vector2 make(float32 v) {
         vector2 result { v, v };
         return result;
     }
@@ -78,6 +84,24 @@ struct vector2 {
     IN_CLASS_FUNCTION
     constexpr vector2 zero() {
         vector2 result { 0, 0 };
+        return result;
+    }
+
+    IN_CLASS_FUNCTION
+    constexpr vector2 one() {
+        vector2 result { 1, 1 };
+        return result;
+    }
+
+    IN_CLASS_FUNCTION
+    constexpr vector2 ex() {
+        vector2 result { 1, 0 };
+        return result;
+    }
+
+    IN_CLASS_FUNCTION
+    constexpr vector2 ey() {
+        vector2 result { 0, 1 };
         return result;
     }
 };

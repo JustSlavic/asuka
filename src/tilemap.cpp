@@ -106,7 +106,7 @@ void NormalizeCoordinate(Tilemap *tilemap, i32 *tile, f32 *relative_coord) {
 
 TilemapPosition map_into_tile_space(Tilemap* tilemap, TilemapPosition base_position, math::v2 offset) {
     TilemapPosition result = base_position;
-    result.relative_position_on_tile += (offset - math::v2{0.5f, 0.0f});
+    result.relative_position_on_tile += offset;
 
     float32 tile_top   = -0.5f * tilemap->tile_side_in_meters;
     float32 tile_bottom = 0.5f * tilemap->tile_side_in_meters;

@@ -116,6 +116,20 @@ GLOBAL_VARIABLE LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
 GLOBAL_VARIABLE bool Global_CursorIsVisible;
 GLOBAL_VARIABLE WINDOWPLACEMENT Global_WindowPosition = { sizeof(Global_WindowPosition) };
 GLOBAL_VARIABLE bool Global_IsFullscreen;
+GLOBAL_VARIABLE math::vector2i Global_ResolutionPresets[12] = {
+    { 800, 600 },
+    { 960, 540 }, // Test Resolution
+    { 1024, 768 },
+    { 1152, 864 },
+    { 1280, 1024 },
+    { 1440, 900 },
+    { 1600, 900 },
+    { 1600, 1200 },
+    { 1680, 1050 },
+    { 1920, 1080 },
+    { 1920, 1200 },
+    { 2560, 1440 },
+};
 
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -794,7 +808,6 @@ int WINAPI WinMain(
     MMRESULT TimeBeginPeriodResult = timeBeginPeriod(DesiredSchedulerGranularityMS); // Set this so that sleep granularity
     bool32 SleepIsGranular = TimeBeginPeriodResult == TIMERR_NOERROR;
 
-
     char ProgramPath [256] {};
     DWORD ProgramPathSize = GetModuleFileNameA(hInstance, ProgramPath, 256);
 
@@ -806,8 +819,12 @@ int WINAPI WinMain(
     }
     DWORD ProgramPathNoFilenameSize = IndexOfLastSlash + 1;
 
+    const int32 ResolutionIndex = 1;
+    STATIC_ASSERT_MSG(ResolutionIndex < ARRAY_COUNT(Global_ResolutionPresets), "Resolution Index is too high");
+    math::vector2i Resolution = Global_ResolutionPresets[ResolutionIndex];
+
     Win32_LoadXInputFunctions();
-    Win32_ResizeDIBSection(&Global_BackBuffer, 960, 540);
+    Win32_ResizeDIBSection(&Global_BackBuffer, Resolution[0], Resolution[1]);
 
 #ifdef ASUKA_DEBUG
     Global_CursorIsVisible = true;
@@ -829,6 +846,12 @@ int WINAPI WinMain(
         return 1;
     }
 
+    RECT client_rectangle { 0, 0, Resolution[0], Resolution[1] };
+    if (!AdjustWindowRect(&client_rectangle, WS_OVERLAPPEDWINDOW, false)) {
+        // @error: handle not correct window size ?
+        return 1;
+    }
+
     HWND Window = CreateWindowExA(
 #if DEBUG_WINDOW_ON_TOP
         WS_EX_TOPMOST | WS_EX_LAYERED,
@@ -837,11 +860,11 @@ int WINAPI WinMain(
 #endif
         WindowClass.lpszClassName,
         "AsukaWindow",
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE, // WS_OVERLAPPEDWINDOW | WS_VISIBLE,
         CW_USEDEFAULT, // int X,
         CW_USEDEFAULT, // int Y,
-        CW_USEDEFAULT, // int nWidth,
-        CW_USEDEFAULT, // int nHeight,
+        client_rectangle.right - client_rectangle.left, // CW_USEDEFAULT, // int nWidth,
+        client_rectangle.bottom - client_rectangle.top, // CW_USEDEFAULT, // int nHeight,
         0, 0, hInstance, 0);
 
     if (!Window) {
@@ -856,12 +879,9 @@ int WINAPI WinMain(
         ReleaseDC(Window, DeviceContext);
     }
 
-    int GameUpdateHz = MonitorRefreshHz / 2;
+    // @todo: do something with that something intelligent when we will add vsync.
+    int GameUpdateHz = 30; // MonitorRefreshHz / 2;
     float32 TargetSecondsPerFrame = 1.f / GameUpdateHz;
-
-    // @TODO: remove this assert
-    // Require this to be 60 Hz for now, this may be different for different monitors, but for testing purposes that's fine
-    ASSERT(MonitorRefreshHz == 60);
 
     Win32_SoundOutput SoundOutput {};
 

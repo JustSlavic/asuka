@@ -87,6 +87,11 @@ typedef signed long long   int64;
 #define ASSERT_FAIL(MSG)
 #endif // ASUKA_DEBUG
 
+#define STATIC_ASSERT(COND) \
+    static_assert(COND, "")
+#define STATIC_ASSERT_MSG(COND, MSG) \
+    static_assert(COND, MSG)
+
 #define ASUKA_PLAYBACK_LOOP ASUKA_DEBUG
 
 #ifdef ASUKA_OS_LINUX

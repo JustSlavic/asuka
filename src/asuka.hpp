@@ -212,20 +212,28 @@ enum EntityResidence {
     ENTITY_RESIDENCE_HIGH,
 };
 
+enum EntityType {
+    ENTITY_TYPE_NULL,
+    ENTITY_TYPE_PLAYER,
+    ENTITY_TYPE_WALL,
+};
+
 struct HighFrequencyEntity {
-    math::v2 position; // Relative to the camera
-    math::v2 velocity;
+    math::v3 position; // Relative to the camera
+    math::v3 velocity;
     int32 absolute_tile_z; // for moving up and down "stairs"
 
     FaceDirection face_direction;
 };
 
 struct LowFrequencyEntity {
+    EntityType type;
     TilemapPosition tilemap_position;
-    bool32 collidable;
-    math::v2 hitbox;
     // @note: for "stairs"
     int32 d_abs_tile_z;
+
+    math::v2 hitbox;
+    bool32 collidable;
 };
 
 struct Entity {
@@ -234,18 +242,18 @@ struct Entity {
     LowFrequencyEntity  *low;
 };
 
-struct Game_State {
+struct GameState {
     TilemapPosition camera_position;
 
     // Note: 0-th entity is invalid and should not be used
     uint32 entity_count;
-    Entity entities[256];
     EntityResidence     residence_table[256];
     HighFrequencyEntity high_frequency_entity_table[256];
     LowFrequencyEntity  low_frequency_entity_table[256];
 
     uint32 player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
     uint32 index_of_entity_for_camera_to_follow;
+    uint32 index_of_controller_for_camera_to_follow;
 
     Game_World *world;
 
