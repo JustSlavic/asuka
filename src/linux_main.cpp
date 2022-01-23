@@ -200,6 +200,8 @@ static void linux_gamepad_process_events(linux_gamepad* device, Game_ControllerI
                 case 6: printf("Dpad X %d\n", event.value); break;
                 case 7: printf("Dpad Y %d\n", event.value); break;
             }
+        } else {
+            ASSERT_FAIL("Unrecognized gamepad event.");
         }
     }
 }
@@ -393,6 +395,9 @@ int32 main(int32 argc, char** argv) {
     os::timepoint last_counter = os::get_wall_clock();
     uint64 last_cycles = os::get_processor_cycles();
 
+    snd_pcm_sframes_t play_cursor = 0;
+    snd_pcm_sframes_t write_cursor = (sound_output.buffer_size / sizeof(sound_sample_t)) - snd_pcm_avail(sound_output.sound_device);
+
     linux_gamepad gamepad_devices[ARRAY_COUNT(global_gamepad_device_paths)] {};
 
     while (global_running) {
@@ -479,14 +484,50 @@ int32 main(int32 argc, char** argv) {
 
         Game_SoundOutputBuffer SoundBuffer {};
 
+        snd_pcm_sframes_t buffer_size_in_frames = sound_output.buffer_size / sizeof(sound_sample_t);
+
         snd_pcm_sframes_t available_sound_frames = snd_pcm_avail(sound_output.sound_device);
+        snd_pcm_sframes_t to_the_right = buffer_size_in_frames - write_cursor;
+        snd_pcm_sframes_t to_the_left  = available_sound_frames - to_the_right;
 
-        // printf("buffer size: %u frames; available to write: %4ld; free_frames: %4lu\n", maximum_frames, nframes, maximum_frames - nframes);
+        ASSERT(to_the_left + to_the_right == available_sound_frames);
 
-        // uint32 maximum_samples = sound_output.buffer_size / sound_output.channels_count;
-        uint32 samples_per_frame = sound_output.samples_per_second / 30;
-        available_sound_frames = samples_per_frame;
-        // uint32 already_written_samples = maximum_frames - target_samples_per_frame;
+        play_cursor = to_the_left;
+        ASSERT(to_the_left + (buffer_size_in_frames - to_the_right - to_the_left) == write_cursor);
+
+        os::duration target_microseconds_elapsed_for_frame { 33333 };
+        // os::duration time_left_for_frame = target_microseconds_elapsed_for_frame - (os::get_wall_clock() - last_counter);
+        // os::duration time_for_this_frame_and_the_next_one = time_left_for_frame + target_microseconds_elapsed_for_frame;
+
+        snd_pcm_sframes_t n_sound_frames = target_microseconds_elapsed_for_frame.us * sound_output.samples_per_second / 1'000'000;
+
+        // uint32 maximum_sound_frames = sound_output.buffer_size / sizeof(sound_sample_t);
+        // uint32 already_written_samples = maximum_sound_frames - available_sound_frames;
+
+        // uint32 nsamples = time_for_this_frame_and_the_next_one.us * sound_output.samples_per_second / 1'000'000;
+        // // nsamples = nsamples - already_written_samples;
+        // // nsamples = n_sound_frames;
+        printf(
+            "[-----------------]\n"
+            " play_cursor = %lu\n"
+            "write_cursor = %lu\n"
+            "snd_pcm_avail() => %lu\n"
+            "latency = %5.2f\n"
+        //     "time two flips ahead: %llu\n"
+        //     "sound frames for one video frame: %lu\n"
+        //     "sound frames for this and next one video frames: %u\n"
+        //     // "already_written:  %u sound_frames\n"
+        //     // "samples to write: %u sound_frames\n"
+            ,
+            play_cursor,
+            write_cursor,
+            available_sound_frames,
+            (float32)(write_cursor - play_cursor) / (float32)sound_output.samples_per_second
+        //     time_for_this_frame_and_the_next_one.us,
+        //     n_sound_frames,
+        //     nsamples
+        //     // already_written_samples, nsamples
+            );
 
         // How many frames I still need to write?
         // |-------------------|-------------------|
@@ -495,7 +536,7 @@ int32 main(int32 argc, char** argv) {
         //    PlayCursor
 
         SoundBuffer.SamplesPerSecond = sound_output.samples_per_second;
-        SoundBuffer.SampleCount = available_sound_frames;
+        SoundBuffer.SampleCount = n_sound_frames;
         SoundBuffer.Samples = sound_output.samples;
 
         Game_OffscreenBuffer GraphicsBuffer {};
@@ -507,7 +548,11 @@ int32 main(int32 argc, char** argv) {
 
         Game_UpdateAndRender(&game_memory, &Input, &GraphicsBuffer, &SoundBuffer);
 
-        linux_send_sound_buffer(sound_output.sound_device, &sound_output, available_sound_frames);
+        linux_send_sound_buffer(sound_output.sound_device, &sound_output, n_sound_frames);
+        {
+            write_cursor = (write_cursor + n_sound_frames) % (sound_output.buffer_size / sizeof(sound_sample_t));
+        }
+
         linux_copy_buffer_to_window(&screen_buffer, display, window, screen);
 
         os::timepoint counter = os::get_wall_clock();
@@ -516,7 +561,6 @@ int32 main(int32 argc, char** argv) {
         os::duration microseconds_elapsed = counter - last_counter;
         // uint64 megacycles_elapsed = cycles - last_cycles;
 
-        os::duration target_microseconds_elapsed_for_frame { 33333 };
         os::duration microseconds_elapsed_for_frame = microseconds_elapsed;
 
         if (microseconds_elapsed_for_frame < target_microseconds_elapsed_for_frame) {
