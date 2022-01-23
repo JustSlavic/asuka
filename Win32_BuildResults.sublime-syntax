@@ -10,7 +10,19 @@ contexts:
       scope: asuka.punctuation
       push: brackets
 
-    brackets:
-      - meta_scope: asuka.win32_build.brackets asuka.string
-      - match: '\]'
-        pop: true
+    - match: '^((?:\w\:|\.{1,2})[\d\w\\\.\/]+)\((\d+)\)\:'
+      captures:
+        1: asuka.string
+        2: asuka.constant
+
+    - match: 'error'
+      scope: asuka.error
+
+    - match: 'warning'
+      scope: asuka.warning
+
+  brackets:
+    - meta_scope: asuka.win32_build.brackets asuka.string
+    - match: '\]'
+      scope: asuka.punctuation
+      pop: true
