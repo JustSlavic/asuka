@@ -25,7 +25,7 @@ struct Game_ControllerInput {
     bool32 IsAnalog;
 
     union {
-        Game_ButtonState buttons[14];
+        Game_ButtonState Buttons[14];
         struct {
             Game_ButtonState A;
             Game_ButtonState B;
@@ -64,8 +64,16 @@ struct Game_ControllerInput {
 };
 
 struct Game_Input {
-    Game_ControllerInput Controllers[4];
+    // 0 - Keyboard controller
+    // 1-5 - Gamepad controllers
+    Game_ControllerInput Controllers[5];
 };
+
+
+inline Game_ControllerInput* GetController(Game_Input* Input, int ControllerIndex) {
+    ASSERT(ControllerIndex < ARRAY_COUNT(Input->Controllers));
+    return &Input->Controllers[ControllerIndex];
+}
 
 
 struct Game_OffscreenBuffer {

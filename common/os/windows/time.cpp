@@ -9,7 +9,7 @@ uint64 get_processor_cycles() {
     return __rdtsc();
 }
 
-int64 get_performance_counter_frequency() {
+int64 get_wall_clock_frequency() {
     static int64 cache;
 
     if (cache == 0) {
@@ -21,7 +21,7 @@ int64 get_performance_counter_frequency() {
     return cache;
 }
 
-int64 get_performance_counter() {
+int64 get_wall_clock() {
     LARGE_INTEGER PerformanceCounter;
     QueryPerformanceCounter(&PerformanceCounter); // Note: this always succeeds on WinXP and higher
 

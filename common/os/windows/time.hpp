@@ -6,14 +6,14 @@ namespace os {
 namespace windows {
 
 uint64 get_processor_cycles();
-int64 get_performance_counter_frequency();
-int64 get_performance_counter();
+int64 get_wall_clock_frequency();
+int64 get_wall_clock();
 
 } // windows
 
 uint64 get_processor_cycles() { return windows::get_processor_cycles(); }
-int64 get_performance_counter_frequency() { return windows::get_performance_counter_frequency(); }
-int64 get_performance_counter() { return windows::get_performance_counter(); }
+int64 get_wall_clock_frequency() { return windows::get_wall_clock_frequency(); }
+int64 get_wall_clock() { return windows::get_wall_clock(); }
 
 } // os
 
