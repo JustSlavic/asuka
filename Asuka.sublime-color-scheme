@@ -1,0 +1,164 @@
+{
+    "name": "Asuka Dark",
+    "author": "Slava Radko",
+    "variables":
+    {
+        "fg": "#CECECE",
+        "active": "#CD974B",
+
+        "black": "hsl(0, 0%, 0%)",
+        "blue": "hsl(210, 50%, 60%)",
+        "blue-vibrant": "hsl(210, 60%, 60%)",
+        "blue2": "hsla(210, 13%, 40%, 0.7)",
+        "blue3": "hsl(210, 15%, 22%)",
+        "blue4": "hsl(210, 13%, 45%)",
+        "blue5": "hsl(180, 36%, 54%)",
+        "blue6": "hsl(221, 12%, 69%)",
+        "green": "hsl(114, 31%, 68%)",
+        "grey": "hsl(0, 0%, 20%)",
+        "orange": "hsl(32, 93%, 66%)",
+        "orange2": "hsl(32, 85%, 55%)",
+        "orange3": "hsl(40, 94%, 68%)",
+        "pink": "hsl(300, 30%, 68%)",
+        "red": "hsl(357, 79%, 65%)",
+        "red2": "hsl(13, 93%, 66%)",
+        "white": "hsl(0, 0%, 100%)",
+        "white2": "hsl(0, 0%, 97%)",
+        "white3": "hsl(219, 28%, 88%)"
+    },
+    "globals":
+    {
+        "foreground":                  "var(fg)",
+        "background":                  "#0E1415",
+        "caret":                       "var(active)",
+        "line_highlight":              "#ffffff20",
+        "misspelling":                 "#f00",
+
+        "selection":                   "#293334",
+        "selection_border_width":      "0",
+        "selection_corner_radius":     "2",
+
+        "highlight":                   "var(active)",
+        "find_highlight_foreground":   "#000",
+        "find_highlight":              "var(active)",
+
+        "brackets_options":            "underline",
+        "brackets_foreground":         "var(active)",
+        "bracket_contents_options":    "underline",
+        "bracket_contents_foreground": "var(active)",
+
+        "tags_options":                "underline",
+        "tags_foreground":             "var(active)",
+    },
+    "rules":
+    [
+        {
+            "name":       "Comments",
+            "scope":      "asuka.comment, comment, punctuation.definition.comment, invalid comment",
+            "foreground": "#55BB52"
+        },
+
+        {
+            "name":       "String",
+            "scope":      "asuka.string, string.quoted",
+            "foreground": "#95CB82"
+        },
+
+        {
+            "name":       "Constants",
+            "scope":      "asuka.constant",
+            "foreground": "#AFAFDF"
+        },
+
+        {
+            "name":       "Punctuation",
+            "scope":      "asuka.punctuation, punctuation",
+            "foreground": "#707D7D"
+        },
+
+        // {
+        //     "name":       "Keyword",
+        //     "scope":      "asuka.keyword",
+        //     "foreground": "var(orange)"
+        // },
+
+        {
+            "name":       "Macro",
+            "scope":      "asuka.macro",
+            "foreground": "#D5D4FF"
+        },
+
+        {
+            "name":       "Preprocessor",
+            "scope":      "asuka.preprocessor.head, meta.preprocessor",
+            "foreground": "#D5D4FF"
+        },
+
+        {
+            "name":       "Struct name",
+            "scope":      "asuka.struct.name",
+            "foreground": "var(orange)"
+        },
+
+        {
+            "name":       "Enum name",
+            "scope":      "asuka.enum.name",
+            "foreground": "var(orange)"
+        },
+
+        {
+            "name":       "Function name",
+            "scope":      "asuka.function.name, variable.function",
+            "foreground": "#719DD7"
+        },
+
+        {
+            "name":       "Operator",
+            "scope":      "asuka.operator, asuka.string.begin, asuka.string.end, keyword.operator, punctuation.definition.string.begin, punctuation.definition.string.end",
+            "foreground": "#709B9D"
+        },
+
+        {
+            "name":       "Type",
+            "scope":      "asuka.type",
+            "foreground": "#0000FF"
+        },
+
+        {
+            "name":       "Namespace",
+            "scope":      "asuka.namespace",
+            "foreground": "#FF0000"
+        },
+
+        {
+            "name":       "Note",
+            "scope":      "asuka.note",
+            "foreground": "#719DD7"
+        },
+
+        {
+            "name":       "Todo",
+            "scope":      "asuka.todo",
+            "foreground": "#cfcf1f"
+        },
+
+        {
+            "name":       "Nocommit",
+            "scope":      "asuka.nocommit",
+            "foreground": "#cf1f1f"
+        },
+
+        {
+            "name":       "At comment",
+            "scope":      "asuka.at",
+            "foreground": "var(orange2)",
+        },
+
+        {
+            "name":       "Mistakes",
+            "scope":      "invalid, invalid string, invalid constant, invalid entity.name, invalid punctuation, invalid source.symbol",
+            "foreground": "#c33",
+            "background": "#2B1D1E"
+        },
+    ]
+}

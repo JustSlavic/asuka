@@ -10,7 +10,7 @@ uint64 get_processor_cycles() {
 }
 
 int64 get_wall_clock_frequency() {
-    static int64 cache;
+    STATIC_VARIABLE int64 cache;
 
     if (cache == 0) {
         LARGE_INTEGER PerformanceCounterFrequency;

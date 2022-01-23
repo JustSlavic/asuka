@@ -1,6 +1,8 @@
 #ifndef ASUKA_COMMON_OS_TIME_HPP
 #define ASUKA_COMMON_OS_TIME_HPP
 
+#include <defines.hpp>
+
 
 namespace os {
 
