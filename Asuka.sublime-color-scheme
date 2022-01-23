@@ -107,6 +107,12 @@
         },
 
         {
+            "name":       "Namespace name",
+            "scope":      "asuka.namespace.name",
+            "foreground": "var(orange)"
+        },
+
+        {
             "name":       "Function name",
             "scope":      "asuka.function.name, variable.function",
             "foreground": "#719DD7"
@@ -125,12 +131,6 @@
         },
 
         {
-            "name":       "Namespace",
-            "scope":      "asuka.namespace",
-            "foreground": "#FF0000"
-        },
-
-        {
             "name":       "Note",
             "scope":      "asuka.note",
             "foreground": "#719DD7"
@@ -144,13 +144,13 @@
 
         {
             "name":       "Nocommit",
-            "scope":      "asuka.nocommit",
+            "scope":      "asuka.nocommit, asuka.error",
             "foreground": "#cf1f1f"
         },
 
         {
             "name":       "At comment",
-            "scope":      "asuka.at",
+            "scope":      "asuka.at, asuka.warning",
             "foreground": "var(orange2)",
         },
 

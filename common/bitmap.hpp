@@ -2,8 +2,7 @@
 #define ASUKA_COMMON_BITMAP_HPP
 
 
-// @todo: make namespace or a better name (capitalized "Bitmap"?)
-struct bitmap {
+struct Bitmap {
     void*  pixels;
     usize  size;   // in bytes
     uint32 width;  // in pixels

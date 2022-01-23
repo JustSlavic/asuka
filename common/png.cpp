@@ -135,7 +135,7 @@ uint32 decode_huffman(huffman_code *huffman) {
 }
 
 INTERNAL_FUNCTION
-void decode_idat_chunk(uint8 *data, usize size, bitmap *result) {
+void decode_idat_chunk(uint8 *data, usize size, Bitmap *result) {
     uint8 CMF = *data;
     uint8 CM  = 0x0F & CMF; // CompressionMethod
 
@@ -307,8 +307,8 @@ void decode_idat_chunk(uint8 *data, usize size, bitmap *result) {
     // while not last block
 }
 
-bitmap load_png_file_myself(const char *filename) {
-    bitmap result {};
+Bitmap load_png_file_myself(const char *filename) {
+    Bitmap result {};
 
     os::file_read_result file_contents = os::load_entire_file(filename);
 
@@ -379,8 +379,8 @@ bitmap load_png_file_myself(const char *filename) {
 }
 
 
-bitmap load_png_file(const char* filename) {
-    bitmap result {};
+Bitmap load_png_file(const char* filename) {
+    Bitmap result {};
 
     os::file_read_result file_contents = os::load_entire_file(filename);
     if (file_contents.memory == NULL) {

@@ -262,11 +262,11 @@ struct GameState {
 
     wav_file_contents test_wav_file;
 
-    bitmap wall_texture;
-    bitmap floor_texture;
-    bitmap grass_texture;
+    Bitmap wall_texture;
+    Bitmap floor_texture;
+    Bitmap grass_texture;
 
-    bitmap player_textures[4];
+    Bitmap player_textures[4];
 
     uint32 test_current_sound_cursor;
 };
