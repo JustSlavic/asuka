@@ -47,15 +47,20 @@ contexts:
       scope: asuka.keyword.namespace
       push: namespace
 
+    - match: '<'
+      scope: asuka.template.parameters.begin
+      push: template_parameters
+
     - match: '[\-=+<&!\|\*>%/]'
       scope: asuka.operator
     - match: '[\.::\(\),;]'
       scope: asuka.punctuation
 
-    - match: '([\w_][\w\d_]*)\s*(\()'
+    - match: '([\w_][\w\d_]*|operator\s*[\-\+\*\/\%\<\>\!\=]{1,2})\s*(\()'
       captures:
         1: asuka.function.name meta.function.c++ entity.name.function.c++
         2: asuka.punctuation
+
 
     - match: '\{'
       scope: asuka.punctuation
@@ -247,4 +252,10 @@ contexts:
       push: block
 
     - match: '$'
+      pop: true
+
+  template_parameters:
+    - meta_scope: asuka.template.parameters
+    - match: '>'
+      scope: asuka.template.parameters.end
       pop: true
