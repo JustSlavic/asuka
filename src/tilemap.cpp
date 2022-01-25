@@ -32,17 +32,13 @@ TileChunk* GetTileChunk(Tilemap* tilemap, int32 chunk_x, int32 chunk_y, int32 ch
     TileChunk *chunk = tilemap->chunks_hash_table + index;
     ASSERT(chunk);
 
-    while (true) {
+    while (chunk) {
         // If initialized and coordinates match up, break from the loop.
-        if (chunk->tiles &&
-            chunk->chunk_x == chunk_x &&
-            chunk->chunk_y == chunk_y &&
-            chunk->chunk_z == chunk_z)
+        if ((chunk->tiles == NULL) ||
+            (chunk->chunk_x == chunk_x &&
+             chunk->chunk_y == chunk_y &&
+             chunk->chunk_z == chunk_z))
         {
-            break;
-        }
-
-        if (chunk->tiles == NULL) {
             break;
         }
 
@@ -51,22 +47,28 @@ TileChunk* GetTileChunk(Tilemap* tilemap, int32 chunk_x, int32 chunk_y, int32 ch
             osOutputDebugString("Allocate TileChunk at (%d, %d, %d)\n", chunk_x, chunk_y, chunk_z);
 
             chunk->next_bucket_in_hashtable = push_struct(arena, TileChunk);
-            chunk = chunk->next_bucket_in_hashtable;
-
-            break;
         }
 
         chunk = chunk->next_bucket_in_hashtable;
     }
 
-    if (chunk->tiles == NULL) {
+    if (chunk && chunk->tiles == NULL) {
         if (arena) {
             osOutputDebugString("Allocate Tiles for Chunk at (%d, %d, %d)\n", chunk_x, chunk_y, chunk_z);
 
             chunk->chunk_x = chunk_x;
             chunk->chunk_y = chunk_y;
             chunk->chunk_z = chunk_z;
-            chunk->tiles = push_array(arena, Tile, tilemap->tile_count_x * tilemap->tile_count_y);
+
+            uint32 tile_count = tilemap->tile_count_x * tilemap->tile_count_y;
+            chunk->tiles = push_array(arena, Tile, tile_count);
+
+            // Clear memory just in case.
+            for (uint32 tile_index = 0; tile_index < tile_count; tile_index++) {
+                chunk->tiles[tile_index] = Tile(0);
+            }
+
+            chunk->next_bucket_in_hashtable = 0;
         } else {
             chunk = NULL;
         }
