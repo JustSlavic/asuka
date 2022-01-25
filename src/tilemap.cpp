@@ -22,40 +22,74 @@ TileChunkPosition GetChunkPosition(Tilemap *tilemap, TilemapPosition pos) {
 
 INTERNAL_FUNCTION
 INLINE_FUNCTION
-tile_chunk* GetTileChunk(Tilemap* tilemap, int32 chunk_x, int32 chunk_y, int32 chunk_z) {
-    // Allow negative coordinates of chunks so that chunks can grow
-    // from the center of the tilemap in any direction.
+TileChunk* GetTileChunk(Tilemap* tilemap, int32 chunk_x, int32 chunk_y, int32 chunk_z, MemoryArena *arena = NULL)
+{
+    // @todo: MAKE BETTER HASH FUNCTION!!!
+    hash_t hash = chunk_x * 3 + chunk_y * 13 + chunk_z * 53;
+    uint32 index = hash & (ARRAY_COUNT(tilemap->chunks_hash_table) - 1);
+    ASSERT(index < ARRAY_COUNT(tilemap->chunks_hash_table));
 
-    tile_chunk* result = NULL;
+    TileChunk *chunk = tilemap->chunks_hash_table + index;
+    ASSERT(chunk);
 
-    if (chunk_x >= 0 && chunk_x < (int32)tilemap->chunk_count_x &&
-        chunk_y >= 0 && chunk_y < (int32)tilemap->chunk_count_y &&
-        chunk_z >= 0 && chunk_z < (int32)tilemap->chunk_count_z)
-    {
-        result = &tilemap->chunks[
-            chunk_z * tilemap->chunk_count_x * tilemap->chunk_count_y +
-            chunk_y * tilemap->chunk_count_x +
-            chunk_x];
+    while (true) {
+        // If initialized and coordinates match up, break from the loop.
+        if (chunk->tiles &&
+            chunk->chunk_x == chunk_x &&
+            chunk->chunk_y == chunk_y &&
+            chunk->chunk_z == chunk_z)
+        {
+            break;
+        }
+
+        if (chunk->tiles == NULL) {
+            break;
+        }
+
+        if (arena && chunk->next_bucket_in_hashtable == NULL)
+        {
+            osOutputDebugString("Allocate TileChunk at (%d, %d, %d)\n", chunk_x, chunk_y, chunk_z);
+
+            chunk->next_bucket_in_hashtable = push_struct(arena, TileChunk);
+            chunk = chunk->next_bucket_in_hashtable;
+
+            break;
+        }
+
+        chunk = chunk->next_bucket_in_hashtable;
     }
 
-    return result;
+    if (chunk->tiles == NULL) {
+        if (arena) {
+            osOutputDebugString("Allocate Tiles for Chunk at (%d, %d, %d)\n", chunk_x, chunk_y, chunk_z);
+
+            chunk->chunk_x = chunk_x;
+            chunk->chunk_y = chunk_y;
+            chunk->chunk_z = chunk_z;
+            chunk->tiles = push_array(arena, Tile, tilemap->tile_count_x * tilemap->tile_count_y);
+        } else {
+            chunk = NULL;
+        }
+    }
+
+    return chunk;
 }
 
 INTERNAL_FUNCTION
 INLINE_FUNCTION
-tile_t GetTileValue_Unchecked(Tilemap* tilemap, tile_chunk* tilechunk, uint32 tile_x, uint32 tile_y) {
+Tile GetTileValue_Unchecked(Tilemap* tilemap, TileChunk* tilechunk, uint32 tile_x, uint32 tile_y) {
     ASSERT(tile_x < tilemap->tile_count_x);
     ASSERT(tile_y < tilemap->tile_count_y);
 
-    tile_t result = tilechunk->tiles[tile_y*tilemap->tile_count_x + tile_x];
+    Tile result = tilechunk->tiles[tile_y*tilemap->tile_count_x + tile_x];
     return result;
 }
 
-tile_t GetTileValue(Tilemap* tilemap, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z) {
-    tile_t result = TILE_INVALID;
+Tile GetTileValue(Tilemap* tilemap, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z) {
+    Tile result = TILE_INVALID;
 
     TileChunkPosition chunk_pos = GetChunkPosition(tilemap, abs_tile_x, abs_tile_y, abs_tile_z);
-    tile_chunk *chunk = GetTileChunk(tilemap, chunk_pos.chunk_x, chunk_pos.chunk_y, chunk_pos.chunk_z);
+    TileChunk *chunk = GetTileChunk(tilemap, chunk_pos.chunk_x, chunk_pos.chunk_y, chunk_pos.chunk_z);
 
     if (chunk != NULL && chunk->tiles != NULL) {
         result = GetTileValue_Unchecked(tilemap, chunk, chunk_pos.chunk_relative_x, chunk_pos.chunk_relative_y);
@@ -64,20 +98,17 @@ tile_t GetTileValue(Tilemap* tilemap, int32 abs_tile_x, int32 abs_tile_y, int32 
     return result;
 }
 
-void SetTileValue(MemoryArena *arena, Tilemap *tilemap, int32 abs_x, int32 abs_y, int32 abs_z, tile_t tile_value) {
+void SetTileValue(MemoryArena *arena, Tilemap *tilemap, int32 abs_x, int32 abs_y, int32 abs_z, Tile tile_value) {
     TileChunkPosition chunk_pos = GetChunkPosition(tilemap, abs_x, abs_y, abs_z);
-    tile_chunk *chunk = GetTileChunk(tilemap, chunk_pos.chunk_x, chunk_pos.chunk_y, chunk_pos.chunk_z);
+    TileChunk *chunk = GetTileChunk(tilemap, chunk_pos.chunk_x, chunk_pos.chunk_y, chunk_pos.chunk_z, arena);
 
     ASSERT(chunk);
-
-    if (chunk->tiles == NULL) {
-        chunk->tiles = push_array(arena, tile_t, tilemap->tile_count_x * tilemap->tile_count_y);
-    }
+    ASSERT(chunk->tiles);
 
     chunk->tiles[chunk_pos.chunk_relative_y * tilemap->tile_count_x + chunk_pos.chunk_relative_x] = tile_value;
 }
 
-bool32 IsTileValueEmpty(tile_t tile_value) {
+bool32 IsTileValueEmpty(Tile tile_value) {
     bool32 result = (tile_value == TILE_FREE || tile_value == TILE_DOOR_UP || tile_value == TILE_DOOR_DOWN || tile_value == TILE_WIN);
     return result;
 }
@@ -85,7 +116,7 @@ bool32 IsTileValueEmpty(tile_t tile_value) {
 bool32 IsWorldPointEmpty(Tilemap *tilemap, TilemapPosition pos) {
     bool32 is_empty = false;
 
-    tile_t tile_value = GetTileValue(tilemap, pos.absolute_tile_x, pos.absolute_tile_y, pos.absolute_tile_z);
+    Tile tile_value = GetTileValue(tilemap, pos.absolute_tile_x, pos.absolute_tile_y, pos.absolute_tile_z);
     is_empty = IsTileValueEmpty(tile_value);
     return is_empty;
 }
@@ -108,7 +139,7 @@ TilemapPosition map_into_tile_space(Tilemap* tilemap, TilemapPosition base_posit
     TilemapPosition result = base_position;
     result.relative_position_on_tile += offset;
 
-    float32 tile_top   = -0.5f * tilemap->tile_side_in_meters;
+    float32 Tileop   = -0.5f * tilemap->tile_side_in_meters;
     float32 tile_bottom = 0.5f * tilemap->tile_side_in_meters;
 
     float32 tile_left = -0.5f * tilemap->tile_side_in_meters;
@@ -118,7 +149,7 @@ TilemapPosition map_into_tile_space(Tilemap* tilemap, TilemapPosition base_posit
     NormalizeCoordinate(tilemap, &result.absolute_tile_y, &result.relative_position_on_tile.y);
 
     ASSERT((tile_left <= result.relative_position_on_tile.x) && (result.relative_position_on_tile.x < tile_right));
-    ASSERT((tile_top  <= result.relative_position_on_tile.y) && (result.relative_position_on_tile.y < tile_bottom));
+    ASSERT((Tileop  <= result.relative_position_on_tile.y) && (result.relative_position_on_tile.y < tile_bottom));
 
     return result;
 }

@@ -145,6 +145,7 @@ typedef signed long long   int64;
 #define UINT64_MAX (0xFFFF'FFFF'FFFF'FFFF)
 
 typedef int16 sound_sample_t;
+typedef uint64 hash_t;
 
 typedef int32  bool32;
 typedef size_t usize;

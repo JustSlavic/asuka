@@ -605,9 +605,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         tilemap->tile_count_x = 1 << tilemap->chunk_shift;
         tilemap->tile_count_y = 1 << tilemap->chunk_shift;
 
-        tile_chunk *chunks = push_array(arena, tile_chunk, tilemap->chunk_count_x * tilemap->chunk_count_y * tilemap->chunk_count_z);
-        tilemap->chunks = chunks;
-
         i32 screen_count = 2; // 20;
 
         i32 screen_x = 0;
@@ -650,7 +647,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     u32 y = screen_y * room_height_in_tiles + tile_y;
                     u32 z = screen_z;
 
-                    tile_t tile_value = TILE_FREE;
+                    Tile tile_value = TILE_FREE;
 
                     // bottom wall
                     if (tile_y == 0) {
@@ -780,7 +777,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         if (GetPressCount(ControllerInput->X)) {
             TilemapPosition *pos = &entity.low->tilemap_position;
-            tile_t tile_value = GetTileValue(tilemap, pos->absolute_tile_x, pos->absolute_tile_y, pos->absolute_tile_z);
+            Tile tile_value = GetTileValue(tilemap, pos->absolute_tile_x, pos->absolute_tile_y, pos->absolute_tile_z);
 
             if (tile_value == TILE_DOOR_UP) {
                 TilemapPosition move_up_position = *pos;
@@ -976,7 +973,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 upper_left_in_up_down_screen_pixel_coords + v2::make((f32)tile_side_in_pixels);
 
 
-            tile_t tile_value = GetTileValue(tilemap, column, row, level);
+            Tile tile_value = GetTileValue(tilemap, column, row, level);
             auto TileColor = color24{ 0.5f, 0.5f, 0.5f };
 
             switch (tile_value) {
