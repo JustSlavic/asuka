@@ -7,6 +7,7 @@
 #include <bmp.hpp>
 #include <png.hpp>
 #include <string.hpp>
+#include <index.hpp>
 #include "tilemap.hpp"
 #include "memory_arena.hpp"
 
@@ -206,11 +207,6 @@ enum FaceDirection {
     FACE_DIRECTION_UP = 3,
 };
 
-enum EntityResidence {
-    ENTITY_RESIDENCE_NOT_EXIST = 0,
-    ENTITY_RESIDENCE_LOW,
-    ENTITY_RESIDENCE_HIGH,
-};
 
 enum EntityType {
     ENTITY_TYPE_NULL,
@@ -218,12 +214,21 @@ enum EntityType {
     ENTITY_TYPE_WALL,
 };
 
+
+struct LowFrequencyEntity;
+struct HighFrequencyEntity;
+
+using LowEntityIndex = Index<LowFrequencyEntity>;
+using HighEntityIndex = Index<HighFrequencyEntity>;
+
 struct HighFrequencyEntity {
     math::v3 position; // Relative to the camera
     math::v3 velocity;
     int32 absolute_tile_z; // for moving up and down "stairs"
 
     FaceDirection face_direction;
+
+    LowEntityIndex low_index;
 };
 
 struct LowFrequencyEntity {
@@ -234,10 +239,11 @@ struct LowFrequencyEntity {
 
     math::v2 hitbox;
     bool32 collidable;
+
+    HighEntityIndex high_index;
 };
 
 struct Entity {
-    EntityResidence residence;
     HighFrequencyEntity *high;
     LowFrequencyEntity  *low;
 };
@@ -246,15 +252,16 @@ struct Entity {
 struct GameState {
     TilemapPosition camera_position;
 
-    // Note: 0-th entity is invalid and should not be used
-    uint32 entity_count;
-    EntityResidence     residence_table[256];
-    HighFrequencyEntity high_frequency_entity_table[256];
-    LowFrequencyEntity  low_frequency_entity_table[256];
+    // @note: 0-th entity is invalid in both arrays (high entities and low entities) and should not be used (it indicates wrong index).
+    uint32 low_entity_count;
+    LowFrequencyEntity  low_entities[4096];
 
-    uint32 player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
-    uint32 index_of_entity_for_camera_to_follow;
-    uint32 index_of_controller_for_camera_to_follow;
+    uint32 high_entity_count;
+    HighFrequencyEntity high_entities[256];
+
+    LowEntityIndex player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
+    LowEntityIndex index_of_entity_for_camera_to_follow;
+    LowEntityIndex index_of_controller_for_camera_to_follow;
 
     Game_World *world;
 
