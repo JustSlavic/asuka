@@ -272,8 +272,12 @@ struct GameState {
     Bitmap wall_texture;
     Bitmap floor_texture;
     Bitmap grass_texture;
+    Bitmap heart_full_texture;
+    Bitmap heart_empty_texture;
 
     Bitmap player_textures[4];
+    uint32 player_health;
+    uint32 player_max_health;
 
     uint32 test_current_sound_cursor;
 };

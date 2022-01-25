@@ -565,6 +565,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         const char *wall_texture_filename = "tile_60x60.bmp";
         game_state->wall_texture = load_bmp_file(wall_texture_filename);
 
+        char *heart_full_texture_filename = "heart_full.png";
+        game_state->heart_full_texture = load_png_file(heart_full_texture_filename);
+
+        char *heart_empty_texture_filename = "heart_empty.png";
+        game_state->heart_empty_texture = load_png_file(heart_empty_texture_filename);
+
         const char *player_face_texture_filename = "character_1.png";
         const char *player_left_texture_filename = "character_2.png";
         const char *player_right_texture_filename = "character_3.png";
@@ -1088,6 +1094,24 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     top_left,
                     bottom_right,
                     texture);
+                game_state->player_max_health = 3;
+                game_state->player_health = 2;
+                for (uint32 health_index = 0; health_index < game_state->player_max_health; health_index++){
+                    v2 heart_top_left = entity_position_in_pixels + v2{ (health_index - 1.5f) * game_state->heart_full_texture.width, - (f32)game_state->player_textures[0].height - 10.0f};
+                    if (health_index + 1 > game_state->player_health) {
+                        DrawBitmap(
+                            Buffer,
+                            heart_top_left,
+                            heart_top_left + v2{(f32)game_state->heart_full_texture.width, (f32)game_state->heart_full_texture.height},
+                            &game_state->heart_empty_texture);
+                    } else {
+                        DrawBitmap(
+                            Buffer,
+                            heart_top_left,
+                            heart_top_left + v2{(f32)game_state->heart_full_texture.width, (f32)game_state->heart_full_texture.height},
+                            &game_state->heart_full_texture);
+                    }
+                }
             } else {
                 auto TileColor = color24{ 0.2f, 0.3f, 0.2f };
 
