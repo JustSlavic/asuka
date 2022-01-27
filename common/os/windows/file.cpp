@@ -1,13 +1,15 @@
 #include "file.hpp"
+
+// @todo: get rid of windows.h here
 #include <windows.h>
 
 
 namespace os {
-namespace windows {
+namespace internal {
 
 
-file_read_result load_entire_file(const char* filename) {
-    file_read_result result {};
+string load_entire_file(const char* filename) {
+    string result {};
 
     HANDLE FileHandle = CreateFileA(
         filename,
@@ -46,13 +48,13 @@ file_read_result load_entire_file(const char* filename) {
         return result;
     }
 
-    result.memory = (uint8 *) Memory;
+    result.data = (uint8 *) Memory;
     result.size = FileSize.QuadPart;
     return result;
 }
 
 
-bool write_file(const char* filename, file_read_result file) {
+bool write_file(const char* filename, string file) {
     HANDLE FileHandle = CreateFileA(
         filename,
         GENERIC_WRITE,
@@ -75,5 +77,5 @@ bool write_file(const char* filename, file_read_result file) {
 }
 
 
-} // windows
+} // internal
 } // os

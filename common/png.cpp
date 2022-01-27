@@ -310,9 +310,9 @@ void decode_idat_chunk(uint8 *data, usize size, Bitmap *result) {
 Bitmap load_png_file_myself(const char *filename) {
     Bitmap result {};
 
-    os::file_read_result file_contents = os::load_entire_file(filename);
+    string contents = os::load_entire_file(filename);
 
-    uint8 *data = (uint8 *)file_contents.memory;
+    uint8 *data = contents.data;
 
     uint32 signature1 = *PNG_CONSUME_STRUCT(data, uint32);
     uint32 signature2 = *PNG_CONSUME_STRUCT(data, uint32);
@@ -322,7 +322,7 @@ Bitmap load_png_file_myself(const char *filename) {
 
     bool end = false;
 
-    while (data < ((uint8 *)file_contents.memory + file_contents.size)) {
+    while (data < (contents.data + contents.size)) {
         //
         // Chunks of PNG file follow this layout:
         //
@@ -382,8 +382,8 @@ Bitmap load_png_file_myself(const char *filename) {
 Bitmap load_png_file(const char* filename) {
     Bitmap result {};
 
-    os::file_read_result file_contents = os::load_entire_file(filename);
-    if (file_contents.memory == NULL) {
+    string contents = os::load_entire_file(filename);
+    if (contents.data == NULL) {
         // @todo: handle error
         return result;
     }

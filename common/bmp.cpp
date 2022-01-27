@@ -51,13 +51,13 @@ enum {
 Bitmap load_bmp_file(const char* filename) {
     Bitmap result {};
 
-    os::file_read_result file_contents = os::load_entire_file(filename);
-    if (file_contents.memory == NULL) {
+    string contents = os::load_entire_file(filename);
+    if (contents.data == NULL) {
         // @todo: handle error
         return result;
     }
 
-    uint8 *data = (uint8 *) file_contents.memory;
+    uint8 *data = (uint8 *) contents.data;
 
     BMP_Header *bmp_header = (BMP_Header *) data;
     ASSERT(bmp_header->signature == BMP_SIGNATURE);

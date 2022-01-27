@@ -3,25 +3,16 @@
 
 
 namespace os {
-namespace windows {
+namespace internal {
 
-file_read_result load_entire_file(const char* filename);
-bool write_file(const char* filename, file_read_result file);
+string load_entire_file(const char* filename);
+bool write_file(const char* filename, string file);
 
 } // windows
-
-file_read_result load_entire_file(const char* filename) {
-    return windows::load_entire_file(filename);
-}
-
-bool write_file(const char* filename, file_read_result file) {
-    return windows::write_file(filename, file);
-}
-
 } // os
 
 
-#ifdef UNITY_BUILD
+#if UNITY_BUILD
 #include "file.cpp"
 #endif // UNITY_BUILD
 
