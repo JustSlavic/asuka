@@ -195,9 +195,7 @@ struct Game_Memory {
 };
 
 
-struct Game_World {
-    Tilemap tilemap;
-};
+
 
 
 enum FaceDirection {
@@ -224,7 +222,6 @@ using HighEntityIndex = Index<HighFrequencyEntity>;
 struct HighFrequencyEntity {
     math::v3 position; // Relative to the camera
     math::v3 velocity;
-    int32 absolute_tile_z; // for moving up and down "stairs"
 
     FaceDirection face_direction;
 
@@ -234,8 +231,6 @@ struct HighFrequencyEntity {
 struct LowFrequencyEntity {
     EntityType type;
     TilemapPosition tilemap_position;
-    // @note: for "stairs"
-    int32 d_abs_tile_z;
 
     math::v2 hitbox;
     bool32 collidable;
@@ -259,26 +254,11 @@ struct GameState {
     uint32 high_entity_count;
     HighFrequencyEntity high_entities[256];
 
-    LowEntityIndex player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
-    LowEntityIndex index_of_entity_for_camera_to_follow;
-    LowEntityIndex index_of_controller_for_camera_to_follow;
-
-    Game_World *world;
+    Tilemap *tilemap;
 
     MemoryArena world_arena;
 
     wav_file_contents test_wav_file;
-
-    Bitmap wall_texture;
-    Bitmap floor_texture;
-    Bitmap grass_texture;
-    Bitmap heart_full_texture;
-    Bitmap heart_empty_texture;
-
-    Bitmap player_textures[4];
-    uint32 player_health;
-    uint32 player_max_health;
-
     uint32 test_current_sound_cursor;
 };
 
