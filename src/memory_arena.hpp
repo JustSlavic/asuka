@@ -12,7 +12,7 @@ struct MemoryArena {
 };
 
 
-INLINE_FUNCTION
+INLINE
 void initialize_arena(MemoryArena *arena, void* memory, usize size) {
     arena->memory = memory;
     arena->size = size;
@@ -25,7 +25,7 @@ void initialize_arena(MemoryArena *arena, void* memory, usize size) {
 #define push_struct(ARENA, TYPE) (TYPE*)push_memory(ARENA, sizeof(TYPE))
 #define push_array(ARENA, TYPE, SIZE) (TYPE*)push_memory(ARENA, sizeof(TYPE)*SIZE)
 
-INLINE_FUNCTION
+INLINE
 void* push_memory(MemoryArena *arena, usize size) {
     ASSERT((arena->used + size) < arena->size);
 

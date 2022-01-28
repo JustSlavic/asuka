@@ -21,7 +21,7 @@ using LowEntityIndex = Index<LowFrequencyEntity>;
 
 
 struct EntityBlock {
-    uint32 low_entity_count;
+    uint32 entity_count;
     LowEntityIndex entities[16];
     EntityBlock *next_block;
 };
@@ -39,7 +39,7 @@ struct Chunk {
     Chunk *next_in_hashtable;
 };
 
-struct ChunkPosition {
+struct WorldPosition {
     // @note: Signed integers allow chunks be placed in any direction from the center of the world.
     int32 chunk_x;
     int32 chunk_y;
@@ -50,50 +50,20 @@ struct ChunkPosition {
 
 struct World {
     float32 tile_side_in_meters;
+    float32 chunk_size_in_meters;
 
     uint32 tile_count_x; // Per chunk
     uint32 tile_count_y; // Per chunk
 
     // @note: Size of the array should be power of two for now.
-    // @todo:
     Chunk chunks_hash_table[4096];
 
-    uint32 chunk_shift;
-    uint32 chunk_mask;
-};
-
-struct AbsoluteWorldPosition {
-    /*
-
-    Higher bits represent coordinates of a chunk;
-    Lower bits represent coordinates of a tile inside a given chunk
-
-    Chunk coordinates can be negative:
-
-      chunk_x = -1   |   chunk_x =  0    |   chunk_x =  1
-      chunk_y =  0   |   chunk_y =  0    |   chunk_y =  0
-    ---------------(0,0)-----------------+-----------------
-      chunk_x = -1   |   chunk_x =  0    |   chunk_x =  1
-      chunk_y = -1   |   chunk_y = -1    |   chunk_y = -1
-
-    */
-
-    int32 absolute_tile_x;
-    int32 absolute_tile_y;
-    int32 absolute_tile_z;
-
-    // In pixels inside a tile
-    math::v2 relative_position_on_tile;
+    EntityBlock *next_free_block;
 };
 
 
-ChunkPosition GetChunkPosition(World *world, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z);
-ChunkPosition GetChunkPosition(World *world, AbsoluteWorldPosition pos);
-AbsoluteWorldPosition map_into_tile_space(World* world, AbsoluteWorldPosition base_position, math::v2 offset);
-math::vector2 PositionDifference(World *world, AbsoluteWorldPosition p1, AbsoluteWorldPosition p2);
-AbsoluteWorldPosition MovePosition(World *world, AbsoluteWorldPosition pos, math::v2 offset);
-
-ChunkPosition change_entity_location(World *world, LowEntityIndex index, ChunkPosition old_position, ChunkPosition new_position);
+math::vector2 position_difference(World *world, WorldPosition p1, WorldPosition p2);
+WorldPosition change_entity_location(World *world, LowEntityIndex index, WorldPosition old_position, WorldPosition new_position);
 
 
 #ifdef UNITY_BUILD

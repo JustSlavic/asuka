@@ -140,26 +140,28 @@ struct Game_Input {
 };
 
 
-INLINE_FUNCTION
-Game_ControllerInput* GetControllerInput(Game_Input* Input, int ControllerIndex) {
+using InputIndex = Index<Game_ControllerInput>;
+
+INLINE
+Game_ControllerInput* GetControllerInput(Game_Input* Input, InputIndex ControllerIndex) {
     ASSERT(ControllerIndex < ARRAY_COUNT(Input->ControllerInputs));
-    return &Input->ControllerInputs[ControllerIndex];
+    return &Input->ControllerInputs[ControllerIndex.index];
 }
 
 
-INLINE_FUNCTION
+INLINE
 Game_ControllerInput* GetGamepadInput(Game_Input *Input, int32 GamepadIndex) {
     ASSERT(GamepadIndex < ARRAY_COUNT(Input->GamepadInputs));
     return &Input->GamepadInputs[GamepadIndex];
 }
 
-INLINE_FUNCTION
+INLINE
 uint32 GetPressCount(Game_ButtonState button) {
     uint32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
     return result;
 }
 
-INLINE_FUNCTION
+INLINE
 uint32 GetHoldsCount(Game_ButtonState button) {
     uint32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
     return result;
@@ -215,7 +217,7 @@ using HighEntityIndex = Index<HighFrequencyEntity>;
 struct HighFrequencyEntity {
     math::v3 position; // Relative to the camera
     math::v3 velocity;
-    int32 absolute_tile_z; // for moving up and down "stairs"
+    int32 chunk_z; // for moving up and down "stairs"
 
     FaceDirection face_direction;
 
@@ -224,7 +226,7 @@ struct HighFrequencyEntity {
 
 struct LowFrequencyEntity {
     EntityType type;
-    AbsoluteWorldPosition world_position;
+    WorldPosition world_position;
     // @note: for "stairs"
     int32 d_abs_tile_z;
 
@@ -241,7 +243,7 @@ struct Entity {
 
 
 struct GameState {
-    AbsoluteWorldPosition camera_position;
+    WorldPosition camera_position;
 
     // @note: 0-th entity is invalid in both arrays (high entities and low entities) and should not be used (it indicates wrong index).
     uint32 low_entity_count;

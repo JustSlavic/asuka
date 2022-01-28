@@ -113,7 +113,7 @@ typedef signed long long   int64;
 #define STATIC_VARIABLE static
 #define GLOBAL_VARIABLE static
 
-#define INLINE_FUNCTION inline
+#define INLINE inline
 
 #define ARRAY_COUNT(ARRAY) (sizeof(ARRAY) / sizeof((ARRAY)[0]))
 

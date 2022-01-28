@@ -37,7 +37,7 @@ struct vector2 {
         float32 coordinates[2];
     };
 
-    IN_CLASS_FUNCTION INLINE_FUNCTION
+    IN_CLASS_FUNCTION
     vector2 make(float32 v) {
         vector2 result { v, v };
         return result;

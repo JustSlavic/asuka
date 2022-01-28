@@ -43,26 +43,26 @@ struct rectangle2 {
 typedef rectangle2 rect2;
 
 
-INLINE_FUNCTION
+INLINE
 f32 get_width(rectangle2 rect) {
     f32 result = rect.max.x - rect.min.x;
     return result;
 }
 
-INLINE_FUNCTION
+INLINE
 f32 get_height(rectangle2 rect) {
     f32 result = rect.max.y - rect.min.y;
     return result;
 }
 
-INLINE_FUNCTION
+INLINE
 v2 get_dimensions(rectangle2 rect) {
     v2 result = rect.max - rect.min;
 
     return result;
 }
 
-INLINE_FUNCTION
+INLINE
 bool32 in_rectangle(rectangle2 rect, v2 v) {
     bool32 result = ((v.x >= rect.min.x) &&
                      (v.x <  rect.max.x) &&

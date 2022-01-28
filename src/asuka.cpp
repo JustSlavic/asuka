@@ -216,10 +216,10 @@ void make_entity_high_frequency(GameState *game_state, LowEntityIndex low_index)
         HighFrequencyEntity *entity_high = get_high_entity(game_state, high_index);
 
         // @bug: PositionDifference return zero when Z tilemap coordinate differs. This makes mapping from low frequency to high frequency wrong.
-        math::v2 diff = PositionDifference(game_state->world, entity_low->world_position, game_state->camera_position);
+        math::v2 diff = position_difference(game_state->world, entity_low->world_position, game_state->camera_position);
         entity_high->position.xy = diff;
         entity_high->velocity = math::v3::zero();
-        entity_high->absolute_tile_z = entity_low->world_position.absolute_tile_z;
+        entity_high->chunk_z = entity_low->world_position.chunk_z;
         entity_high->face_direction = FACE_DIRECTION_DOWN;
         entity_high->low_index = low_index;
 
@@ -308,10 +308,10 @@ Entity initialize_player(GameState *game_state, LowEntityIndex index) {
     Entity entity = get_entity(game_state, index);
 
     entity.low->type = ENTITY_TYPE_PLAYER;
-    entity.low->world_position.absolute_tile_x = 3;
-    entity.low->world_position.absolute_tile_y = 3;
-    entity.low->world_position.absolute_tile_z = 0;
-    entity.low->world_position.relative_position_on_tile = math::v2{};
+    entity.low->world_position.chunk_x = 0;
+    entity.low->world_position.chunk_y = 0;
+    entity.low->world_position.chunk_z = 0;
+    entity.low->world_position.relative_position_in_chunk = math::v2::zero();
 
     // @todo: fix coordinates for hitbox
     entity.low->collidable = true;
@@ -333,15 +333,15 @@ LowEntityIndex add_player(GameState *game_state) {
 
 
 INTERNAL_FUNCTION
-Entity add_wall(GameState *game_state, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z) {
+Entity add_wall(GameState *game_state, int32 chunk_x, int32 chunk_y, int32 chunk_z) {
     LowEntityIndex index = add_low_entity(game_state);
     Entity entity = get_entity(game_state, index);
 
     entity.low->type = ENTITY_TYPE_WALL;
-    entity.low->world_position.absolute_tile_x = abs_tile_x;
-    entity.low->world_position.absolute_tile_y = abs_tile_y;
-    entity.low->world_position.absolute_tile_z = abs_tile_z;
-    entity.low->world_position.relative_position_on_tile = math::v2{};
+    entity.low->world_position.chunk_x = chunk_x;
+    entity.low->world_position.chunk_y = chunk_y;
+    entity.low->world_position.chunk_z = chunk_z;
+    entity.low->world_position.relative_position_in_chunk = math::v2::zero();
 
     entity.low->collidable = true;
     entity.low->hitbox = math::v2 { .50f, .50f };
@@ -391,7 +391,7 @@ void move_entity(GameState *game_state, HighEntityIndex entity_index, math::v3 a
 
             Entity test_entity = get_entity(game_state, test_index);
 
-            if ((test_entity.low->world_position.absolute_tile_z != entity.low->world_position.absolute_tile_z) ||
+            if ((test_entity.low->world_position.chunk_z != entity.low->world_position.chunk_z) ||
                 (test_entity.low->collidable == false) || (entity.low->collidable == false))
             {
                 continue;
@@ -455,7 +455,7 @@ void move_entity(GameState *game_state, HighEntityIndex entity_index, math::v3 a
             current_destination = current_position + current_velocity * (dt - time_spent_moving);
 
             Entity hit_entity = get_entity(game_state, hit_entity_index);
-            entity.high->absolute_tile_z += hit_entity.low->d_abs_tile_z;
+            entity.high->chunk_z += hit_entity.low->d_abs_tile_z;
         } else {
             break;
         }
@@ -470,26 +470,28 @@ void move_entity(GameState *game_state, HighEntityIndex entity_index, math::v3 a
     entity.high->velocity.z = velocity.z;
 
     // @note: always write back a valid tile position
-    auto tmp = map_into_tile_space(game_state->world, game_state->camera_position, entity.high->position.xy);
-    entity.low->world_position.absolute_tile_x = tmp.absolute_tile_x;
-    entity.low->world_position.absolute_tile_y = tmp.absolute_tile_y;
-    entity.low->world_position.relative_position_on_tile = tmp.relative_position_on_tile;
+    // @todo: what should map do?
+    ASSERT(false);
+    // auto tmp = map_into_tile_space(game_state->world, game_state->camera_position, entity.high->position.xy);
+    // entity.low->world_position.chunk_x = tmp.chunk_x;
+    // entity.low->world_position.chunk_y = tmp.chunk_y;
+    // entity.low->world_position.relative_position_in_chunk = tmp.relative_position_in_chunk;
 }
 
 
 INTERNAL_FUNCTION
-void SetCameraPosition(GameState *game_state, AbsoluteWorldPosition new_camera_position) {
+void SetCameraPosition(GameState *game_state, WorldPosition new_camera_position) {
     auto *world = game_state->world;
-    math::vector2 diff = PositionDifference(world, game_state->camera_position, new_camera_position);
+    math::vector2 diff = position_difference(world, game_state->camera_position, new_camera_position);
     game_state->camera_position = new_camera_position;
 
-    math::vector2i   high_zone_in_tiles = math::vector2i { 16 * 3, 9 * 3 };
-    math::rectangle2 high_zone_in_float = math::rectangle2::from_center_dim(math::v2::zero(), world->tile_side_in_meters * math::upcast_to_vector2(high_zone_in_tiles));
+    math::vector2i   high_zone_in_chunks = math::vector2i { 3, 3 };
+    math::rectangle2 high_zone_in_float = math::rectangle2::from_center_dim(math::v2::zero(), world->chunk_size_in_meters * math::upcast_to_vector2(high_zone_in_chunks));
 
-    i32 min_tile_x = new_camera_position.absolute_tile_x - high_zone_in_tiles.x / 2 + 1;
-    i32 max_tile_x = new_camera_position.absolute_tile_x + high_zone_in_tiles.x / 2 - 1;
-    i32 min_tile_y = new_camera_position.absolute_tile_y - high_zone_in_tiles.y / 2 + 1;
-    i32 max_tile_y = new_camera_position.absolute_tile_y + high_zone_in_tiles.y / 2 - 1;
+    i32 min_tile_x = new_camera_position.chunk_x - high_zone_in_chunks.x / 2;
+    i32 max_tile_x = new_camera_position.chunk_x + high_zone_in_chunks.x / 2;
+    i32 min_tile_y = new_camera_position.chunk_y - high_zone_in_chunks.y / 2;
+    i32 max_tile_y = new_camera_position.chunk_y + high_zone_in_chunks.y / 2;
 
     // @note, that the process is separated into two loops, because we have to make room for more high entities by removing old ones first.
     // If we would do it in a one big loop, we would have to make high_entities[] array twice as big.
@@ -499,7 +501,7 @@ void SetCameraPosition(GameState *game_state, AbsoluteWorldPosition new_camera_p
         Entity entity = get_entity(game_state, index);
 
         math::v2 new_position = entity.high->position.xy + diff;
-        if (!in_rectangle(high_zone_in_float, new_position) || (entity.low->world_position.absolute_tile_z != new_camera_position.absolute_tile_z)) {
+        if (!in_rectangle(high_zone_in_float, new_position) || (entity.low->world_position.chunk_z != new_camera_position.chunk_z)) {
             osOutputDebugString("Remove entity %d from high entity set.\n", entity.high->low_index.index);
             make_entity_low_frequency(game_state, entity.high->low_index);
         } else {
@@ -512,11 +514,11 @@ void SetCameraPosition(GameState *game_state, AbsoluteWorldPosition new_camera_p
     for (LowEntityIndex index { 1 }; index < game_state->low_entity_count; index++) {
         Entity entity = get_entity(game_state, index);
         if (entity.high == 0) {
-            if ((entity.low->world_position.absolute_tile_z == new_camera_position.absolute_tile_z) &&
-                (entity.low->world_position.absolute_tile_x >= min_tile_x) &&
-                (entity.low->world_position.absolute_tile_x <= max_tile_x) &&
-                (entity.low->world_position.absolute_tile_y >= min_tile_y) &&
-                (entity.low->world_position.absolute_tile_y <= max_tile_y))
+            if ((entity.low->world_position.chunk_z == new_camera_position.chunk_z) &&
+                (entity.low->world_position.chunk_x >= min_tile_x) &&
+                (entity.low->world_position.chunk_x <= max_tile_x) &&
+                (entity.low->world_position.chunk_y >= min_tile_y) &&
+                (entity.low->world_position.chunk_y <= max_tile_y))
             {
                 osOutputDebugString("Move entity %d into high entity set.\n", index.index);
                 make_entity_high_frequency(game_state, index);
@@ -596,12 +598,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // ===================== WORLD GENERATION ===================== //
 
         world->tile_side_in_meters = 1.0f; // [meters]
-
-        // Tilechunks 256x256
-        world->chunk_shift = 3;
-        world->chunk_mask  = (1 << world->chunk_shift) - 1;
-        world->tile_count_x = 1 << world->chunk_shift;
-        world->tile_count_y = 1 << world->chunk_shift;
 
         i32 screen_count = 200;
 
@@ -719,11 +715,11 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             previous_choice = choice;
         }
 
-        AbsoluteWorldPosition camera_position;
-        camera_position.absolute_tile_x = room_width_in_tiles / 2;
-        camera_position.absolute_tile_y = room_height_in_tiles / 2;
-        camera_position.absolute_tile_z = 0;
-        camera_position.relative_position_on_tile = { -0.5f, 0.0f }; // @note: Offset because the center of the room lies on the edge between tiles.
+        WorldPosition camera_position;
+        camera_position.chunk_x = room_width_in_tiles / 2;
+        camera_position.chunk_y = room_height_in_tiles / 2;
+        camera_position.chunk_z = 0;
+        camera_position.relative_position_in_chunk = { 0.0f, 0.0f }; // @note: Offset because the center of the room lies on the edge between tiles.
         SetCameraPosition(game_state, camera_position);
 
         Memory->IsInitialized = true;
@@ -740,10 +736,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     f32 friction_coefficient = 1.5f;
 
-    for (uint32 ControllerIndex = 0; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++) {
+    for (InputIndex ControllerIndex { 0 }; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++) {
         Game_ControllerInput* ControllerInput = GetControllerInput(Input, ControllerIndex);
 
-        LowEntityIndex low_entity_index = game_state->player_index_for_controller[ControllerIndex];
+        LowEntityIndex low_entity_index = game_state->player_index_for_controller[ControllerIndex.index];
         Entity entity = get_entity(game_state, low_entity_index);
 
         if (entity.low == NULL && entity.high == NULL) {
@@ -751,10 +747,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 LowEntityIndex player_index = add_player(game_state);
                 entity = get_entity(game_state, player_index);
 
-                if (game_state->player_index_for_controller[ControllerIndex] == 0) {
-                    game_state->player_index_for_controller[ControllerIndex] = player_index;
+                if (game_state->player_index_for_controller[ControllerIndex.index] == 0) {
+                    game_state->player_index_for_controller[ControllerIndex.index] = player_index;
                     game_state->index_of_entity_for_camera_to_follow = player_index;
-                    game_state->index_of_controller_for_camera_to_follow = { ControllerIndex };
+                    game_state->index_of_controller_for_camera_to_follow = { ControllerIndex.index };
                 }
             } else {
                 continue;
@@ -767,36 +763,36 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 game_state->index_of_controller_for_camera_to_follow = { 0 };
             }
             game_state->index_of_entity_for_camera_to_follow = game_state->player_index_for_controller[game_state->index_of_controller_for_camera_to_follow.index];
-            game_state->camera_position.absolute_tile_z = game_state->low_entities[game_state->index_of_entity_for_camera_to_follow.index].world_position.absolute_tile_z;
+            game_state->camera_position.chunk_z = game_state->low_entities[game_state->index_of_entity_for_camera_to_follow.index].world_position.chunk_z;
             osOutputDebugString("Follow entity %d\n", game_state->index_of_entity_for_camera_to_follow.index);
         }
 
         if (GetPressCount(ControllerInput->X)) {
-            AbsoluteWorldPosition *pos = &entity.low->world_position;
-            // Tile tile_value = GetTileValue(world, pos->absolute_tile_x, pos->absolute_tile_y, pos->absolute_tile_z);
+            WorldPosition *pos = &entity.low->world_position;
+            // Tile tile_value = GetTileValue(world, pos->absolute_tile_x, pos->absolute_tile_y, pos->chunk_z);
 
             // if (tile_value == TILE_DOOR_UP) {
-            //     AbsoluteWorldPosition move_up_position = *pos;
-            //     move_up_position.absolute_tile_z += 1;
+            //     WorldPosition move_up_position = *pos;
+            //     move_up_position.chunk_z += 1;
 
             //     // bool up_tile_empty = IsWorldPointEmpty(world, move_up_position);
             //     if (up_tile_empty) {
-            //         pos->absolute_tile_z += 1;
+            //         pos->chunk_z += 1;
             //         Entity followed_entity = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
-            //         game_state->camera_position.absolute_tile_z = followed_entity.low->world_position.absolute_tile_z;
+            //         game_state->camera_position.chunk_z = followed_entity.low->world_position.chunk_z;
             //         osOutputDebugString("Entity %d go upstairs\n", low_entity_index.index);
             //     }
             // }
 
             // if (tile_value == TILE_DOOR_DOWN) {
-            //     AbsoluteWorldPosition move_down_position = *pos;
-            //     move_down_position.absolute_tile_z -= 1;
+            //     WorldPosition move_down_position = *pos;
+            //     move_down_position.chunk_z -= 1;
 
             //     // bool down_tile_empty = IsWorldPointEmpty(world, move_down_position);
             //     if (down_tile_empty) {
-            //         pos->absolute_tile_z -= 1;
+            //         pos->chunk_z -= 1;
             //         Entity followed_entity = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
-            //         game_state->camera_position.absolute_tile_z = followed_entity.low->world_position.absolute_tile_z;
+            //         game_state->camera_position.chunk_z = followed_entity.low->world_position.chunk_z;
             //         osOutputDebugString("Entity %d go downstairs\n", low_entity_index.index);
             //     }
             // }
@@ -865,28 +861,28 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         f32 room_width_in_meters = room_width_in_tiles * world->tile_side_in_meters;
         f32 room_height_in_meters = room_height_in_tiles * world->tile_side_in_meters;
 
-        AbsoluteWorldPosition new_camera_position = game_state->camera_position;
+        WorldPosition new_camera_position = game_state->camera_position;
 
 #if ASUKA_DEBUG_FOLLOWING_CAMERA
         // Debug scrolling
         if (followed_entity.high->position.x > 1) {
             // diff.x = - room_width_in_meters;
-            new_camera_position.absolute_tile_x += 1;
+            new_camera_position.chunk_x += 1;
         }
 
         if (followed_entity.high->position.x < -1) {
             // diff.x = room_width_in_meters;
-            new_camera_position.absolute_tile_x -= 1;
+            new_camera_position.chunk_x -= 1;
         }
 
         if (followed_entity.high->position.y > 1) {
             // diff.y = - room_height_in_meters;
-            new_camera_position.absolute_tile_y += 1;
+            new_camera_position.chunk_y += 1;
         }
 
         if (followed_entity.high->position.y < -1) {
             // diff.y = room_height_in_meters;
-            new_camera_position.absolute_tile_y -= 1;
+            new_camera_position.chunk_y -= 1;
         }
 
         new_camera_position = followed_entity.low->world_position;
@@ -895,22 +891,22 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #else
         if (followed_entity.high->position.x > room_width_in_meters / 2) {
             // diff.x = - room_width_in_meters;
-            new_camera_position.absolute_tile_x += room_width_in_tiles;
+            new_camera_position.chunk_x += room_width_in_tiles;
         }
 
         if (followed_entity.high->position.x < -room_width_in_meters / 2) {
             // diff.x = room_width_in_meters;
-            new_camera_position.absolute_tile_x -= room_width_in_tiles;
+            new_camera_position.chunk_x -= room_width_in_tiles;
         }
 
         if (followed_entity.high->position.y > room_height_in_meters / 2) {
             // diff.y = - room_height_in_meters;
-            new_camera_position.absolute_tile_y += room_height_in_tiles;
+            new_camera_position.chunk_y += room_height_in_tiles;
         }
 
         if (followed_entity.high->position.y < -room_height_in_meters / 2) {
             // diff.y = room_height_in_meters;
-            new_camera_position.absolute_tile_y -= room_height_in_tiles;
+            new_camera_position.chunk_y -= room_height_in_tiles;
         }
 #endif
 
@@ -928,7 +924,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     // Background grass
     // DrawBitmap(Buffer, { 0, 0 }, { (float32)Buffer->Width, (f32)Buffer->Height }, &game_state->grass_texture);
 
-    AbsoluteWorldPosition *camera_p = &game_state->camera_position;
+    WorldPosition *camera_p = &game_state->camera_position;
 
 #if 1
     int32 tile_side_in_pixels = (i32)((f32)world->tile_side_in_meters * (f32)pixels_per_meter);
@@ -941,9 +937,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #endif
 
     Entity entity_to_follow = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
-    ChunkPosition chunk_pos_for_camera_to_follow {};
+    WorldPosition chunk_pos_for_camera_to_follow {};
     if (entity_to_follow.high != NULL) {
-        chunk_pos_for_camera_to_follow = GetChunkPosition(world, entity_to_follow.low->world_position);
+        // chunk_pos_for_camera_to_follow = GetChunkPosition(world, entity_to_follow.low->world_position);
     }
 
     // ===================== RENDERING ENTITIES ===================== //
@@ -951,7 +947,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     for (HighEntityIndex entity_index { 0 }; entity_index < game_state->high_entity_count; entity_index++) {
         Entity entity = get_entity(game_state, entity_index);
         if (entity.high != NULL) {
-            if (entity.low->world_position.absolute_tile_z != game_state->camera_position.absolute_tile_z) {
+            if (entity.low->world_position.chunk_z != game_state->camera_position.chunk_z) {
                 continue;
             }
 
