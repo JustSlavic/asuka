@@ -22,6 +22,7 @@
 #include <defines.hpp>
 #include <asuka.hpp>
 #include <os/time.hpp>
+#include <os/memory.hpp>
 #include <debug/casts.hpp>
 
 // Windows
@@ -356,7 +357,7 @@ Win32_Window_Dimensions Win32_GetWindowDimention(HWND Window) {
 INTERNAL_FUNCTION
 void Win32_ResizeDIBSection(Win32_OffscreenBuffer* Buffer, LONG Width, LONG Height) {
     if (Buffer->Memory) {
-        VirtualFree(Buffer->Memory, 0, MEM_RELEASE);
+        memory::free_pages(Buffer->Memory);
     }
 
     int BytesPerPixel = 4;
@@ -374,7 +375,7 @@ void Win32_ResizeDIBSection(Win32_OffscreenBuffer* Buffer, LONG Width, LONG Heig
     Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
     int BitmapMemorySize = (Buffer->Width * Buffer->Height)*BytesPerPixel;
-    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    Buffer->Memory = memory::allocate_pages(BitmapMemorySize);
 }
 
 
@@ -896,7 +897,7 @@ int WINAPI WinMain(
     Win32_ClearSoundBuffer(&SoundOutput);
     Global_SecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
-    SoundOutput.Samples = (sound_sample_t*) VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    SoundOutput.Samples = (sound_sample_t*) memory::allocate_pages(SoundOutput.SecondaryBufferSize);
 
 #ifdef ASUKA_DEBUG
     LPVOID BaseAddress = (LPVOID)TERABYTES(1);
@@ -909,7 +910,7 @@ int WINAPI WinMain(
     GameMemory.TransientStorageSize = GIGABYTES(1);
 
     uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
-    GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, (size_t)TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    GameMemory.PermanentStorage = memory::allocate_pages(BaseAddress, TotalSize);
     GameMemory.TransientStorage = (uint8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
 
 #if ASUKA_PLAYBACK_LOOP
@@ -918,10 +919,9 @@ int WINAPI WinMain(
     Global_DebugInputRecording.InitialGameMemorySize = InitialGameMemorySize;
     Global_DebugInputRecording.InputRecordingSize = MEGABYTES(1);
 
-    Global_DebugInputRecording.InitialGameMemory = VirtualAlloc(
+    Global_DebugInputRecording.InitialGameMemory = memory::allocate_pages(
         (uint8*)GameMemory.PermanentStorage + TotalSize,
-        InitialGameMemorySize + Global_DebugInputRecording.InputRecordingSize, // GameMemory size + size of the recorded inputs
-        MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        InitialGameMemorySize + Global_DebugInputRecording.InputRecordingSize); // GameMemory size + size of the recorded inputs
     Global_DebugInputRecording.InputRecording = (uint8 *)Global_DebugInputRecording.InitialGameMemory + InitialGameMemorySize;
 
     Global_DebugInputRecording.RecordedInputsCount = 0;

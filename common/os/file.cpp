@@ -13,7 +13,7 @@
 namespace os {
 
 //
-// Cross-platform Code
+// Cross-platform code.
 //
 
 string load_entire_file(const char* filename) {

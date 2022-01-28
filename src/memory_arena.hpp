@@ -2,6 +2,7 @@
 #define ASUKA_MEMORY_ARENA_HPP
 
 #include <defines.hpp>
+#include <os/memory.hpp>
 
 
 struct MemoryArena {
@@ -17,10 +18,7 @@ void initialize_arena(MemoryArena *arena, void* memory, usize size) {
     arena->size = size;
     arena->used = 0;
 
-    uint8 *zero_memory = (uint8 *)memory;
-    for (usize idx = 0; idx < size; idx++) {
-        zero_memory[idx] = 0;
-    }
+    memory::set(memory, 0, size);
 }
 
 
@@ -33,6 +31,8 @@ void* push_memory(MemoryArena *arena, usize size) {
 
     void* result = (uint8*)arena->memory + arena->used;
     arena->used += size;
+
+    memory::set(result, 0, size);
 
     return result;
 }
