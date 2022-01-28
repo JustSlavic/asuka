@@ -1,5 +1,4 @@
-#ifndef ASUKA_ASUKA_HPP
-#define ASUKA_ASUKA_HPP
+#pragma once
 
 #include <defines.hpp>
 #include <math.hpp>
@@ -8,7 +7,7 @@
 #include <png.hpp>
 #include <string.hpp>
 #include <index.hpp>
-#include "tilemap.hpp"
+#include <world.hpp>
 #include "memory_arena.hpp"
 
 
@@ -195,11 +194,6 @@ struct Game_Memory {
 };
 
 
-struct Game_World {
-    Tilemap tilemap;
-};
-
-
 enum FaceDirection {
     FACE_DIRECTION_DOWN = 0,
     FACE_DIRECTION_LEFT = 1,
@@ -215,10 +209,7 @@ enum EntityType {
 };
 
 
-struct LowFrequencyEntity;
 struct HighFrequencyEntity;
-
-using LowEntityIndex = Index<LowFrequencyEntity>;
 using HighEntityIndex = Index<HighFrequencyEntity>;
 
 struct HighFrequencyEntity {
@@ -233,7 +224,7 @@ struct HighFrequencyEntity {
 
 struct LowFrequencyEntity {
     EntityType type;
-    TilemapPosition tilemap_position;
+    AbsoluteWorldPosition world_position;
     // @note: for "stairs"
     int32 d_abs_tile_z;
 
@@ -250,11 +241,11 @@ struct Entity {
 
 
 struct GameState {
-    TilemapPosition camera_position;
+    AbsoluteWorldPosition camera_position;
 
     // @note: 0-th entity is invalid in both arrays (high entities and low entities) and should not be used (it indicates wrong index).
     uint32 low_entity_count;
-    LowFrequencyEntity  low_entities[4096];
+    LowFrequencyEntity low_entities[10000];
 
     uint32 high_entity_count;
     HighFrequencyEntity high_entities[256];
@@ -263,7 +254,7 @@ struct GameState {
     LowEntityIndex index_of_entity_for_camera_to_follow;
     LowEntityIndex index_of_controller_for_camera_to_follow;
 
-    Game_World *world;
+    World *world;
 
     MemoryArena world_arena;
 
@@ -300,5 +291,3 @@ ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
 #if defined(UNITY_BUILD) && !defined(ASUKA_DLL_BUILD)
 #include "asuka.cpp"
 #endif
-
-#endif // ASUKA_ASUKA_HPP

@@ -40,6 +40,9 @@ struct rectangle2 {
 };
 
 
+typedef rectangle2 rect2;
+
+
 INLINE_FUNCTION
 f32 get_width(rectangle2 rect) {
     f32 result = rect.max.x - rect.min.x;
