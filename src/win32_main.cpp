@@ -905,7 +905,7 @@ int WINAPI WinMain(
 #endif
 
     Game_Memory GameMemory{};
-    GameMemory.PermanentStorageSize = MEGABYTES(64);
+    GameMemory.PermanentStorageSize = MEGABYTES(128);
     GameMemory.TransientStorageSize = GIGABYTES(1);
 
     uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;

@@ -9,10 +9,6 @@
 enum Tile {
     TILE_INVALID = 0,
     TILE_FREE,
-    TILE_WALL,
-    TILE_DOOR_UP,
-    TILE_DOOR_DOWN,
-    TILE_WIN,
 };
 
 
@@ -43,9 +39,6 @@ struct Tilemap {
     // How many tiles inside given chunk.
     uint32 tile_count_x;
     uint32 tile_count_y;
-
-    uint32 chunk_count_x;
-    uint32 chunk_count_y;
 
     // @note: Size of the array should be power of two for now.
     TileChunk chunks_hash_table[4096];

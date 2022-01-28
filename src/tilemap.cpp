@@ -13,11 +13,13 @@ TileChunkPosition GetChunkPosition(Tilemap *tilemap, int32 abs_tile_x, int32 abs
     return result;
 }
 
+
 TileChunkPosition GetChunkPosition(Tilemap *tilemap, TilemapPosition pos) {
     TileChunkPosition result;
     result = GetChunkPosition(tilemap, pos.absolute_tile_x, pos.absolute_tile_y);
     return result;
 }
+
 
 INTERNAL_FUNCTION
 INLINE_FUNCTION
@@ -74,6 +76,7 @@ TileChunk* GetTileChunk(Tilemap* tilemap, int32 chunk_x, int32 chunk_y, MemoryAr
     return chunk;
 }
 
+
 INTERNAL_FUNCTION
 INLINE_FUNCTION
 Tile GetTileValue_Unchecked(Tilemap* tilemap, TileChunk* tilechunk, uint32 tile_x, uint32 tile_y) {
@@ -83,6 +86,7 @@ Tile GetTileValue_Unchecked(Tilemap* tilemap, TileChunk* tilechunk, uint32 tile_
     Tile result = tilechunk->tiles[tile_y*tilemap->tile_count_x + tile_x];
     return result;
 }
+
 
 Tile GetTileValue(Tilemap* tilemap, int32 abs_tile_x, int32 abs_tile_y) {
     Tile result = TILE_INVALID;
@@ -97,6 +101,7 @@ Tile GetTileValue(Tilemap* tilemap, int32 abs_tile_x, int32 abs_tile_y) {
     return result;
 }
 
+
 void SetTileValue(MemoryArena *arena, Tilemap *tilemap, int32 abs_x, int32 abs_y, Tile tile_value) {
     TileChunkPosition chunk_pos = GetChunkPosition(tilemap, abs_x, abs_y);
     TileChunk *chunk = GetTileChunk(tilemap, chunk_pos.chunk_x, chunk_pos.chunk_y, arena);
@@ -107,10 +112,12 @@ void SetTileValue(MemoryArena *arena, Tilemap *tilemap, int32 abs_x, int32 abs_y
     chunk->tiles[chunk_pos.chunk_relative_y * tilemap->tile_count_x + chunk_pos.chunk_relative_x] = tile_value;
 }
 
+
 bool32 IsTileValueEmpty(Tile tile_value) {
-    bool32 result = (tile_value == TILE_FREE || tile_value == TILE_DOOR_UP || tile_value == TILE_DOOR_DOWN || tile_value == TILE_WIN);
+    bool32 result = (tile_value == TILE_FREE);
     return result;
 }
+
 
 bool32 IsWorldPointEmpty(Tilemap *tilemap, TilemapPosition pos) {
     bool32 is_empty = false;
@@ -118,4 +125,16 @@ bool32 IsWorldPointEmpty(Tilemap *tilemap, TilemapPosition pos) {
     Tile tile_value = GetTileValue(tilemap, pos.absolute_tile_x, pos.absolute_tile_y);
     is_empty = IsTileValueEmpty(tile_value);
     return is_empty;
+}
+
+
+math::vector2 PositionDifference(Tilemap *tilemap, TilemapPosition p1, TilemapPosition p2) {
+    math::v2 result {};
+
+    result.x =
+        (p1.absolute_tile_x * tilemap->tile_side_in_meters) - (p2.absolute_tile_x * tilemap->tile_side_in_meters);
+    result.y =
+        (p1.absolute_tile_y * tilemap->tile_side_in_meters) - (p2.absolute_tile_y * tilemap->tile_side_in_meters);
+
+    return result;
 }

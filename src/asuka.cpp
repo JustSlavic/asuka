@@ -466,47 +466,48 @@ void move_entity(GameState *game_state, HighEntityIndex entity_index, math::v3 a
 
 INTERNAL_FUNCTION
 void SetCameraPosition(GameState *game_state, TilemapPosition new_camera_position) {
-    Tilemap *tilemap = game_state->tilemap;
-    math::vector2 diff = PositionDifference(tilemap, game_state->camera_position, new_camera_position);
+    // Tilemap *tilemap = game_state->tilemap;
+    // math::vector2 diff = PositionDifference(tilemap, game_state->camera_position, new_camera_position);
+
     game_state->camera_position = new_camera_position;
 
-    math::vector2i   high_zone_in_tiles = math::vector2i { 16, 9 };
-    math::rectangle2 high_zone_in_float = math::rectangle2::from_center_dim(math::v2::zero(), tilemap->tile_side_in_meters * math::upcast_to_vector2(high_zone_in_tiles));
+    // math::vector2i   high_zone_in_tiles = math::vector2i { 16, 9 };
+    // math::rectangle2 high_zone_in_float = math::rectangle2::from_center_dim(math::v2::zero(), tilemap->tile_side_in_meters * math::upcast_to_vector2(high_zone_in_tiles));
 
-    i32 min_tile_x = new_camera_position.absolute_tile_x - high_zone_in_tiles.x / 2;
-    i32 max_tile_x = new_camera_position.absolute_tile_x + high_zone_in_tiles.x / 2;
-    i32 min_tile_y = new_camera_position.absolute_tile_y - high_zone_in_tiles.y / 2;
-    i32 max_tile_y = new_camera_position.absolute_tile_y + high_zone_in_tiles.y / 2;
+    // i32 min_tile_x = new_camera_position.absolute_tile_x - high_zone_in_tiles.x / 2;
+    // i32 max_tile_x = new_camera_position.absolute_tile_x + high_zone_in_tiles.x / 2;
+    // i32 min_tile_y = new_camera_position.absolute_tile_y - high_zone_in_tiles.y / 2;
+    // i32 max_tile_y = new_camera_position.absolute_tile_y + high_zone_in_tiles.y / 2;
 
     // @note, that the process is separated into two loops, because we have to make room for more high entities by removing old ones first.
     // If we would do it in a one big loop, we would have to make high_entities[] array twice as big.
 
     // First, remove entities that are out of high simulation range from high entity set.
-    for (HighEntityIndex index { 1 }; index < game_state->high_entity_count;) {
-        Entity entity = get_entity(game_state, index);
+    // for (HighEntityIndex index { 1 }; index < game_state->high_entity_count;) {
+    //     Entity entity = get_entity(game_state, index);
 
-        math::v2 new_position = entity.high->position.xy + diff;
-        if (!in_rectangle(high_zone_in_float, new_position)) {
-            make_entity_low_frequency(game_state, entity.high->low_index);
-        } else {
-            entity.high->position.xy = new_position;
-            index++;
-        }
-    }
+    //     math::v2 new_position = entity.high->position.xy + diff;
+    //     if (!in_rectangle(high_zone_in_float, new_position)) {
+    //         make_entity_low_frequency(game_state, entity.high->low_index);
+    //     } else {
+    //         entity.high->position.xy = new_position;
+    //         index++;
+    //     }
+    // }
 
     // Second, add entities that are in high simulation range into high entity set.
-    for (LowEntityIndex index { 1 }; index < game_state->low_entity_count; index++) {
-        Entity entity = get_entity(game_state, index);
-        if (entity.high == 0) {
-            if ((entity.low->tilemap_position.absolute_tile_x >= min_tile_x) &&
-                (entity.low->tilemap_position.absolute_tile_x <= max_tile_x) &&
-                (entity.low->tilemap_position.absolute_tile_y >= min_tile_y) &&
-                (entity.low->tilemap_position.absolute_tile_y <= max_tile_y))
-            {
-                make_entity_high_frequency(game_state, index);
-            }
-        }
-    }
+    // for (LowEntityIndex index { 1 }; index < game_state->low_entity_count; index++) {
+    //     Entity entity = get_entity(game_state, index);
+    //     if (entity.high == 0) {
+    //         if ((entity.low->tilemap_position.absolute_tile_x >= min_tile_x) &&
+    //             (entity.low->tilemap_position.absolute_tile_x <= max_tile_x) &&
+    //             (entity.low->tilemap_position.absolute_tile_y >= min_tile_y) &&
+    //             (entity.low->tilemap_position.absolute_tile_y <= max_tile_y))
+    //         {
+    //             make_entity_high_frequency(game_state, index);
+    //         }
+    //     }
+    // }
 }
 
 
@@ -550,8 +551,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // ===================== WORLD GENERATION ===================== //
 
         tilemap->tile_side_in_meters = 1.0f; // [meters]
-        tilemap->chunk_count_x = 40;
-        tilemap->chunk_count_y = 40;
 
         // Tilechunks 256x256
         tilemap->chunk_shift = 3;
@@ -559,45 +558,19 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         tilemap->tile_count_x = 1 << tilemap->chunk_shift;
         tilemap->tile_count_y = 1 << tilemap->chunk_shift;
 
-        i32 screen_count = 2; // 20;
+        i32 map_side_in_chunks = 2;
 
-        i32 screen_x = 0;
-        i32 screen_y = 0;
-        i32 screen_z = 0;
+        for (int32 chunk_y = 0; chunk_y < map_side_in_chunks; chunk_y++) {
+            for (int32 chunk_x = 0; chunk_x < map_side_in_chunks; chunk_x++) {
+                for (uint32 tile_y = 0; tile_y < tilemap->tile_count_y; tile_y++) {
+                    for (uint32 tile_x = 0; tile_x < tilemap->tile_count_x; tile_x++) {
+                        i32 abs_x = chunk_x * tilemap->tile_count_x + tile_x;
+                        i32 abs_y = chunk_y * tilemap->tile_count_y + tile_y;
 
-        enum gen_direction {
-            GEN_NONE,
-            GEN_UP,
-            GEN_RIGHT,
-            GEN_FLOOR_UP,
-            GEN_FLOOR_DOWN,
-            // ---------
-            GEN_MAX,
-        };
-
-        gen_direction previous_choice = GEN_NONE;
-
-        for (i32 screen_idx = 0; screen_idx < screen_count; screen_idx++) {
-            gen_direction choice = GEN_NONE;
-
-            while(true) {
-                choice = (gen_direction)(rand() % GEN_MAX);
-
-                if (choice != GEN_NONE) break;
-            };
-
-            if (screen_idx + 1 == screen_count) {
-                choice = GEN_NONE;
-            }
-
-            for (u32 tile_y = 0; tile_y < tilemap->tile_count_y; tile_y++) {
-                for (u32 tile_x = 0; tile_x < tilemap->tile_count_x; tile_x++) {
-                    Tile tile_value = TILE_FREE;
-                    SetTileValue(arena, tilemap, tile_x, tile_y, tile_value);
+                        SetTileValue(arena, tilemap, abs_x, abs_y, TILE_FREE);
+                    }
                 }
             }
-
-            previous_choice = choice;
         }
 
         TilemapPosition camera_position;
@@ -614,6 +587,27 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     for (uint32 ControllerIndex = 0; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++) {
         Game_ControllerInput* ControllerInput = GetControllerInput(Input, ControllerIndex);
+
+        TilemapPosition new_camera_position = game_state->camera_position;
+
+        f32 threshold = 0.8f;
+        if (GetPressCount(ControllerInput->DpadLeft) || ControllerInput->LeftStickEnded.x < -threshold) {
+            new_camera_position.absolute_tile_x -= 1;
+        }
+
+        if (GetPressCount(ControllerInput->DpadRight) || ControllerInput->LeftStickEnded.x > threshold) {
+            new_camera_position.absolute_tile_x += 1;
+        }
+
+        if (GetPressCount(ControllerInput->DpadUp) || ControllerInput->LeftStickEnded.y > threshold) {
+            new_camera_position.absolute_tile_y += 1;
+        }
+
+        if (GetPressCount(ControllerInput->DpadDown) || ControllerInput->LeftStickEnded.y < -threshold) {
+            new_camera_position.absolute_tile_y -= 1;
+        }
+
+        SetCameraPosition(game_state, new_camera_position);
     }
 
     // ===================== RENDERING ===================== //
@@ -626,7 +620,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     TilemapPosition *camera_p = &game_state->camera_position;
 
-#if 1
+#if 0
     int32 tile_side_in_pixels = (i32)((f32)tilemap->tile_side_in_meters * (f32)pixels_per_meter);
     int32 render_tiles_half_count_y = Buffer->Height / tile_side_in_pixels;
     int32 render_tiles_half_count_x = Buffer->Width / tile_side_in_pixels;
@@ -666,7 +660,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 case TILE_INVALID: {
                     TileColor = color24{ 1.0f };
                     break;
-                    // continue;
                 }
                 case TILE_FREE: {
                     TileColor = color24{ 0.5f, 0.5f, 0.5f };
@@ -677,43 +670,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                         break;
                     }
 
-                    break;
-                }
-                // Walls are entities now
-
-                // case TILE_WALL: {
-                //     // DrawBitmap(Buffer, upper_left_in_up_down_screen_pixel_coords, bottom_right_in_up_down_screen_pixel_coords, &game_state->wall_texture);
-                //     // continue;
-
-                //     TileColor = color24{ 0.2f, 0.3f, 0.2f };
-                //     break;
-                // }
-                case TILE_DOOR_UP: {
-                    TileColor = color24{ 0.8f, 0.8f, 0.8f };
-                    break;
-                }
-                case TILE_DOOR_DOWN: {
-                    TileColor = color24{ 0.3f, 0.3f, 0.3f };
-                    break;
-                }
-                case TILE_WIN: {
-                    STATIC_VARIABLE f32 t_color = 0.0f;
-                    f32 tmp_r = sinf(math::pi * t_color - 0.5f * math::pi);
-                    f32 tmp_g = sinf(math::pi * t_color - 5.0f * math::pi / 6.0f);
-                    f32 tmp_b = sinf(math::pi * t_color - math::pi / 6.0f);
-
-                    f32 normalization_constant = 1.0f;
-
-                    color24 tile_win_color = color24{
-                        tmp_r * tmp_r * normalization_constant,
-                        tmp_g * tmp_g * normalization_constant,
-                        tmp_b * tmp_b * normalization_constant,
-                    };
-                    t_color += 0.01f;
-
-                    if (t_color > 1.0f) { t_color -= 1.0f; }
-
-                    TileColor = tile_win_color;
                     break;
                 }
             }

@@ -208,8 +208,7 @@ enum FaceDirection {
 
 enum EntityType {
     ENTITY_TYPE_NULL,
-    ENTITY_TYPE_PLAYER,
-    ENTITY_TYPE_WALL,
+    ENTITY_TYPE_ORGANISM,
 };
 
 
