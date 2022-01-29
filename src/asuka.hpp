@@ -195,63 +195,33 @@ struct Game_Memory {
 };
 
 
-
-
-
-enum FaceDirection {
-    FACE_DIRECTION_DOWN = 0,
-    FACE_DIRECTION_LEFT = 1,
-    FACE_DIRECTION_RIGHT = 2,
-    FACE_DIRECTION_UP = 3,
-};
-
-
 enum EntityType {
     ENTITY_TYPE_NULL,
+    ENTITY_TYPE_GRASS,
     ENTITY_TYPE_ORGANISM,
 };
 
 
-struct LowFrequencyEntity;
-struct HighFrequencyEntity;
-
-using LowEntityIndex = Index<LowFrequencyEntity>;
-using HighEntityIndex = Index<HighFrequencyEntity>;
-
-struct HighFrequencyEntity {
-    math::v3 position; // Relative to the camera
-    math::v3 velocity;
-
-    FaceDirection face_direction;
-
-    LowEntityIndex low_index;
-};
-
-struct LowFrequencyEntity {
+struct Entity {
     EntityType type;
     TilemapPosition tilemap_position;
 
+    math::v3 position; // Relative to the camera
+    math::v3 velocity;
+
     math::v2 hitbox;
     bool32 collidable;
-
-    HighEntityIndex high_index;
 };
 
-struct Entity {
-    HighFrequencyEntity *high;
-    LowFrequencyEntity  *low;
-};
+using EntityIndex = Index<Entity>;
 
 
 struct GameState {
     TilemapPosition camera_position;
 
     // @note: 0-th entity is invalid in both arrays (high entities and low entities) and should not be used (it indicates wrong index).
-    uint32 low_entity_count;
-    LowFrequencyEntity  low_entities[4096];
-
-    uint32 high_entity_count;
-    HighFrequencyEntity high_entities[256];
+    uint32 entity_count;
+    Entity entities[4096];
 
     Tilemap *tilemap;
 

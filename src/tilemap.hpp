@@ -9,6 +9,7 @@
 enum Tile {
     TILE_INVALID = 0,
     TILE_FREE,
+    TILE_GRASS,
 };
 
 
@@ -41,7 +42,7 @@ struct Tilemap {
     uint32 tile_count_y;
 
     // @note: Size of the array should be power of two for now.
-    TileChunk chunks_hash_table[4096];
+    TileChunk chunks_hash_table[1024];
 
     uint32 chunk_shift;
     uint32 chunk_mask;
