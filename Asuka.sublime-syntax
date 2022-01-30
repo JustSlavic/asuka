@@ -25,7 +25,7 @@ contexts:
     - match: '\b(if|else|while|for|break|switch|case|return|typedef)\b'
       scope: asuka.keyword
 
-    - match: '\b(-)?[0-9.]+f?\b'
+    - match: '\b(0x[0-9ABCDEF\'']+|0b[01\'']+|[+\-]?\d+e[+\-]\d+f?|[+\-]?\d+\.\d+f?|[+\-]?\.\d+f?|[+\-]?\d+)\b'
       scope: asuka.constant.numeric
 
     - match: 'NULL'
@@ -68,7 +68,7 @@ contexts:
 
   block:
     - meta_scope: asuka.block meta.block.c++
-    - match: '\b(\.\d+f?|\d+\.(\d+)?f?|\d+(e[+-]\d+)?)\b'
+    - match: '\b(0x[0-9ABCDEF\'']+|0b[01\'']+|[+\-]?\d+e[+\-]\d+f?|[+\-]?\d+\.\d+f?|[+\-]?\.\d+f?|[+\-]?\d+)\b'
       scope: asuka.constant.numeric
     - match: '\b(NULL|TRUE|FALSE|true|false)\b'
       scope: asuka.constant
