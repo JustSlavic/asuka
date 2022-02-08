@@ -1,5 +1,13 @@
 #include "memory.hpp"
 
+#if ASUKA_OS_WINDOWS
+#include "windows/memory.hpp"
+#endif
+
+#if ASUKA_OS_LINUX
+#include "linux/memory.hpp"
+#endif
+
 namespace memory {
 namespace internal {
 

@@ -13,8 +13,9 @@
 #include <os/time.hpp>
 #include <time.h>
 
+#if SOUND_ALSA
 #include <alsa/asoundlib.h>
-
+#endif
 
 #define KEYCODE_ESC                  9
 
@@ -30,11 +31,8 @@
 #define GAMEPAD_TRIGGER_DEADZONE     7710
 
 
-using sound_sample_t = int16;
-
-
-static bool global_running;
-static const char* global_gamepad_device_paths[] = {
+GLOBAL_VARIABLE bool global_running;
+GLOBAL_VARIABLE const char* global_gamepad_device_paths[] = {
     "/dev/input/js0",
     "/dev/input/js1",
     "/dev/input/js2",
@@ -50,7 +48,7 @@ struct linux_screen_buffer {
     uint32 bytes_per_pixel;
 };
 
-
+#if SOUND_ALSA
 struct linux_sound_output {
     uint32 samples_per_second;
     uint32 channels_count;
@@ -58,7 +56,7 @@ struct linux_sound_output {
     sound_sample_t* samples;
     snd_pcm_t* sound_device;
 };
-
+#endif
 
 struct linux_gamepad {
     int fd;
@@ -73,7 +71,8 @@ struct linux_gamepad_event {
 };
 
 
-static void print_binary(uint32 n) {
+INTERNAL_FUNCTION
+void print_binary(uint32 n) {
     uint32 mask = (0x1 << 31);
 
     while (mask) {
@@ -83,7 +82,8 @@ static void print_binary(uint32 n) {
 }
 
 
-static bool32 linux_gamepad_connect(linux_gamepad* gamepad, const char* device_path) {
+INTERNAL_FUNCTION
+bool32 linux_gamepad_connect(linux_gamepad* gamepad, const char* device_path) {
     int fd = open(device_path, O_RDONLY | O_NONBLOCK);
     if (fd == -1) return false;
 
@@ -92,17 +92,20 @@ static bool32 linux_gamepad_connect(linux_gamepad* gamepad, const char* device_p
 }
 
 
-static void linux_gamepad_disconnect(linux_gamepad* gamepad) {
+INTERNAL_FUNCTION
+void linux_gamepad_disconnect(linux_gamepad* gamepad) {
     gamepad->fd = 0;
 }
 
 
-static bool32 linux_gamepad_connected(linux_gamepad* gamepad) {
+INTERNAL_FUNCTION
+bool32 linux_gamepad_connected(linux_gamepad* gamepad) {
     return gamepad->fd > 0;
 }
 
 
-static bool32 linux_gamepad_lost_connection(linux_gamepad* gamepad) {
+INTERNAL_FUNCTION
+bool32 linux_gamepad_lost_connection(linux_gamepad* gamepad) {
     struct stat statbuf;
     int ec = fstat(gamepad->fd, &statbuf);
 
@@ -111,20 +114,23 @@ static bool32 linux_gamepad_lost_connection(linux_gamepad* gamepad) {
 }
 
 
-static bool32 linux_gamepad_next_event(linux_gamepad* gamepad, linux_gamepad_event* event) {
+INTERNAL_FUNCTION
+bool32 linux_gamepad_next_event(linux_gamepad* gamepad, linux_gamepad_event* event) {
     int64 bytes = read(gamepad->fd, event, sizeof(linux_gamepad_event));
     // note: bytes == -1 when read is not successful
     return bytes > 0;
 }
 
 
-static void linux_process_controller_button(Game_ButtonState* Button, int16 Value) {
+INTERNAL_FUNCTION
+void linux_process_controller_button(Game_ButtonState* Button, int16 Value) {
     Button->HalfTransitionCount += 1;
     Button->EndedDown = (Value == 1);
 }
 
 
-static float32 linux_controller_process_stick(int16 value, int16 deadzone) {
+INTERNAL_FUNCTION
+float32 linux_controller_process_stick(int16 value, int16 deadzone) {
     if (value < -deadzone) {
         return ((float32)value + (float32)deadzone) / (32767.f - (float32)deadzone);
     } else if (value > deadzone) {
@@ -135,7 +141,8 @@ static float32 linux_controller_process_stick(int16 value, int16 deadzone) {
 }
 
 
-static float32 linux_process_controller_trigger(int16 value, int16 deadzone) {
+INTERNAL_FUNCTION
+float32 linux_process_controller_trigger(int16 value, int16 deadzone) {
     // In linux the value of the triggers vary between -32767 and 32767,
     // so I shift it to be completely positive value.
     uint16 shifted_value = value + 32767;
@@ -147,7 +154,8 @@ static float32 linux_process_controller_trigger(int16 value, int16 deadzone) {
 }
 
 
-static void linux_gamepad_process_events(linux_gamepad* device, Game_ControllerInput* Controller) {
+INTERNAL_FUNCTION
+void linux_gamepad_process_events(linux_gamepad* device, Game_ControllerInput* Controller) {
     // @nocommit @bug: This function have to function properly which it doesn't at all!!!
     linux_gamepad_event event;
     while (linux_gamepad_next_event(device, &event)) {
@@ -208,9 +216,10 @@ static void linux_gamepad_process_events(linux_gamepad* device, Game_ControllerI
 }
 
 
-static void linux_resize_screen_buffer(linux_screen_buffer* buffer, uint32 width, uint32 height) {
+INTERNAL_FUNCTION
+void linux_resize_screen_buffer(linux_screen_buffer* buffer, uint32 width, uint32 height) {
     if (buffer->memory) {
-        os::free_pages(buffer->memory, buffer->width * buffer->height * buffer->bytes_per_pixel);
+        memory::free_pages(buffer->memory);
         buffer->memory = NULL;
     }
 
@@ -218,12 +227,13 @@ static void linux_resize_screen_buffer(linux_screen_buffer* buffer, uint32 width
     buffer->height = height;
     buffer->bytes_per_pixel = 4;
 
-    buffer->memory = os::allocate_pages(width * height * buffer->bytes_per_pixel);
+    buffer->memory = memory::allocate_pages(width * height * buffer->bytes_per_pixel);
     ASSERT(buffer->memory);
 }
 
 
-static void linux_copy_buffer_to_window(linux_screen_buffer* buffer, Display* display, Window window, int screen) {
+INTERNAL_FUNCTION
+void linux_copy_buffer_to_window(linux_screen_buffer* buffer, Display* display, Window window, int screen) {
     // @TODO: Should I cache this structure int the linux_screen_buffer to avoid XInitImage call ??
     XImage x_image {};
     x_image.width = buffer->width;
@@ -248,7 +258,7 @@ static void linux_copy_buffer_to_window(linux_screen_buffer* buffer, Display* di
         0, 0, 0, 0, buffer->width, buffer->height);
 }
 
-
+#if SOUND_ALSA
 linux_sound_output linux_init_alsa(uint32 samples_per_second, uint32 channels) {
     // @todo: try to use snd_pcm_set_params
     snd_pcm_t* sound_device;
@@ -304,7 +314,7 @@ linux_sound_output linux_init_alsa(uint32 samples_per_second, uint32 channels) {
     sound_output.samples_per_second = samples_per_second;
     sound_output.channels_count = channels;
     sound_output.buffer_size = sound_output.samples_per_second * sound_output.channels_count * sizeof(int16);
-    sound_output.samples = (sound_sample_t*) os::allocate_pages(sound_output.buffer_size);
+    sound_output.samples = (sound_sample_t*) memory::allocate_pages(sound_output.buffer_size);
     sound_output.sound_device = sound_device;
 
     return sound_output;
@@ -318,7 +328,7 @@ static void linux_send_sound_buffer(snd_pcm_t* sound_device, linux_sound_output*
         return;
     }
 }
-
+#endif // SOUND_ALSA
 
 int32 main(int32 argc, char** argv) {
     Display* display = XOpenDisplay(NULL);
@@ -351,6 +361,7 @@ int32 main(int32 argc, char** argv) {
     linux_screen_buffer screen_buffer {};
     linux_resize_screen_buffer(&screen_buffer, window_width, window_height);
 
+#if SOUND_ALSA
     linux_sound_output sound_output = linux_init_alsa(48000, 2);
     if (sound_output.sound_device) {
         printf("ALSA initialized successfully!\n");
@@ -358,6 +369,7 @@ int32 main(int32 argc, char** argv) {
         fprintf(stderr, "Could not initialize ALSA!\n");
         return 1;
     }
+#endif
 
     // Process window close event through event handler so XNextEvent does not fail
     Atom del_window = XInternAtom(display, "WM_DELETE_WINDOW", 0);
@@ -389,7 +401,7 @@ int32 main(int32 argc, char** argv) {
 
     uint64 total_size = game_memory.PermanentStorageSize + game_memory.TransientStorageSize;
 
-    game_memory.PermanentStorage = os::allocate_pages(base_address, total_size);
+    game_memory.PermanentStorage = memory::allocate_pages(base_address, total_size);
     game_memory.TransientStorage = (uint8*)game_memory.PermanentStorage + game_memory.PermanentStorageSize;
 
     Game_Input Input {};
@@ -398,8 +410,10 @@ int32 main(int32 argc, char** argv) {
     os::timepoint last_counter = os::get_wall_clock();
     uint64 last_cycles = os::get_processor_cycles();
 
+#if SOUND_ALSA
     snd_pcm_sframes_t play_cursor = 0;
     snd_pcm_sframes_t write_cursor = (sound_output.buffer_size / sizeof(sound_sample_t)) - snd_pcm_avail(sound_output.sound_device);
+#endif
 
     linux_gamepad gamepad_devices[ARRAY_COUNT(global_gamepad_device_paths)] {};
 
@@ -483,8 +497,11 @@ int32 main(int32 argc, char** argv) {
             }
         }
 
+        os::duration target_microseconds_elapsed_for_frame { 33333 };
+
         Game_SoundOutputBuffer SoundBuffer {};
 
+#if SOUND_ALSA
         snd_pcm_sframes_t buffer_size_in_frames = sound_output.buffer_size / sizeof(sound_sample_t);
 
         snd_pcm_sframes_t available_sound_frames = snd_pcm_avail(sound_output.sound_device);
@@ -496,7 +513,6 @@ int32 main(int32 argc, char** argv) {
         play_cursor = to_the_left;
         ASSERT(to_the_left + (buffer_size_in_frames - to_the_right - to_the_left) == write_cursor);
 
-        os::duration target_microseconds_elapsed_for_frame { 33333 };
         // os::duration time_left_for_frame = target_microseconds_elapsed_for_frame - (os::get_wall_clock() - last_counter);
         // os::duration time_for_this_frame_and_the_next_one = time_left_for_frame + target_microseconds_elapsed_for_frame;
 
@@ -539,6 +555,7 @@ int32 main(int32 argc, char** argv) {
         SoundBuffer.SamplesPerSecond = sound_output.samples_per_second;
         SoundBuffer.SampleCount = n_sound_frames;
         SoundBuffer.Samples = sound_output.samples;
+#endif
 
         Game_OffscreenBuffer GraphicsBuffer {};
         GraphicsBuffer.Memory = screen_buffer.memory;

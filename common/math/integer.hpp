@@ -38,31 +38,31 @@ uint8 to_little_endian(uint8 n) {
 }
 
 uint16 to_little_endian(uint16 n) {
-#if LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
     uint16 result = n;
 #endif
-#if BIG_ENDIAN
-    uint16 result = change_endiannes(n);
+#if BYTE_ORDER == BIG_ENDIAN
+    // uint16 result = change_endiannes(n);
 #endif
     return result;
 }
 
 uint32 to_little_endian(uint32 n) {
-#if LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
     uint32 result = n;
 #endif
-#if BIG_ENDIAN
-    uint32 result = change_endiannes(n);
+#if BYTE_ORDER == BIG_ENDIAN
+    // uint32 result = change_endiannes(n);
 #endif
     return result;
 }
 
 uint64 to_little_endian(uint64 n) {
-#if LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
     uint64 result = n;
 #endif
-#if BIG_ENDIAN
-    uint64 result = change_endiannes(n);
+#if BYTE_ORDER == BIG_ENDIAN
+    // uint64 result = change_endiannes(n);
 #endif
     return result;
 }
@@ -74,31 +74,31 @@ uint8 to_big_endian(uint8 n) {
 }
 
 uint16 to_big_endian(uint16 n) {
-#if LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
     uint16 result = change_endiannes(n);
 #endif
-#if BIG_ENDIAN
-    uint16 result = n;
+#if BYTE_ORDER == BIG_ENDIAN
+    // uint16 result = n;
 #endif
     return result;
 }
 
 uint32 to_big_endian(uint32 n) {
-#if LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
     uint32 result = change_endiannes(n);
 #endif
-#if BIG_ENDIAN
-    uint32 result = n;
+#if BYTE_ORDER == BIG_ENDIAN
+    // uint32 result = n;
 #endif
     return result;
 }
 
 uint64 to_big_endian(uint64 n) {
-#if LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
     uint64 result = change_endiannes(n);
 #endif
-#if BIG_ENDIAN
-    uint64 result = n;
+#if BYTE_ORDER == BIG_ENDIAN
+    // uint64 result = n;
 #endif
     return result;
 }

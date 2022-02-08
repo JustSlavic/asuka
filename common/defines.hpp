@@ -26,6 +26,9 @@ ASUKA_PROFILING=1
 
 #ifdef ASUKA_COMPILER_MICROSOFT
 
+#define LITTLE_ENDIAN 1234
+#define BIG_ENDIAN    4321
+
 typedef __int8 int8;
 typedef __int16 int16;
 typedef __int32 int32;
@@ -83,7 +86,6 @@ typedef  int64 ssize;
 #else // ASUKA_DEBUG
 #define ASSERT(COND)
 #define ASSERT_MSG(COND, MSG)
-#define ASSERT_FAIL(...)
 #endif // ASUKA_DEBUG
 
 #define ASSERT_FAIL(MSG)   ASSERT_MSG(NULL, MSG)
@@ -105,6 +107,7 @@ typedef  int64 ssize;
 #endif // ASUKA_OS_WINDOWS
 
 #ifdef ASUKA_OS_LINUX
+#define osOutputDebugString(MSG, ...) printf(MSG, ## __VA_ARGS__)
 #endif // ASUKA_OS_LINUX
 
 #ifdef ASUKA_OS_MACOS

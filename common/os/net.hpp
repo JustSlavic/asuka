@@ -28,14 +28,14 @@ struct Socket {
 
 INLINE
 uint32 make_ip4(uint8 a, uint8 b, uint8 c, uint8 d) {
-#if LITTLE_ENDIAN
+#if BYTE_ORDER==LITTLE_ENDIAN
     uint32 result = (((uint32)d) << 24) |
                     (((uint32)c) << 16) |
                     (((uint32)b) << 8)  |
                     (((uint32)a));
 #endif
 
-#if BIG_ENDIAN
+#if BYTE_ORDER==BIG_ENDIAN
     uint32 result = (((uint32)a) << 24) |
                     (((uint32)b) << 16) |
                     (((uint32)c) << 8)  |

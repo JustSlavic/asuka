@@ -16,6 +16,12 @@ struct string {
 };
 
 
+string empty_string() {
+    string result {};
+    return result;
+}
+
+
 // @note: Always be sure that c-string have null termination.
 string from_cstr(char *str) {
     string result {};

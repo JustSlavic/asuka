@@ -569,10 +569,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         const char *wall_texture_filename = "tile_60x60.bmp";
         game_state->wall_texture = load_bmp_file(wall_texture_filename);
 
-        char *heart_full_texture_filename = "heart_full.png";
+        const char *heart_full_texture_filename = "heart_full.png";
         game_state->heart_full_texture = load_png_file(heart_full_texture_filename);
 
-        char *heart_empty_texture_filename = "heart_empty.png";
+        const char *heart_empty_texture_filename = "heart_empty.png";
         game_state->heart_empty_texture = load_png_file(heart_empty_texture_filename);
 
         const char *player_face_texture_filename = "character_1.png";
