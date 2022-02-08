@@ -52,7 +52,7 @@ struct vector3 {
     }
 
     IN_CLASS_FUNCTION
-    constexpr vector3 nan() {
+    vector3 nan() {
         vector3 result { NaN, NaN };
         return result;
     }

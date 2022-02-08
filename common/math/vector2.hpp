@@ -76,7 +76,7 @@ struct vector2 {
     }
 
     IN_CLASS_FUNCTION
-    constexpr vector2 nan() {
+    vector2 nan() {
         vector2 result { NaN, NaN };
         return result;
     }
@@ -253,12 +253,12 @@ intersection_result segment_segment_intersection(vector2 p0, vector2 p1, vector2
     float32 nom = ((q0.x - p0.x) * s.y - (q0.y - p0.y) * s.x);
 
     if (absolute(denom) < EPSILON && absolute(nom) < EPSILON) {
-        result = { INTERSECTION_COLLINEAR, v2::nan() };
+        result = { INTERSECTION_COLLINEAR, nom / denom };
         return result;
     }
 
     if (absolute(denom) < EPSILON && absolute(nom) > EPSILON) {
-        result = { INTERSECTION_PARALLEL, v2::nan() };
+        result = { INTERSECTION_PARALLEL, nom / denom };
         return result;
     }
 

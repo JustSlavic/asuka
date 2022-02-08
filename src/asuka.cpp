@@ -370,7 +370,7 @@ void move_entity(GameState *game_state, HighEntityIndex entity_index, math::v3 a
         new_position.z = 0;
     }
 
-    // ================= COLLISION DETECTION ====================== //
+// ================= COLLISION DETECTION ====================== //
 
     v2 current_position = position.xy;
     v2 current_velocity = velocity.xy;
@@ -560,8 +560,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_state->test_wav_file = load_wav_file(wav_filename);
         game_state->test_current_sound_cursor = 0;
 
-        const char *floor_texture_filename = "tile_16x16.png";
-        game_state->floor_texture = load_png_file_myself(floor_texture_filename);
+        // const char *floor_texture_filename = "tile_16x16.png";
+        // game_state->floor_texture = load_png_file(floor_texture_filename); //_myself(floor_texture_filename);
 
         const char *grass_texture_filename = "grass_texture.png";
         game_state->grass_texture = load_png_file(grass_texture_filename);
@@ -808,6 +808,19 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         v2 input_direction = ControllerInput->LeftStickEnded.normalized();
         f32 input_strength = math::clamp(ControllerInput->LeftStickEnded.norm(), 0, 1);
+
+        printf("Controller {\n"
+            "    StickLeft  = (%5.2f, %5.2f);\n"
+            "    A = [%d];\n"
+            "    B = [%d];\n"
+            "    X = [%d];\n"
+            "    Y = [%d];\n};\n",
+                ControllerInput->LeftStickEnded.x, ControllerInput->LeftStickEnded.y,
+                GetPressCount(ControllerInput->A),
+                GetPressCount(ControllerInput->B),
+                GetPressCount(ControllerInput->X),
+                GetPressCount(ControllerInput->Y)
+            );
 
         float32 acceleration_coefficient = 100.0f; // [m/s^2]
         if (ControllerInput->B.EndedDown) {

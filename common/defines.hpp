@@ -63,6 +63,9 @@ typedef signed short       int16;
 typedef signed int         int32;
 typedef signed long long   int64;
 
+typedef uint64 usize;
+typedef  int64 ssize;
+
 #define ASUKA_DEBUG_BREAK __builtin_trap
 #define FORCE_INLINE __attribute__((always_inline))
 
@@ -83,13 +86,23 @@ typedef signed long long   int64;
 #define ASSERT_FAIL(...)
 #endif // ASUKA_DEBUG
 
-#define ASSERT_FAIL(MSG)  ASSERT_MSG(NULL, MSG)
+#define ASSERT_FAIL(MSG)   ASSERT_MSG(NULL, MSG)
 #define INVALID_CODE_PATH  ASSERT_FAIL("Invalid code path.")
+#define INCOMPLETE         ASSERT_FAIL("Incomplete.")
 
 #define STATIC_ASSERT(COND)  static_assert(COND, "")
 #define STATIC_ASSERT_MSG(COND, MSG)  static_assert(COND, MSG)
 
 #define ASUKA_PLAYBACK_LOOP ASUKA_DEBUG
+
+#ifdef ASUKA_OS_WINDOWS
+#define osOutputDebugString(MSG, ...) \
+{ \
+    char OutputBuffer_##__LINE__[256]; \
+    sprintf(OutputBuffer_##__LINE__, MSG, __VA_ARGS__); \
+    OutputDebugStringA(OutputBuffer_##__LINE__); \
+} void(0)
+#endif // ASUKA_OS_WINDOWS
 
 #ifdef ASUKA_OS_LINUX
 #endif // ASUKA_OS_LINUX
@@ -100,14 +113,7 @@ typedef signed long long   int64;
 #define STRINGIFY2(X) #X
 #define STRINGIFY(X) STRINGIFY2(X)
 
-#define OFFSET_OF(STRUCT, MEMBER) ((size_t)&(((STRUCT *)0)->MEMBER(STRUCT, MEMBER)))
-
-#define osOutputDebugString(MSG, ...) \
-{ \
-    char OutputBuffer_##__LINE__[256]; \
-    sprintf(OutputBuffer_##__LINE__, MSG, __VA_ARGS__); \
-    OutputDebugStringA(OutputBuffer_##__LINE__); \
-} void(0)
+#define OFFSET_OF(STRUCT, MEMBER) ((usize)&(((STRUCT *)0)->MEMBER(STRUCT, MEMBER)))
 
 #define INTERNAL_FUNCTION static
 #define IN_CLASS_FUNCTION static
@@ -149,7 +155,6 @@ typedef int16 sound_sample_t;
 typedef uint64 hash_t;
 
 typedef int32  bool32;
-typedef size_t usize;
 typedef uint64 uintptr;
 typedef int64  intptr;
 typedef int64  ptrdiff;

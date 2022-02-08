@@ -148,6 +148,7 @@ static float32 linux_process_controller_trigger(int16 value, int16 deadzone) {
 
 
 static void linux_gamepad_process_events(linux_gamepad* device, Game_ControllerInput* Controller) {
+    // @nocommit @bug: This function have to function properly which it doesn't at all!!!
     linux_gamepad_event event;
     while (linux_gamepad_next_event(device, &event)) {
         if (event.type & GAMEPAD_EVENT_INIT) {
@@ -174,11 +175,11 @@ static void linux_gamepad_process_events(linux_gamepad* device, Game_ControllerI
         } else if (event.type & GAMEPAD_EVENT_AXIS) {
             switch (event.number) {
                 case 0: {
-                    Controller->StickLXEnded = linux_controller_process_stick(event.value, GAMEPAD_LEFT_THUMB_DEADZONE);
+                    Controller->LeftStickEnded.x = linux_controller_process_stick(event.value, GAMEPAD_LEFT_THUMB_DEADZONE);
                     break;
                 }
                 case 1: {
-                    Controller->StickLYEnded = linux_controller_process_stick(-event.value, GAMEPAD_LEFT_THUMB_DEADZONE);
+                    Controller->LeftStickEnded.y = linux_controller_process_stick(-event.value, GAMEPAD_LEFT_THUMB_DEADZONE);
                     break;
                 }
                 case 2: {
@@ -186,11 +187,11 @@ static void linux_gamepad_process_events(linux_gamepad* device, Game_ControllerI
                     break;
                 }
                 case 3: {
-                    Controller->StickRXEnded = linux_controller_process_stick(event.value, GAMEPAD_RIGHT_THUMB_DEADZONE);
+                    Controller->RightStickEnded.x = linux_controller_process_stick(event.value, GAMEPAD_RIGHT_THUMB_DEADZONE);
                     break;
                 }
                 case 4: {
-                    Controller->StickRYEnded = linux_controller_process_stick(-event.value, GAMEPAD_RIGHT_THUMB_DEADZONE);
+                    Controller->RightStickEnded.y = linux_controller_process_stick(-event.value, GAMEPAD_RIGHT_THUMB_DEADZONE);
                     break;
                 }
                 case 5: {
@@ -380,6 +381,8 @@ int32 main(int32 argc, char** argv) {
     void* base_address = 0;
 #endif
 
+    ThreadContext context {};
+
     Game_Memory game_memory {};
     game_memory.PermanentStorageSize = MEGABYTES(64);
     game_memory.TransientStorageSize = GIGABYTES(2);
@@ -402,7 +405,7 @@ int32 main(int32 argc, char** argv) {
 
     while (global_running) {
         for (int gamepad_index = 0; gamepad_index < ARRAY_COUNT(gamepad_devices); gamepad_index++) {
-            Game_ControllerInput* Controller = &Input.Controllers[gamepad_index];
+            Game_ControllerInput *GamepadInput = GetGamepadInput(&Input, gamepad_index);// GGame_ControllerInput* Controller = &Input.Controllers[gamepad_index];
             linux_gamepad* device = &gamepad_devices[gamepad_index];
 
             if (!linux_gamepad_connected(device)) {
@@ -411,19 +414,17 @@ int32 main(int32 argc, char** argv) {
                 if (!success) continue;
 
                 // Success: new gamepad is connected
-                printf("Found new gamepad id: %d\n", gamepad_index);
-                Controller->IsAnalog = true;
+                // printf("Found new gamepad id: %d\n", gamepad_index);
                 // @todo: Should I read events right away?
             } else {
                 // Checking if already connected gamepad is plugged-off (by the player, by battery running out, or another reason)
                 if (linux_gamepad_lost_connection(device)) {
                     // Gamepad is plugged off
                     linux_gamepad_disconnect(device);
-                    printf("Gamepad %d plugged off\n", gamepad_index);
-                    Controller->IsAnalog = false;
+                    // printf("Gamepad %d plugged off\n", gamepad_index);
                 } else {
                     // 2. If gamepad is alive, read events from it:
-                    linux_gamepad_process_events(device, Controller);
+                    linux_gamepad_process_events(device, GamepadInput);
                 }
             }
         }
@@ -507,27 +508,27 @@ int32 main(int32 argc, char** argv) {
         // uint32 nsamples = time_for_this_frame_and_the_next_one.us * sound_output.samples_per_second / 1'000'000;
         // // nsamples = nsamples - already_written_samples;
         // // nsamples = n_sound_frames;
-        printf(
-            "[-----------------]\n"
-            " play_cursor = %lu\n"
-            "write_cursor = %lu\n"
-            "snd_pcm_avail() => %lu\n"
-            "latency = %5.2f\n"
+        // printf(
+        //     "[-----------------]\n"
+        //     " play_cursor = %lu\n"
+        //     "write_cursor = %lu\n"
+        //     "snd_pcm_avail() => %lu\n"
+        //     "latency = %5.2f\n"
         //     "time two flips ahead: %llu\n"
         //     "sound frames for one video frame: %lu\n"
         //     "sound frames for this and next one video frames: %u\n"
         //     // "already_written:  %u sound_frames\n"
         //     // "samples to write: %u sound_frames\n"
-            ,
-            play_cursor,
-            write_cursor,
-            available_sound_frames,
-            (float32)(write_cursor - play_cursor) / (float32)sound_output.samples_per_second
+            // ,
+            // play_cursor,
+            // write_cursor,
+            // available_sound_frames,
+            // (float32)(write_cursor - play_cursor) / (float32)sound_output.samples_per_second
         //     time_for_this_frame_and_the_next_one.us,
         //     n_sound_frames,
         //     nsamples
         //     // already_written_samples, nsamples
-            );
+            // );
 
         // How many frames I still need to write?
         // |-------------------|-------------------|
@@ -546,12 +547,12 @@ int32 main(int32 argc, char** argv) {
         GraphicsBuffer.Pitch = screen_buffer.width * screen_buffer.bytes_per_pixel;
         GraphicsBuffer.BytesPerPixel = screen_buffer.bytes_per_pixel;
 
-        Game_UpdateAndRender(&game_memory, &Input, &GraphicsBuffer, &SoundBuffer);
+        Game_UpdateAndRender(&context, &game_memory, &Input, &GraphicsBuffer, &SoundBuffer);
 
-        linux_send_sound_buffer(sound_output.sound_device, &sound_output, n_sound_frames);
-        {
-            write_cursor = (write_cursor + n_sound_frames) % (sound_output.buffer_size / sizeof(sound_sample_t));
-        }
+        // linux_send_sound_buffer(sound_output.sound_device, &sound_output, n_sound_frames);
+        // {
+        //     write_cursor = (write_cursor + n_sound_frames) % (sound_output.buffer_size / sizeof(sound_sample_t));
+        // }
 
         linux_copy_buffer_to_window(&screen_buffer, display, window, screen);
 
@@ -589,7 +590,7 @@ int32 main(int32 argc, char** argv) {
             }
         } else {
             // @todo: handle missed frame rate!
-            printf("Missed frame!!!\n");
+            // printf("Missed frame!!!\n");
         }
 
         last_counter = counter;
