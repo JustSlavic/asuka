@@ -114,7 +114,7 @@ typedef signed long long   int64;
 #define STATIC_VARIABLE static
 #define GLOBAL_VARIABLE static
 
-#define INLINE_FUNCTION inline
+#define INLINE inline
 
 #define ARRAY_COUNT(ARRAY) (sizeof(ARRAY) / sizeof((ARRAY)[0]))
 
@@ -146,6 +146,7 @@ typedef signed long long   int64;
 #define UINT64_MAX (0xFFFF'FFFF'FFFF'FFFF)
 
 typedef int16 sound_sample_t;
+typedef uint64 hash_t;
 
 typedef int32  bool32;
 typedef size_t usize;

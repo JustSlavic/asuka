@@ -1,17 +1,15 @@
 #pragma once
 
-
 namespace memory {
+namespace internal {
 
 
 void* allocate_pages(uint64 size);
 void* allocate_pages(void* base_address, uint64 size);
-void  free_pages(void* memory);
-
-void set(void *memory, uint8 value, usize size);
-void copy(void *destination, void *source, usize size);
+void  free_pages(void* memory, uint64 size);
 
 
+} // namespace internal
 } // namespace memory
 
 

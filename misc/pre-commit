@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Hook script to check if there's "@nocommit" substring in any files,
+# so I can mark debug-only code that would never go into repository.
+#
+
+files=$(git diff --cached --name-only)
+result=$(grep --line-number --with-filename @nocommit $files)
+
+# Redirect output to stderr.
+exec 1>&2
+
+if [[ ! -z $result ]]
+then
+    echo "Error: Attempt to commit @nocommit tag in source code."
+    echo "Found nocommits:"
+    echo ""
+    echo "$result"
+    exit 1
+fi

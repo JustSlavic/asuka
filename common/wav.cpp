@@ -52,13 +52,13 @@ uint8 *consume_memory(uint8 **data, uint64 size) {
 wav_file_contents load_wav_file(const char* filename) {
     wav_file_contents result {};
 
-    os::file_read_result file_contents = os::load_entire_file(filename);
-    if (file_contents.size == 0) {
+    string contents = os::load_entire_file(filename);
+    if (contents.size == 0) {
         // @todo: handle error
         return result;
     }
 
-    uint8 *data = (uint8 *)file_contents.memory;
+    uint8 *data = (uint8 *)contents.data;
 
     RIFF_Header riff_header {};
     WAV_Format wav_format {};

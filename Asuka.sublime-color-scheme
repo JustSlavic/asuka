@@ -72,7 +72,7 @@
 
         {
             "name":       "Punctuation",
-            "scope":      "asuka.punctuation, punctuation",
+            "scope":      "asuka.punctuation, punctuation, asuka.template.parameters.begin, asuka.template.parameters.end",
             "foreground": "#707D7D"
         },
 
@@ -159,6 +159,12 @@
             "scope":      "invalid, invalid string, invalid constant, invalid entity.name, invalid punctuation, invalid source.symbol",
             "foreground": "#c33",
             "background": "#2B1D1E"
+        },
+
+        {
+            "name":       "Template parameters",
+            "scope":      "asuka.template",
+            "foreground": "#a385e4",
         },
     ]
 }

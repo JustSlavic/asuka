@@ -1,5 +1,4 @@
-#ifndef ASUKA_ASUKA_HPP
-#define ASUKA_ASUKA_HPP
+#pragma once
 
 #include <defines.hpp>
 #include <math.hpp>
@@ -7,7 +6,8 @@
 #include <bmp.hpp>
 #include <png.hpp>
 #include <string.hpp>
-#include "tilemap.hpp"
+#include <index.hpp>
+#include <world.hpp>
 #include "memory_arena.hpp"
 
 
@@ -140,26 +140,28 @@ struct Game_Input {
 };
 
 
-INLINE_FUNCTION
-Game_ControllerInput* GetControllerInput(Game_Input* Input, int ControllerIndex) {
+using InputIndex = Index<Game_ControllerInput>;
+
+INLINE
+Game_ControllerInput* GetControllerInput(Game_Input* Input, InputIndex ControllerIndex) {
     ASSERT(ControllerIndex < ARRAY_COUNT(Input->ControllerInputs));
-    return &Input->ControllerInputs[ControllerIndex];
+    return &Input->ControllerInputs[ControllerIndex.index];
 }
 
 
-INLINE_FUNCTION
+INLINE
 Game_ControllerInput* GetGamepadInput(Game_Input *Input, int32 GamepadIndex) {
     ASSERT(GamepadIndex < ARRAY_COUNT(Input->GamepadInputs));
     return &Input->GamepadInputs[GamepadIndex];
 }
 
-INLINE_FUNCTION
+INLINE
 uint32 GetPressCount(Game_ButtonState button) {
     uint32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
     return result;
 }
 
-INLINE_FUNCTION
+INLINE
 uint32 GetHoldsCount(Game_ButtonState button) {
     uint32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
     return result;
@@ -194,11 +196,6 @@ struct Game_Memory {
 };
 
 
-struct Game_World {
-    Tilemap tilemap;
-};
-
-
 enum FaceDirection {
     FACE_DIRECTION_DOWN = 0,
     FACE_DIRECTION_LEFT = 1,
@@ -206,11 +203,6 @@ enum FaceDirection {
     FACE_DIRECTION_UP = 3,
 };
 
-enum EntityResidence {
-    ENTITY_RESIDENCE_NOT_EXIST = 0,
-    ENTITY_RESIDENCE_LOW,
-    ENTITY_RESIDENCE_HIGH,
-};
 
 enum EntityType {
     ENTITY_TYPE_NULL,
@@ -218,45 +210,53 @@ enum EntityType {
     ENTITY_TYPE_WALL,
 };
 
+
+struct HighFrequencyEntity;
+using HighEntityIndex = Index<HighFrequencyEntity>;
+
 struct HighFrequencyEntity {
     math::v3 position; // Relative to the camera
     math::v3 velocity;
-    int32 absolute_tile_z; // for moving up and down "stairs"
+    int32 chunk_z; // for moving up and down "stairs"
 
     FaceDirection face_direction;
+
+    LowEntityIndex low_index;
 };
 
 struct LowFrequencyEntity {
     EntityType type;
-    TilemapPosition tilemap_position;
+    WorldPosition world_position;
     // @note: for "stairs"
     int32 d_abs_tile_z;
 
     math::v2 hitbox;
     bool32 collidable;
+
+    HighEntityIndex high_index;
 };
 
 struct Entity {
-    EntityResidence residence;
     HighFrequencyEntity *high;
     LowFrequencyEntity  *low;
 };
 
 
 struct GameState {
-    TilemapPosition camera_position;
+    WorldPosition camera_position;
 
-    // Note: 0-th entity is invalid and should not be used
-    uint32 entity_count;
-    EntityResidence     residence_table[256];
-    HighFrequencyEntity high_frequency_entity_table[256];
-    LowFrequencyEntity  low_frequency_entity_table[256];
+    // @note: 0-th entity is invalid in both arrays (high entities and low entities) and should not be used (it indicates wrong index).
+    uint32 low_entity_count;
+    LowFrequencyEntity low_entities[10000];
 
-    uint32 player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
-    uint32 index_of_entity_for_camera_to_follow;
-    uint32 index_of_controller_for_camera_to_follow;
+    uint32 high_entity_count;
+    HighFrequencyEntity high_entities[256];
 
-    Game_World *world;
+    LowEntityIndex player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
+    LowEntityIndex index_of_entity_for_camera_to_follow;
+    LowEntityIndex index_of_controller_for_camera_to_follow;
+
+    World *world;
 
     MemoryArena world_arena;
 
@@ -265,8 +265,12 @@ struct GameState {
     Bitmap wall_texture;
     Bitmap floor_texture;
     Bitmap grass_texture;
+    Bitmap heart_full_texture;
+    Bitmap heart_empty_texture;
 
     Bitmap player_textures[4];
+    uint32 player_health;
+    uint32 player_max_health;
 
     uint32 test_current_sound_cursor;
 };
@@ -289,5 +293,3 @@ ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
 #if defined(UNITY_BUILD) && !defined(ASUKA_DLL_BUILD)
 #include "asuka.cpp"
 #endif
-
-#endif // ASUKA_ASUKA_HPP

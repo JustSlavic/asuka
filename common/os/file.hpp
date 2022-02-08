@@ -1,22 +1,19 @@
 #ifndef ASUKA_COMMON_OS_FILE_HPP
 #define ASUKA_COMMON_OS_FILE_HPP
 
+#include <string.hpp>
+
 
 namespace os {
 
-struct file_read_result {
-    uint8* memory;
-    uint64 size;
-};
-
-file_read_result load_entire_file(const char* filename);
-bool write_file(const char* filename, file_read_result file);
+string load_entire_file(const char* filename);
+bool write_file(const char* filename, string contents);
 
 } // os
 
 
-#if ASUKA_OS_WINDOWS
-#include "windows/file.hpp"
+#if UNITY_BUILD
+#include "file.cpp"
 #endif
 
 #endif // ASUKA_COMMON_OS_FILE_HPP

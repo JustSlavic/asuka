@@ -2,6 +2,8 @@
 #include <math.hpp>
 #include <debug/casts.hpp>
 
+#define ASUKA_DEBUG_FOLLOWING_CAMERA 0
+
 
 INTERNAL_FUNCTION
 void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, GameState* game_state) {
@@ -176,57 +178,110 @@ void DrawBorder(Game_OffscreenBuffer* Buffer, uint32 Width, math::color24 Color)
 
 
 INTERNAL_FUNCTION
-void change_entity_residence(GameState *game_state, EntityResidence residence, uint32 index) {
-    if (residence == ENTITY_RESIDENCE_HIGH) {
-        EntityResidence current_residence = game_state->residence_table[index];
+LowFrequencyEntity *get_low_entity(GameState *game_state, LowEntityIndex index) {
+    ASSERT(index < ARRAY_COUNT(game_state->low_entities));
 
-        if (current_residence != ENTITY_RESIDENCE_HIGH) {
-            HighFrequencyEntity *entity_high = game_state->high_frequency_entity_table + index;
-            LowFrequencyEntity *entity_low = game_state->low_frequency_entity_table + index;
+    LowFrequencyEntity *result = NULL;
 
-            // @nocommit PositionDifference return zero when Z tilemap coordinate differs. This makes mapping from low frequency to high frequency wrong.
-            // @todo: move this code to "map_into_float_space" function
-            math::v2 diff = PositionDifference(&game_state->world->tilemap, entity_low->tilemap_position, game_state->camera_position);
-            entity_high->position.xy = diff;
-            entity_high->velocity = math::v3::zero();
-            entity_high->absolute_tile_z = entity_low->tilemap_position.absolute_tile_z;
-            entity_high->face_direction = FACE_DIRECTION_DOWN;
-        }
+    if (index > 0) {
+        result = game_state->low_entities + index;
     }
 
-    game_state->residence_table[index] = residence;
+    return result;
 }
 
 
 INTERNAL_FUNCTION
-uint32 add_entity(GameState *game_state) {
-    uint32 entity_index = game_state->entity_count++;
+HighFrequencyEntity *get_high_entity(GameState *game_state, HighEntityIndex index) {
+    ASSERT(index < ARRAY_COUNT(game_state->high_entities));
 
-    ASSERT(game_state->entity_count < ARRAY_COUNT(game_state->residence_table));
-    ASSERT(game_state->entity_count < ARRAY_COUNT(game_state->high_frequency_entity_table));
-    ASSERT(game_state->entity_count < ARRAY_COUNT(game_state->low_frequency_entity_table));
+    HighFrequencyEntity *result = NULL;
 
-    game_state->residence_table[entity_index] = ENTITY_RESIDENCE_LOW;
-    game_state->high_frequency_entity_table[entity_index] = {};
-    game_state->low_frequency_entity_table[entity_index] = {};
+    if (index > 0) {
+        result = game_state->high_entities + index;
+    }
 
-    return entity_index;
+    return result;
 }
 
 
 INTERNAL_FUNCTION
-Entity get_entity(GameState *game_state, EntityResidence desired_residence, uint32 index) {
-    Entity entity {};
+void make_entity_high_frequency(GameState *game_state, LowEntityIndex low_index) {
+    LowFrequencyEntity *entity_low = get_low_entity(game_state, low_index);
 
-    if ((index > 0) && (index < game_state->entity_count)) {
-        if (game_state->residence_table[index] < desired_residence) {
-            change_entity_residence(game_state, desired_residence, index);
-            ASSERT(game_state->residence_table[index] >= desired_residence);
+    if (entity_low->high_index == 0) {
+        ASSERT_MSG(game_state->high_entity_count < ARRAY_COUNT(game_state->high_entities), "Out of room for high frequency entities.");
+
+        HighEntityIndex high_index = HighEntityIndex{ game_state->high_entity_count++ };
+        HighFrequencyEntity *entity_high = get_high_entity(game_state, high_index);
+
+        // @bug: PositionDifference return zero when Z tilemap coordinate differs. This makes mapping from low frequency to high frequency wrong.
+        math::v2 diff = position_difference(game_state->world, entity_low->world_position, game_state->camera_position);
+        entity_high->position.xy = diff;
+        entity_high->velocity = math::v3::zero();
+        entity_high->chunk_z = entity_low->world_position.chunk_z;
+        entity_high->face_direction = FACE_DIRECTION_DOWN;
+        entity_high->low_index = low_index;
+
+        entity_low->high_index = high_index;
+    }
+}
+
+
+INTERNAL_FUNCTION
+void make_entity_low_frequency(GameState *game_state, LowEntityIndex low_index) {
+    LowFrequencyEntity *entity_low = get_low_entity(game_state, low_index);
+    HighEntityIndex index_to_remove = entity_low->high_index;
+
+    if (index_to_remove != 0) {
+        HighFrequencyEntity *entity_to_remove = get_high_entity(game_state, index_to_remove);
+        HighEntityIndex last_high_index = HighEntityIndex{ game_state->high_entity_count - 1 };
+
+        if (index_to_remove != last_high_index) {
+            HighFrequencyEntity *last_high_entity = get_high_entity(game_state, last_high_index);
+
+            // Put last element in place of element that we remove from high entity table.
+            *entity_to_remove = *last_high_entity;
+
+            // Patch all low entities that were pointing at the last element so that they point into index_to_remove instead.
+            for (LowEntityIndex index_to_patch { 1 }; index_to_patch < game_state->low_entity_count; index_to_patch++) {
+                LowFrequencyEntity *to_patch = get_low_entity(game_state, index_to_patch);
+                if (to_patch->high_index == last_high_index) {
+                    to_patch->high_index = index_to_remove;
+                }
+            }
         }
 
-        entity.residence = game_state->residence_table[index];
-        entity.high = game_state->high_frequency_entity_table + index;
-        entity.low  = game_state->low_frequency_entity_table + index;
+        entity_low->high_index = HighEntityIndex{ 0 };
+        game_state->high_entity_count -= 1;
+    }
+}
+
+
+INTERNAL_FUNCTION
+LowEntityIndex add_low_entity(GameState *game_state) {
+    LowEntityIndex low_index { game_state->low_entity_count++ };
+
+    ASSERT(game_state->low_entity_count < ARRAY_COUNT(game_state->low_entities));
+
+    LowFrequencyEntity *low_entity = get_low_entity(game_state, low_index);
+    if (low_entity) {
+        *low_entity = {};
+    }
+
+    return low_index;
+}
+
+
+INTERNAL_FUNCTION
+Entity get_entity(GameState *game_state, LowEntityIndex index) {
+    Entity entity {};
+
+    ASSERT(index < ARRAY_COUNT(game_state->low_entities));
+
+    entity.low = get_low_entity(game_state, index);
+    if (entity.low) {
+        entity.high = get_high_entity(game_state, entity.low->high_index);
     }
 
     return entity;
@@ -234,56 +289,76 @@ Entity get_entity(GameState *game_state, EntityResidence desired_residence, uint
 
 
 INTERNAL_FUNCTION
-void initialize_player(GameState *game_state, uint32 entity_index) {
-    Entity entity = get_entity(game_state, ENTITY_RESIDENCE_LOW, entity_index);
+Entity get_entity(GameState *game_state, HighEntityIndex index) {
+    Entity entity {};
+
+    ASSERT(index < ARRAY_COUNT(game_state->high_entities));
+
+    entity.high = get_high_entity(game_state, index);
+    if (entity.high) {
+        entity.low = get_low_entity(game_state, entity.high->low_index);
+    }
+
+    return entity;
+}
+
+
+INTERNAL_FUNCTION
+Entity initialize_player(GameState *game_state, LowEntityIndex index) {
+    Entity entity = get_entity(game_state, index);
 
     entity.low->type = ENTITY_TYPE_PLAYER;
-    entity.low->tilemap_position.absolute_tile_x = 3;
-    entity.low->tilemap_position.absolute_tile_y = 3;
-    entity.low->tilemap_position.absolute_tile_z = 0;
-    entity.low->tilemap_position.relative_position_on_tile = math::v2{};
+    entity.low->world_position.chunk_x = 0;
+    entity.low->world_position.chunk_y = 0;
+    entity.low->world_position.chunk_z = 0;
+    entity.low->world_position.relative_position_in_chunk = math::v2::zero();
 
     // @todo: fix coordinates for hitbox
     entity.low->collidable = true;
     entity.low->hitbox = math::v2 { 0.8f, 0.4f }; // In top-down coordinates, but in meters.
 
-    change_entity_residence(game_state, ENTITY_RESIDENCE_HIGH, entity_index);
+    make_entity_high_frequency(game_state, index);
+
+    return entity;
 }
 
 
 INTERNAL_FUNCTION
-uint32 add_player(GameState *game_state) {
-    uint32 entity_index = add_entity(game_state);
-    initialize_player(game_state, entity_index);
+LowEntityIndex add_player(GameState *game_state) {
+    LowEntityIndex index = add_low_entity(game_state);
+    Entity player = initialize_player(game_state, index);
 
-    return entity_index;
+    return index;
 }
 
 
 INTERNAL_FUNCTION
-uint32 add_wall(GameState *game_state, int32 abs_tile_x, int32 abs_tile_y, int32 abs_tile_z) {
-    uint32 entity_index = add_entity(game_state);
-    Entity entity = get_entity(game_state, ENTITY_RESIDENCE_LOW, entity_index);
+Entity add_wall(GameState *game_state, int32 chunk_x, int32 chunk_y, int32 chunk_z) {
+    LowEntityIndex index = add_low_entity(game_state);
+    Entity entity = get_entity(game_state, index);
 
     entity.low->type = ENTITY_TYPE_WALL;
-    entity.low->tilemap_position.absolute_tile_x = abs_tile_x;
-    entity.low->tilemap_position.absolute_tile_y = abs_tile_y;
-    entity.low->tilemap_position.absolute_tile_z = abs_tile_z;
-    entity.low->tilemap_position.relative_position_on_tile = math::v2{};
+    entity.low->world_position.chunk_x = chunk_x;
+    entity.low->world_position.chunk_y = chunk_y;
+    entity.low->world_position.chunk_z = chunk_z;
+    entity.low->world_position.relative_position_in_chunk = math::v2::zero();
 
     entity.low->collidable = true;
     entity.low->hitbox = math::v2 { .50f, .50f };
 
-    return entity_index;
+    return entity;
 }
 
 
 INTERNAL_FUNCTION
-void move_entity(GameState *game_state, uint32 entity_index, math::v3 acceleration, float32 dt) {
+void move_entity(GameState *game_state, HighEntityIndex entity_index, math::v3 acceleration, float32 dt) {
     using math::v2;
     using math::v3;
 
-    Entity entity = get_entity(game_state, ENTITY_RESIDENCE_HIGH, entity_index);
+    Entity entity = get_entity(game_state, entity_index);
+    if (entity.high == NULL) {
+        return;
+    }
 
     v3 velocity = entity.high->velocity + acceleration * dt;
     v3 position = entity.high->position;
@@ -309,14 +384,14 @@ void move_entity(GameState *game_state, uint32 entity_index, math::v3 accelerati
         v2 closest_destination = current_destination;
         v2 velocity_at_closest_destination = current_velocity;
 
-        uint32 hit_entity_index = 0;
+        HighEntityIndex hit_entity_index { 0 };
 
-        for (uint32 test_entity_index = 1; test_entity_index < game_state->entity_count; test_entity_index++) {
-            if (test_entity_index == entity_index) continue;
+        for (HighEntityIndex test_index { 1 }; test_index < game_state->high_entity_count; test_index++) {
+            if (test_index == entity_index) continue;
 
-            Entity test_entity = get_entity(game_state, ENTITY_RESIDENCE_HIGH, test_entity_index);
+            Entity test_entity = get_entity(game_state, test_index);
 
-            if ((test_entity.low->tilemap_position.absolute_tile_z != entity.low->tilemap_position.absolute_tile_z) ||
+            if ((test_entity.low->world_position.chunk_z != entity.low->world_position.chunk_z) ||
                 (test_entity.low->collidable == false) || (entity.low->collidable == false))
             {
                 continue;
@@ -352,7 +427,7 @@ void move_entity(GameState *game_state, uint32 entity_index, math::v3 accelerati
 
                     if (res.found == math::INTERSECTION_FOUND) {
                         // @todo: What if we collide with several entities during move tries?
-                        hit_entity_index = test_entity_index;
+                        hit_entity_index = test_index;
 
                         // @note: Update only closest point.
                         if ((res.intersection - current_position).length_2() < (closest_destination - current_position).length_2()) {
@@ -370,7 +445,7 @@ void move_entity(GameState *game_state, uint32 entity_index, math::v3 accelerati
         f32 move_distance = (closest_destination - current_position).length();
 
         current_position = closest_destination;
-        if (hit_entity_index) {
+        if (hit_entity_index > 0) {
             if (move_distance > EPSILON) {
                 f32 dt_prime = move_distance / current_velocity.length();
                 time_spent_moving += dt_prime;
@@ -379,8 +454,8 @@ void move_entity(GameState *game_state, uint32 entity_index, math::v3 accelerati
             current_velocity = velocity_at_closest_destination;
             current_destination = current_position + current_velocity * (dt - time_spent_moving);
 
-            Entity hit_entity = get_entity(game_state, ENTITY_RESIDENCE_HIGH, hit_entity_index);
-            entity.high->absolute_tile_z += hit_entity.low->d_abs_tile_z;
+            Entity hit_entity = get_entity(game_state, hit_entity_index);
+            entity.high->chunk_z += hit_entity.low->d_abs_tile_z;
         } else {
             break;
         }
@@ -395,49 +470,58 @@ void move_entity(GameState *game_state, uint32 entity_index, math::v3 accelerati
     entity.high->velocity.z = velocity.z;
 
     // @note: always write back a valid tile position
-    auto tmp = map_into_tile_space(&game_state->world->tilemap, game_state->camera_position, entity.high->position.xy);
-    entity.low->tilemap_position.absolute_tile_x = tmp.absolute_tile_x;
-    entity.low->tilemap_position.absolute_tile_y = tmp.absolute_tile_y;
-    entity.low->tilemap_position.relative_position_on_tile = tmp.relative_position_on_tile;
+    // @todo: what should map do?
+    ASSERT(false);
+    // auto tmp = map_into_tile_space(game_state->world, game_state->camera_position, entity.high->position.xy);
+    // entity.low->world_position.chunk_x = tmp.chunk_x;
+    // entity.low->world_position.chunk_y = tmp.chunk_y;
+    // entity.low->world_position.relative_position_in_chunk = tmp.relative_position_in_chunk;
 }
 
 
 INTERNAL_FUNCTION
-void SetCameraPosition(GameState *game_state, TilemapPosition new_camera_position) {
-    auto *tilemap = &game_state->world->tilemap;
-    math::vector2 diff = PositionDifference(tilemap, game_state->camera_position, new_camera_position);
+void SetCameraPosition(GameState *game_state, WorldPosition new_camera_position) {
+    auto *world = game_state->world;
+    math::vector2 diff = position_difference(world, game_state->camera_position, new_camera_position);
     game_state->camera_position = new_camera_position;
 
-    math::vector2i   high_zone_in_tiles = math::vector2i { 16, 9 };
-    math::rectangle2 high_zone_in_float = math::rectangle2::from_center_dim(math::v2::zero(), tilemap->tile_side_in_meters * math::upcast_to_vector2(high_zone_in_tiles));
+    math::vector2i   high_zone_in_chunks = math::vector2i { 3, 3 };
+    math::rectangle2 high_zone_in_float = math::rectangle2::from_center_dim(math::v2::zero(), world->chunk_size_in_meters * math::upcast_to_vector2(high_zone_in_chunks));
 
-    for (uint32 index = 1; index < game_state->entity_count; index++) {
-        if (game_state->residence_table[index] == ENTITY_RESIDENCE_HIGH) {
-            HighFrequencyEntity* high = game_state->high_frequency_entity_table + index;
-            high->position.xy += diff;
+    i32 min_tile_x = new_camera_position.chunk_x - high_zone_in_chunks.x / 2;
+    i32 max_tile_x = new_camera_position.chunk_x + high_zone_in_chunks.x / 2;
+    i32 min_tile_y = new_camera_position.chunk_y - high_zone_in_chunks.y / 2;
+    i32 max_tile_y = new_camera_position.chunk_y + high_zone_in_chunks.y / 2;
 
-            if (!in_rectangle(high_zone_in_float, high->position.xy)) {
-                change_entity_residence(game_state, ENTITY_RESIDENCE_LOW, index);
-            }
+    // @note, that the process is separated into two loops, because we have to make room for more high entities by removing old ones first.
+    // If we would do it in a one big loop, we would have to make high_entities[] array twice as big.
+
+    // First, remove entities that are out of high simulation range from high entity set.
+    for (HighEntityIndex index { 1 }; index < game_state->high_entity_count;) {
+        Entity entity = get_entity(game_state, index);
+
+        math::v2 new_position = entity.high->position.xy + diff;
+        if (!in_rectangle(high_zone_in_float, new_position) || (entity.low->world_position.chunk_z != new_camera_position.chunk_z)) {
+            osOutputDebugString("Remove entity %d from high entity set.\n", entity.high->low_index.index);
+            make_entity_low_frequency(game_state, entity.high->low_index);
+        } else {
+            entity.high->position.xy = new_position;
+            index++;
         }
     }
 
-    i32 min_tile_x = new_camera_position.absolute_tile_x - high_zone_in_tiles.x / 2;
-    i32 max_tile_x = new_camera_position.absolute_tile_x + high_zone_in_tiles.x / 2 + high_zone_in_tiles.x % 2;
-    i32 min_tile_y = new_camera_position.absolute_tile_y - high_zone_in_tiles.y / 2;
-    i32 max_tile_y = new_camera_position.absolute_tile_y + high_zone_in_tiles.y / 2 + high_zone_in_tiles.y % 2;
-
-    for (uint32 index = 1; index < game_state->entity_count; index++) {
-        if (game_state->residence_table[index] == ENTITY_RESIDENCE_LOW) {
-            LowFrequencyEntity *low = game_state->low_frequency_entity_table + index;
-
-            if ((low->tilemap_position.absolute_tile_z == new_camera_position.absolute_tile_z) &&
-                (low->tilemap_position.absolute_tile_x >= min_tile_x) &&
-                (low->tilemap_position.absolute_tile_x <= max_tile_x) &&
-                (low->tilemap_position.absolute_tile_y >= min_tile_y) &&
-                (low->tilemap_position.absolute_tile_y <= max_tile_y))
+    // Second, add entities that are in high simulation range into high entity set.
+    for (LowEntityIndex index { 1 }; index < game_state->low_entity_count; index++) {
+        Entity entity = get_entity(game_state, index);
+        if (entity.high == 0) {
+            if ((entity.low->world_position.chunk_z == new_camera_position.chunk_z) &&
+                (entity.low->world_position.chunk_x >= min_tile_x) &&
+                (entity.low->world_position.chunk_x <= max_tile_x) &&
+                (entity.low->world_position.chunk_y >= min_tile_y) &&
+                (entity.low->world_position.chunk_y <= max_tile_y))
             {
-                change_entity_residence(game_state, ENTITY_RESIDENCE_HIGH, index);
+                osOutputDebugString("Move entity %d into high entity set.\n", index.index);
+                make_entity_high_frequency(game_state, index);
             }
         }
     }
@@ -469,7 +553,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         srand((unsigned int)time(NULL));
 
         // @note: reserve entity slot for the null entity
-        game_state->entity_count += 1;
+        add_low_entity(game_state);
+        game_state->high_entity_count = 1;
 
         const char *wav_filename = "piano2.wav";
         game_state->test_wav_file = load_wav_file(wav_filename);
@@ -483,6 +568,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         const char *wall_texture_filename = "tile_60x60.bmp";
         game_state->wall_texture = load_bmp_file(wall_texture_filename);
+
+        char *heart_full_texture_filename = "heart_full.png";
+        game_state->heart_full_texture = load_png_file(heart_full_texture_filename);
+
+        char *heart_empty_texture_filename = "heart_empty.png";
+        game_state->heart_empty_texture = load_png_file(heart_empty_texture_filename);
 
         const char *player_face_texture_filename = "character_1.png";
         const char *player_left_texture_filename = "character_2.png";
@@ -501,27 +592,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             (uint8 *) Memory->PermanentStorage + sizeof(GameState),
             Memory->PermanentStorageSize - sizeof(GameState));
 
-        game_state->world = push_struct(arena, Game_World);
-        Game_World *world = game_state->world;
-        Tilemap *tilemap = &world->tilemap;
+        game_state->world = push_struct(arena, World);
+        World *world = game_state->world;
 
         // ===================== WORLD GENERATION ===================== //
 
-        tilemap->tile_side_in_meters = 1.0f; // [meters]
-        tilemap->chunk_count_x = 40;
-        tilemap->chunk_count_y = 40;
-        tilemap->chunk_count_z = 4;
+        world->tile_side_in_meters = 1.0f; // [meters]
 
-        // Tilechunks 256x256
-        tilemap->chunk_shift = 3;
-        tilemap->chunk_mask  = (1 << tilemap->chunk_shift) - 1;
-        tilemap->tile_count_x = 1 << tilemap->chunk_shift;
-        tilemap->tile_count_y = 1 << tilemap->chunk_shift;
-
-        tile_chunk *chunks = push_array(arena, tile_chunk, tilemap->chunk_count_x * tilemap->chunk_count_y * tilemap->chunk_count_z);
-        tilemap->chunks = chunks;
-
-        i32 screen_count = 2; // 20;
+        i32 screen_count = 200;
 
         i32 screen_x = 0;
         i32 screen_y = 0;
@@ -545,10 +623,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             while(true) {
                 choice = (gen_direction)(rand() % GEN_MAX);
 
-                if (choice == GEN_FLOOR_UP && (screen_z + 1) == (i32)tilemap->chunk_count_z) continue;
-                if (choice == GEN_FLOOR_DOWN && screen_z == 0) continue;
-                if (choice == GEN_FLOOR_UP && previous_choice == GEN_FLOOR_DOWN) continue;
-                if (choice == GEN_FLOOR_DOWN && previous_choice == GEN_FLOOR_UP) continue;
+                if (choice == GEN_FLOOR_UP || choice == GEN_FLOOR_DOWN) continue;
+                // if (choice == GEN_FLOOR_UP && previous_choice == GEN_FLOOR_DOWN) continue;
+                // if (choice == GEN_FLOOR_DOWN && previous_choice == GEN_FLOOR_UP) continue;
 
                 if (choice != GEN_NONE) break;
             };
@@ -563,7 +640,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     u32 y = screen_y * room_height_in_tiles + tile_y;
                     u32 z = screen_z;
 
-                    tile_t tile_value = TILE_FREE;
+                    Tile tile_value = TILE_FREE;
 
                     // bottom wall
                     if (tile_y == 0) {
@@ -613,7 +690,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                         tile_value = TILE_WIN;
                     }
 
-                    SetTileValue(arena, tilemap, x, y, z, tile_value);
+                    // SetTileValue(world, x, y, z, tile_value, arena);
                     if (tile_value == TILE_WALL)  add_wall(game_state, x, y, z);
                 }
             }
@@ -638,17 +715,17 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             previous_choice = choice;
         }
 
-        TilemapPosition camera_position;
-        camera_position.absolute_tile_x = room_width_in_tiles / 2;
-        camera_position.absolute_tile_y = room_height_in_tiles / 2;
-        camera_position.relative_position_on_tile = { -0.5f, 0.0f }; // @note: Offset because the center of the room lies on the edge between tiles.
+        WorldPosition camera_position;
+        camera_position.chunk_x = room_width_in_tiles / 2;
+        camera_position.chunk_y = room_height_in_tiles / 2;
+        camera_position.chunk_z = 0;
+        camera_position.relative_position_in_chunk = { 0.0f, 0.0f }; // @note: Offset because the center of the room lies on the edge between tiles.
         SetCameraPosition(game_state, camera_position);
 
         Memory->IsInitialized = true;
     }
 
-    Game_World *world = game_state->world;
-    Tilemap *tilemap = &world->tilemap;
+    World *world = game_state->world;
 
     float32 pixels_per_meter = 60.f; // [pixels/m]
 
@@ -659,22 +736,21 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     f32 friction_coefficient = 1.5f;
 
-    for (uint32 ControllerIndex = 0; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++) {
+    for (InputIndex ControllerIndex { 0 }; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++) {
         Game_ControllerInput* ControllerInput = GetControllerInput(Input, ControllerIndex);
 
-        uint32 entity_index = game_state->player_index_for_controller[ControllerIndex];
-        Entity entity = get_entity(game_state, ENTITY_RESIDENCE_HIGH, entity_index);
+        LowEntityIndex low_entity_index = game_state->player_index_for_controller[ControllerIndex.index];
+        Entity entity = get_entity(game_state, low_entity_index);
 
-        if (entity.residence == ENTITY_RESIDENCE_NOT_EXIST) {
+        if (entity.low == NULL && entity.high == NULL) {
             if (GetPressCount(ControllerInput->Start)) {
-                entity_index = add_player(game_state);
-                entity = get_entity(game_state, ENTITY_RESIDENCE_HIGH, entity_index);
+                LowEntityIndex player_index = add_player(game_state);
+                entity = get_entity(game_state, player_index);
 
-                game_state->player_index_for_controller[ControllerIndex] = entity_index;
-
-                if (game_state->residence_table[game_state->index_of_entity_for_camera_to_follow] == ENTITY_RESIDENCE_NOT_EXIST) {
-                    game_state->index_of_entity_for_camera_to_follow = entity_index;
-                    game_state->index_of_controller_for_camera_to_follow = ControllerIndex;
+                if (game_state->player_index_for_controller[ControllerIndex.index] == 0) {
+                    game_state->player_index_for_controller[ControllerIndex.index] = player_index;
+                    game_state->index_of_entity_for_camera_to_follow = player_index;
+                    game_state->index_of_controller_for_camera_to_follow = { ControllerIndex.index };
                 }
             } else {
                 continue;
@@ -683,46 +759,52 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         if (GetPressCount(ControllerInput->Y)) {
             game_state->index_of_controller_for_camera_to_follow += 1;
-            if (game_state->index_of_controller_for_camera_to_follow >= ARRAY_COUNT(Input->ControllerInputs)) {
-                game_state->index_of_controller_for_camera_to_follow = 0;
+            if (game_state->index_of_controller_for_camera_to_follow.index >= ARRAY_COUNT(Input->ControllerInputs)) {
+                game_state->index_of_controller_for_camera_to_follow = { 0 };
             }
-            game_state->index_of_entity_for_camera_to_follow = game_state->player_index_for_controller[game_state->index_of_controller_for_camera_to_follow];
-            game_state->camera_position.absolute_tile_z = game_state->low_frequency_entity_table[game_state->index_of_entity_for_camera_to_follow].tilemap_position.absolute_tile_z;
-            osOutputDebugString("Follow entity %d\n", game_state->index_of_entity_for_camera_to_follow);
+            game_state->index_of_entity_for_camera_to_follow = game_state->player_index_for_controller[game_state->index_of_controller_for_camera_to_follow.index];
+            game_state->camera_position.chunk_z = game_state->low_entities[game_state->index_of_entity_for_camera_to_follow.index].world_position.chunk_z;
+            osOutputDebugString("Follow entity %d\n", game_state->index_of_entity_for_camera_to_follow.index);
         }
 
         if (GetPressCount(ControllerInput->X)) {
-            TilemapPosition *pos = &entity.low->tilemap_position;
-            tile_t tile_value = GetTileValue(tilemap, pos->absolute_tile_x, pos->absolute_tile_y, pos->absolute_tile_z);
+            WorldPosition *pos = &entity.low->world_position;
+            // Tile tile_value = GetTileValue(world, pos->absolute_tile_x, pos->absolute_tile_y, pos->chunk_z);
 
-            if (tile_value == TILE_DOOR_UP) {
-                TilemapPosition move_up_position = *pos;
-                move_up_position.absolute_tile_z += 1;
+            // if (tile_value == TILE_DOOR_UP) {
+            //     WorldPosition move_up_position = *pos;
+            //     move_up_position.chunk_z += 1;
 
-                bool up_tile_empty = IsWorldPointEmpty(tilemap, move_up_position);
-                if (up_tile_empty) {
-                    pos->absolute_tile_z += 1;
-                    Entity followed_entity = get_entity(game_state, ENTITY_RESIDENCE_HIGH, game_state->index_of_entity_for_camera_to_follow);
-                    game_state->camera_position.absolute_tile_z = followed_entity.low->tilemap_position.absolute_tile_z;
-                    osOutputDebugString("Entity %d go upstairs\n", entity_index);
-                }
-            }
+            //     // bool up_tile_empty = IsWorldPointEmpty(world, move_up_position);
+            //     if (up_tile_empty) {
+            //         pos->chunk_z += 1;
+            //         Entity followed_entity = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
+            //         game_state->camera_position.chunk_z = followed_entity.low->world_position.chunk_z;
+            //         osOutputDebugString("Entity %d go upstairs\n", low_entity_index.index);
+            //     }
+            // }
 
-            if (tile_value == TILE_DOOR_DOWN) {
-                TilemapPosition move_down_position = *pos;
-                move_down_position.absolute_tile_z -= 1;
+            // if (tile_value == TILE_DOOR_DOWN) {
+            //     WorldPosition move_down_position = *pos;
+            //     move_down_position.chunk_z -= 1;
 
-                bool down_tile_empty = IsWorldPointEmpty(tilemap, move_down_position);
-                if (down_tile_empty) {
-                    pos->absolute_tile_z -= 1;
-                    Entity followed_entity = get_entity(game_state, ENTITY_RESIDENCE_HIGH, game_state->index_of_entity_for_camera_to_follow);
-                    game_state->camera_position.absolute_tile_z = followed_entity.low->tilemap_position.absolute_tile_z;
-                    osOutputDebugString("Entity %d go downstairs\n", entity_index);
-                }
-            }
+            //     // bool down_tile_empty = IsWorldPointEmpty(world, move_down_position);
+            //     if (down_tile_empty) {
+            //         pos->chunk_z -= 1;
+            //         Entity followed_entity = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
+            //         game_state->camera_position.chunk_z = followed_entity.low->world_position.chunk_z;
+            //         osOutputDebugString("Entity %d go downstairs\n", low_entity_index.index);
+            //     }
+            // }
         }
 
         // ================= MOVEMENT SIMULATION ====================== //
+
+        if (entity.high == NULL) {
+            // @todo: Handle multiple simulation regions for cooperative multiplayer.
+            // @todo: Network cooperative multiplayer?
+            continue;
+        }
 
         v2 input_direction = ControllerInput->LeftStickEnded.normalized();
         f32 input_strength = math::clamp(ControllerInput->LeftStickEnded.norm(), 0, 1);
@@ -751,7 +833,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             acceleration.z += 100.0f;
         }
 
-        move_entity(game_state, entity_index, acceleration + friction_acceleration, dt);
+        HighEntityIndex high_entity_index = entity.low->high_index;
+        // ASSERT(high_entity_index > 0);
+
+        move_entity(game_state, high_entity_index, acceleration + friction_acceleration, dt);
 
         if (input_direction.length_2() > 0) {
             if (math::absolute(input_direction.x) > math::absolute(input_direction.y)) {
@@ -770,55 +855,58 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
     }
 
-    Entity followed_entity = get_entity(game_state, ENTITY_RESIDENCE_HIGH, game_state->index_of_entity_for_camera_to_follow);
+    Entity followed_entity = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
 
-    if (followed_entity.residence == ENTITY_RESIDENCE_HIGH) {
-        f32 room_width_in_meters = room_width_in_tiles * tilemap->tile_side_in_meters;
-        f32 room_height_in_meters = room_height_in_tiles * tilemap->tile_side_in_meters;
+    if (followed_entity.high != NULL) {
+        f32 room_width_in_meters = room_width_in_tiles * world->tile_side_in_meters;
+        f32 room_height_in_meters = room_height_in_tiles * world->tile_side_in_meters;
 
-        TilemapPosition new_camera_position = game_state->camera_position;
+        WorldPosition new_camera_position = game_state->camera_position;
 
-#if 1
-        if (followed_entity.high->position.x > room_width_in_meters / 2) {
-            // diff.x = - room_width_in_meters;
-            new_camera_position.absolute_tile_x += room_width_in_tiles;
-        }
-
-        if (followed_entity.high->position.x < -room_width_in_meters / 2) {
-            // diff.x = room_width_in_meters;
-            new_camera_position.absolute_tile_x -= room_width_in_tiles;
-        }
-
-        if (followed_entity.high->position.y > room_height_in_meters / 2) {
-            // diff.y = - room_height_in_meters;
-            new_camera_position.absolute_tile_y += room_height_in_tiles;
-        }
-
-        if (followed_entity.high->position.y < -room_height_in_meters / 2) {
-            // diff.y = room_height_in_meters;
-            new_camera_position.absolute_tile_y -= room_height_in_tiles;
-        }
-#else
+#if ASUKA_DEBUG_FOLLOWING_CAMERA
         // Debug scrolling
-        osOutputDebugString("(%5.2f, %5.2f)\n", followed_entity.high->position.x, followed_entity.high->position.y);
         if (followed_entity.high->position.x > 1) {
             // diff.x = - room_width_in_meters;
-            new_camera_position.absolute_tile_x += 1;
+            new_camera_position.chunk_x += 1;
         }
 
         if (followed_entity.high->position.x < -1) {
             // diff.x = room_width_in_meters;
-            new_camera_position.absolute_tile_x -= 1;
+            new_camera_position.chunk_x -= 1;
         }
 
         if (followed_entity.high->position.y > 1) {
             // diff.y = - room_height_in_meters;
-            new_camera_position.absolute_tile_y += 1;
+            new_camera_position.chunk_y += 1;
         }
 
         if (followed_entity.high->position.y < -1) {
             // diff.y = room_height_in_meters;
-            new_camera_position.absolute_tile_y -= 1;
+            new_camera_position.chunk_y -= 1;
+        }
+
+        new_camera_position = followed_entity.low->world_position;
+        // osOutputDebugString("(%f, %f)\n", new_camera_position.relative_position_on_tile.x, new_camera_position.relative_position_on_tile.y);
+        // new_camera_position.relative_position_on_tile = followed_entity.low->world_position.relative_position_on_tile;
+#else
+        if (followed_entity.high->position.x > room_width_in_meters / 2) {
+            // diff.x = - room_width_in_meters;
+            new_camera_position.chunk_x += room_width_in_tiles;
+        }
+
+        if (followed_entity.high->position.x < -room_width_in_meters / 2) {
+            // diff.x = room_width_in_meters;
+            new_camera_position.chunk_x -= room_width_in_tiles;
+        }
+
+        if (followed_entity.high->position.y > room_height_in_meters / 2) {
+            // diff.y = - room_height_in_meters;
+            new_camera_position.chunk_y += room_height_in_tiles;
+        }
+
+        if (followed_entity.high->position.y < -room_height_in_meters / 2) {
+            // diff.y = room_height_in_meters;
+            new_camera_position.chunk_y -= room_height_in_tiles;
         }
 #endif
 
@@ -831,137 +919,37 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     // Render pink background to see pixels I didn't drew.
     DrawRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Buffer->Height}, {1.f, 0.f, 1.f});
+    DrawRectangle(Buffer, v2{0, 0}, v2{(f32)Buffer->Width, (f32)Buffer->Height}, color24{ 0.5f, 0.5f, 0.5f });
 
     // Background grass
     // DrawBitmap(Buffer, { 0, 0 }, { (float32)Buffer->Width, (f32)Buffer->Height }, &game_state->grass_texture);
 
-    TilemapPosition *camera_p = &game_state->camera_position;
+    WorldPosition *camera_p = &game_state->camera_position;
 
 #if 1
-    int32 tile_side_in_pixels = (i32)((f32)tilemap->tile_side_in_meters * (f32)pixels_per_meter);
+    int32 tile_side_in_pixels = (i32)((f32)world->tile_side_in_meters * (f32)pixels_per_meter);
     int32 render_tiles_half_count_y = Buffer->Height / tile_side_in_pixels;
     int32 render_tiles_half_count_x = Buffer->Width / tile_side_in_pixels;
 #else
-    int32 tile_side_in_pixels = (i32)((f32)tilemap->tile_side_in_meters * (f32)pixels_per_meter) / 3;
+    int32 tile_side_in_pixels = (i32)((f32)world->tile_side_in_meters * (f32)pixels_per_meter) / 3;
     int32 render_tiles_half_count_y = Buffer->Height / tile_side_in_pixels * 2;
     int32 render_tiles_half_count_x = Buffer->Width / tile_side_in_pixels * 2;
 #endif
 
-    Entity entity_to_follow = get_entity(game_state, ENTITY_RESIDENCE_HIGH, game_state->index_of_entity_for_camera_to_follow);
-    TileChunkPosition chunk_pos_for_camera_to_follow {};
-    if (entity_to_follow.residence == ENTITY_RESIDENCE_HIGH) {
-        chunk_pos_for_camera_to_follow = GetChunkPosition(tilemap, entity_to_follow.low->tilemap_position);
-    }
-
-    //
-    // Render tiles
-    //
-    for (int32 relative_row = -render_tiles_half_count_y; relative_row < render_tiles_half_count_y; relative_row++) {
-        for (int32 relative_column = -render_tiles_half_count_x; relative_column < render_tiles_half_count_x; relative_column++) {
-
-            int32 row = camera_p->absolute_tile_y + relative_row;
-            int32 column = camera_p->absolute_tile_x + relative_column;
-            int32 level = camera_p->absolute_tile_z;
-
-            v2 bottom_left_in_bottom_up_screen_pixel_coords =
-                v2{ (f32)relative_column, (f32)relative_row } * (f32)tile_side_in_pixels -
-                camera_p->relative_position_on_tile -
-                0.5f * pixels_per_meter * v2::ey() + // @bug: What this term even does??
-                v2{ 0.5f * Buffer->Width, 0.5f * Buffer->Height };
-
-            v2 upper_left_in_up_down_screen_pixel_coords {
-                bottom_left_in_bottom_up_screen_pixel_coords.x,
-                Buffer->Height - bottom_left_in_bottom_up_screen_pixel_coords.y - tile_side_in_pixels,
-            };
-
-            v2 bottom_right_in_up_down_screen_pixel_coords =
-                upper_left_in_up_down_screen_pixel_coords + v2::make((f32)tile_side_in_pixels);
-
-
-            tile_t tile_value = GetTileValue(tilemap, column, row, level);
-            auto TileColor = color24{ 0.5f, 0.5f, 0.5f };
-
-            switch (tile_value) {
-                case TILE_INVALID: {
-                    TileColor = color24{ 1.0f };
-                    break;
-                    // continue;
-                }
-                case TILE_FREE: {
-                    TileColor = color24{ 0.5f, 0.5f, 0.5f };
-
-                    if (row == (int32)(chunk_pos_for_camera_to_follow.chunk_relative_y + chunk_pos_for_camera_to_follow.chunk_y * tilemap->tile_count_y) &&
-                        column == (int32)(chunk_pos_for_camera_to_follow.chunk_relative_x + chunk_pos_for_camera_to_follow.chunk_x * tilemap->tile_count_x)) {
-                        TileColor = color24{ 0.8f, 0.4f, 0.0f };
-                    }
-                    else
-                    if ((row % tilemap->tile_count_y == 0 || column % tilemap->tile_count_x == 0))
-                    {
-                        TileColor = color24{ 0.0f, 0.4f, 0.8f };
-                        break;
-                    }
-
-                    break;
-                }
-                // Walls are entities now
-
-                // case TILE_WALL: {
-                //     // DrawBitmap(Buffer, upper_left_in_up_down_screen_pixel_coords, bottom_right_in_up_down_screen_pixel_coords, &game_state->wall_texture);
-                //     // continue;
-
-                //     TileColor = color24{ 0.2f, 0.3f, 0.2f };
-                //     break;
-                // }
-                case TILE_DOOR_UP: {
-                    TileColor = color24{ 0.8f, 0.8f, 0.8f };
-                    break;
-                }
-                case TILE_DOOR_DOWN: {
-                    TileColor = color24{ 0.3f, 0.3f, 0.3f };
-                    break;
-                }
-                case TILE_WIN: {
-                    STATIC_VARIABLE f32 t_color = 0.0f;
-                    f32 tmp_r = sinf(math::pi * t_color - 0.5f * math::pi);
-                    f32 tmp_g = sinf(math::pi * t_color - 5.0f * math::pi / 6.0f);
-                    f32 tmp_b = sinf(math::pi * t_color - math::pi / 6.0f);
-
-                    f32 normalization_constant = 1.0f;
-
-                    color24 tile_win_color = color24{
-                        tmp_r * tmp_r * normalization_constant,
-                        tmp_g * tmp_g * normalization_constant,
-                        tmp_b * tmp_b * normalization_constant,
-                    };
-                    t_color += 0.01f;
-
-                    if (t_color > 1.0f) { t_color -= 1.0f; }
-
-                    TileColor = tile_win_color;
-                    break;
-                }
-            }
-
-            DrawRectangle(
-                Buffer,
-                upper_left_in_up_down_screen_pixel_coords,
-                bottom_right_in_up_down_screen_pixel_coords,
-                TileColor, true);
-        }
+    Entity entity_to_follow = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
+    WorldPosition chunk_pos_for_camera_to_follow {};
+    if (entity_to_follow.high != NULL) {
+        // chunk_pos_for_camera_to_follow = GetChunkPosition(world, entity_to_follow.low->world_position);
     }
 
     // ===================== RENDERING ENTITIES ===================== //
 
-    for (uint32 entity_index = 0; entity_index < game_state->entity_count; entity_index++) {
-        if (game_state->residence_table[entity_index] == ENTITY_RESIDENCE_HIGH) {
-            Entity entity = get_entity(game_state, ENTITY_RESIDENCE_HIGH, entity_index);
-
-            if (entity.low->tilemap_position.absolute_tile_z != game_state->camera_position.absolute_tile_z) {
+    for (HighEntityIndex entity_index { 0 }; entity_index < game_state->high_entity_count; entity_index++) {
+        Entity entity = get_entity(game_state, entity_index);
+        if (entity.high != NULL) {
+            if (entity.low->world_position.chunk_z != game_state->camera_position.chunk_z) {
                 continue;
             }
-
-            if (entity_index == game_state->index_of_entity_for_camera_to_follow)
-                osOutputDebugString("(%5.2f, %5.2f)\n", entity.high->position.x, entity.high->position.y);
 
             v2 entity_position_in_pixels =
                 0.5f * v2{ (f32)Buffer->Width, (f32)Buffer->Height } +
@@ -996,6 +984,24 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     top_left,
                     bottom_right,
                     texture);
+                game_state->player_max_health = 3;
+                game_state->player_health = 2;
+                for (uint32 health_index = 0; health_index < game_state->player_max_health; health_index++){
+                    v2 heart_top_left = entity_position_in_pixels + v2{ (health_index - 1.5f) * game_state->heart_full_texture.width, - (f32)game_state->player_textures[0].height - 10.0f};
+                    if (health_index + 1 > game_state->player_health) {
+                        DrawBitmap(
+                            Buffer,
+                            heart_top_left,
+                            heart_top_left + v2{(f32)game_state->heart_full_texture.width, (f32)game_state->heart_full_texture.height},
+                            &game_state->heart_empty_texture);
+                    } else {
+                        DrawBitmap(
+                            Buffer,
+                            heart_top_left,
+                            heart_top_left + v2{(f32)game_state->heart_full_texture.width, (f32)game_state->heart_full_texture.height},
+                            &game_state->heart_full_texture);
+                    }
+                }
             } else {
                 auto TileColor = color24{ 0.2f, 0.3f, 0.2f };
 
