@@ -47,6 +47,16 @@ inline bool32 is_valid(float32 x) {
     return result;
 }
 
+inline int32 sign(int32 value) {
+    int32 result = (value > 0) - (value < 0);
+    return result;
+}
+
+inline float32 sign(float32 value) {
+    float32 result = (float32)((value > 0) - (value < 0));
+    return result;
+}
+
 inline float32 absolute(float32 x) {
     union {
         uint32  u;
@@ -64,7 +74,7 @@ inline int32 absolute(int32 x) {
 }
 
 inline int32 round_to_int32(float32 x) {
-    float32 result = x + 0.5f;
+    float32 result = x + 0.5f * sign(x);
     return (int32) result;
 }
 
@@ -140,16 +150,6 @@ inline f32 lerp(f32 a, f32 b, f32 t) {
     ASSERT(0.f <= t && t <= 1.f);
 
     return (1.f - t) * a + t * b;
-}
-
-inline int32 sign(int32 value) {
-    int32 result = (value > 0) - (value < 0);
-    return result;
-}
-
-inline int32 sign(float32 value) {
-    int32 result = (value > 0) - (value < 0);
-    return result;
 }
 
 inline float32 smoothstep(float32 x) {

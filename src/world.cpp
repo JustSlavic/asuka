@@ -3,6 +3,14 @@
 
 
 
+void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_meters) {
+    memory::set(world, 0, sizeof(World));
+
+    world->tile_side_in_meters = tile_side_in_meters;
+    world->chunk_side_in_meters = chunk_side_in_meters;
+}
+
+
 INTERNAL_FUNCTION INLINE
 Chunk* get_chunk(World* world, int32 chunk_x, int32 chunk_y, int32 chunk_z, MemoryArena *arena = NULL)
 {
@@ -34,7 +42,7 @@ Chunk* get_chunk(World* world, int32 chunk_x, int32 chunk_y, int32 chunk_z, Memo
         chunk = chunk->next_in_hashtable;
     }
 
-    if (chunk && (chunk->entities == NULL)) {
+    if (arena && chunk && (chunk->entities == NULL)) {
         chunk->chunk_x = chunk_x;
         chunk->chunk_y = chunk_y;
         chunk->chunk_z = chunk_z;
@@ -63,17 +71,17 @@ math::vector2 position_difference(World *world, WorldPosition p1, WorldPosition 
     }
 
     result.x =
-        (p1.chunk_x * world->chunk_size_in_meters + p1.relative_position_in_chunk.x) -
-        (p2.chunk_x * world->chunk_size_in_meters + p2.relative_position_in_chunk.x);
+        (p1.chunk_x * world->chunk_side_in_meters + p1.relative_position_in_chunk.x) -
+        (p2.chunk_x * world->chunk_side_in_meters + p2.relative_position_in_chunk.x);
     result.y =
-        (p1.chunk_y * world->chunk_size_in_meters + p1.relative_position_in_chunk.y) -
-        (p2.chunk_y * world->chunk_size_in_meters + p2.relative_position_in_chunk.y);
+        (p1.chunk_y * world->chunk_side_in_meters + p1.relative_position_in_chunk.y) -
+        (p2.chunk_y * world->chunk_side_in_meters + p2.relative_position_in_chunk.y);
 
     return result;
 }
 
 
-bool32 in_same_chunk(WorldPosition p1, WorldPosition p2) {
+bool32 in_same_chunk(World *world, WorldPosition p1, WorldPosition p2) {
     bool32 result = ((p1.chunk_x == p2.chunk_x) &&
                      (p1.chunk_x == p2.chunk_x) &&
                      (p1.chunk_x == p2.chunk_x));
@@ -133,9 +141,8 @@ void remove_entity_from_chunk(World *world, Chunk *chunk, LowEntityIndex entity)
                     // Free block.
                     chunk->entities = first_block->next_block;
 
-                    EntityBlock *free_block = world->next_free_block;
+                    first_block->next_block = world->next_free_block;
                     world->next_free_block = first_block;
-                    world->next_free_block->next_block = free_block;
                     memory::set(first_block, 0, sizeof(EntityBlock));
                 }
 
@@ -151,7 +158,7 @@ WorldPosition change_entity_location(World *world, LowEntityIndex entity, WorldP
 
     ASSERT(new_position);
 
-    if (old_position && in_same_chunk(*old_position, *new_position)) {
+    if (old_position && in_same_chunk(world, *old_position, *new_position)) {
         // Leave entity where it is.
     } else {
         if (old_position) {
@@ -163,5 +170,45 @@ WorldPosition change_entity_location(World *world, LowEntityIndex entity, WorldP
         push_entity_into_chunk(world, chunk, entity, arena);
     }
 
+    return result;
+}
+
+
+bool32 is_canonical(World *world, math::v2 p) {
+    bool32 result = (p.x >= -0.5f * world->chunk_side_in_meters) &&
+                    (p.x <=   0.5f * world->chunk_side_in_meters) &&
+                    (p.y >= -0.5f * world->chunk_side_in_meters) &&
+                    (p.y <=   0.5f * world->chunk_side_in_meters);
+
+    return result;
+}
+
+
+bool32 is_canonical(World *world, WorldPosition p) {
+    bool32 result = is_canonical(world, p.relative_position_in_chunk);
+
+    return result;
+}
+
+
+WorldPosition canonicalize_position(World *world, WorldPosition p) {
+    WorldPosition result = p;
+
+    math::v2i chunk_offset = math::round_to_vector2i(p.relative_position_in_chunk / world->chunk_side_in_meters);
+
+    result.chunk_x += chunk_offset.x;
+    result.chunk_y += chunk_offset.y;
+    result.relative_position_in_chunk -= math::upcast_to_vector2(chunk_offset) * world->chunk_side_in_meters;
+
+    ASSERT(is_canonical(world, result.relative_position_in_chunk));
+    return result;
+}
+
+
+WorldPosition map_into_world_space(World *world, WorldPosition base_position, math::v2 offset) {
+    WorldPosition result = base_position;
+    result.relative_position_in_chunk += offset;
+
+    result = canonicalize_position(world, result);
     return result;
 }

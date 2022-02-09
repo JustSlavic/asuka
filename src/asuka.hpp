@@ -262,6 +262,8 @@ struct GameState {
 
     wav_file_contents test_wav_file;
 
+    // @todo: Make Sprite struct with additional information, e.g. base point of bitmap (origin of local coordinate system inside bitmap, to place base point of a sprite to exact location of an entity).
+    // @todo: Make a tree asset.
     Bitmap wall_texture;
     Bitmap floor_texture;
     Bitmap grass_texture;

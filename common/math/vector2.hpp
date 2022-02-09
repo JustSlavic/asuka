@@ -288,4 +288,17 @@ intersection_result segment_segment_intersection(vector2 p0, vector2 p1, vector2
 
 } // namespace math
 
+
+math::v2 make_v2(f32 x, f32 y) {
+    math::v2 result{ x, y };
+    return result;
+}
+
+
+math::v2 make_v2(i32 x, i32 y) {
+    math::v2 result{ (f32)x, (f32)y };
+    return result;
+}
+
+
 #endif // ASUKA_COMMON_MATH_VECTOR2_HPP

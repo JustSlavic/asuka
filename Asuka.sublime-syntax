@@ -87,8 +87,12 @@ contexts:
       push: line_comment
     - match: '/\*'
       push: multiline_comment
+    - match: '(<=|>=|==|!=|<|>)'
+      scope: keyword.operator.comparison.c
+    - match: '(::)'
+      scope: punctuation.accessor.double-colon.c++
     - match: '[\-=+<&!\|\*>%/]'
-      scope: asuka.operator
+      scope: asuka.operator keyword.operator
     - match: '[\.::\(\),;\[\]]'
       scope: asuka.punctuation
     - match: '([\w_][\w\d_]*)\s*(\()'

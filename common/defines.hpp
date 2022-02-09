@@ -99,6 +99,11 @@ typedef signed long long   int64;
 #define STRINGIFY2(X) #X
 #define STRINGIFY(X) STRINGIFY2(X)
 
+#define CONCAT_(A, B) A##B
+#define CONCAT(A, B) CONCAT_(A, B)
+#define CONCAT2(A, B) CONCAT(A, B)
+#define CONCAT3(A, B, C) CONCAT2(CONCAT2(A, B), C)
+
 #define OFFSET_OF(STRUCT, MEMBER) ((size_t)&(((STRUCT *)0)->MEMBER(STRUCT, MEMBER)))
 
 #define osOutputDebugString(MSG, ...) \
@@ -171,5 +176,14 @@ typedef double f64;
 #define loop while(true)
 
 #define memespace namespace
+
+template <typename Callback>
+struct Defer {
+    Callback cb;
+    Defer(Callback const& f) :cb(f) {}
+    ~Defer() { cb(); }
+};
+
+#define defer Defer CONCAT2(defer__, __LINE__) = [&]()
 
 #endif // ASUKA_COMMON_DEFINES_HPP

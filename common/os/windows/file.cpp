@@ -25,11 +25,12 @@ string load_entire_file(const char* filename) {
         return result;
     }
 
+    defer { CloseHandle(FileHandle); };
+
     LARGE_INTEGER FileSize;
     BOOL GetSizeResult = GetFileSizeEx(FileHandle, &FileSize);
     if (GetSizeResult == 0) {
         // @todo: log error
-        CloseHandle(FileHandle);
         return result;
     }
 
@@ -39,8 +40,6 @@ string load_entire_file(const char* filename) {
 
     DWORD BytesRead;
     BOOL ReadFileResult = ReadFile(FileHandle, Memory, (DWORD)FileSize.QuadPart, &BytesRead, NULL);
-
-    CloseHandle(FileHandle);
 
     if (ReadFileResult == FALSE && BytesRead == FileSize.QuadPart) {
         // @todo: log error

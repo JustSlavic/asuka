@@ -50,13 +50,10 @@ struct WorldPosition {
 
 struct World {
     float32 tile_side_in_meters;
-    float32 chunk_size_in_meters;
-
-    uint32 tile_count_x; // Per chunk
-    uint32 tile_count_y; // Per chunk
+    float32 chunk_side_in_meters;
 
     // @note: Size of the array should be power of two for now.
-    Chunk chunks_hash_table[4096];
+    Chunk chunks_hash_table[32];
 
     EntityBlock *next_free_block;
 };
@@ -64,6 +61,9 @@ struct World {
 
 math::vector2 position_difference(World *world, WorldPosition p1, WorldPosition p2);
 WorldPosition change_entity_location(World *world, LowEntityIndex index, WorldPosition old_position, WorldPosition new_position);
+bool32 is_canonical(World *world, WorldPosition p);
+WorldPosition canonicalize_position(World *world, WorldPosition p);
+WorldPosition map_into_world_space(World *world, WorldPosition camera_position);
 
 
 #ifdef UNITY_BUILD

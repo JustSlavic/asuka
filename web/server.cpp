@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <math.hpp>
 #include <os/net.hpp>
+#include <os/file.hpp>
+
+#include "parser_http.hpp"
 
 #include <windows.h>
 
@@ -168,127 +171,173 @@ char *get_wsa_cleanup_error() {
 }
 
 
-struct Message {
-    math::vector2 p;
-    math::vector2 v;
-
-    f32 m;
-};
-
-
-char http_response[] =
+char http_200_response[] =
 "HTTP/1.1 200 OK\n"
+"Connection: close\n"
 "\n"
+"<head>\n"
+"</head>\n"
+"<body>\n"
+"<img src=\"200_face.png\">\n"
 "<h1>Hello World!</h1>\n"
-""
+"</body>\n"
+"\n"
 ;
 
 
+char http_404_response[] =
+"HTTP/1.1 404 Not found\n"
+"Connection: close\n"
+"\n"
+"<head>\n"
+"</head>\n"
+"<body>\n"
+"<h1>Code 404! Could not find page!</h1>\n"
+"</body>\n"
+"\n"
+;
 
+
+char http_500_response[] =
+"HTTP/1.1 500 Internal Server Error\n"
+"Connection: close\n"
+"\n"
+"<head>\n"
+"</head>\n"
+"<body>\n"
+"<img src=\"400_face.png\">\n"
+"<h1>Code 505! Internal Server Error!</h1>\n"
+"</body>\n"
+"\n"
+;
 
 
 int main() {
-    printf("sizeof(SOCKET) = %llu\n", sizeof(SOCKET));
     int ec;
+
+    string favicon_data = os::load_entire_file("favicon.ico");
+    string response_200_image = os::load_entire_file("200_face.png");
+    string response_400_image = os::load_entire_file("200_face.png");
 
     uint32 wsa_version_requested = (2 << 8) | 2;
 
     WSADATA wsa_data;
     ec = WSAStartup((WORD)wsa_version_requested, &wsa_data);
+    if (ec != 0) {
+        return 1;
+    }
 
-    printf("Requested wsa version %d\n", wsa_version_requested);
-    printf("Returned wsa version: %d\n", wsa_data.wVersion);
+    defer { WSACleanup(); };
 
-    if (ec == 0) {
-        SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (s != INVALID_SOCKET) {
-            printf("Successfully created a socket %llu\n", s);
+    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s != INVALID_SOCKET) {
+        defer { closesocket(s); };
 
-            uint32 ip   = net::make_ip4(127, 0, 0, 1);
-            uint16 port = net::make_port(6969);
+        uint32 ip   = net::make_ip4(127, 0, 0, 1);
+        uint16 port = net::make_port(6969);
 
-            sockaddr_in address {};
-            address.sin_family = AF_INET;
-            address.sin_addr.S_un.S_addr = ip;
-            address.sin_port = port;
-            printf("Try to bind a socket to the address %s:%d\n", inet_ntoa(address.sin_addr), change_endiannes(port));
+        sockaddr_in address {};
+        address.sin_family = AF_INET;
+        address.sin_addr.S_un.S_addr = ip;
+        address.sin_port = port;
 
-            ec = bind(s, (const sockaddr *) &address, sizeof(address));
-            if (ec != SOCKET_ERROR) {
-                printf("Successfully binded a socket to the address %s:%d\n", inet_ntoa(address.sin_addr), change_endiannes(port));
 
-                ec = listen(s, 1);
-                if (ec == 0) {
-                    printf("Successfully started to listen socket %llu.\n", s);
+        ec = bind(s, (const sockaddr *) &address, sizeof(address));
+        if (ec != SOCKET_ERROR) {
+            ec = listen(s, 1);
+            if (ec == 0) {
+                while (true) {
+                    sockaddr_in client_address;
+                    int client_address_size = sizeof(client_address);
+                    SOCKET client_socket = accept(s, (sockaddr *)&client_address, &client_address_size);
 
-                    while (true) {
-                        sockaddr_in client_address;
-                        int client_address_size = sizeof(client_address);
-                        SOCKET client_socket = accept(s, (sockaddr *)&client_address, &client_address_size);
+                    if (client_socket != INVALID_SOCKET) {
+                        defer { closesocket(client_socket); };
 
-                        if (client_socket != INVALID_SOCKET) {
-                            printf("Successfully accepted client's connection from '%s'.\n", inet_ntoa(client_address.sin_addr));
+                        printf("Successfully accepted client's connection from '%s'.\n", inet_ntoa(client_address.sin_addr));
 
-                            char message_data[2048] {};
-                            int32 received_bytes = recv(client_socket, message_data, sizeof(message_data), 0);
+                        char message_data[2048] {};
+                        int32 received_bytes = recv(client_socket, message_data, sizeof(message_data), 0);
 
-                            if (received_bytes != SOCKET_ERROR) {
-                                if (received_bytes > 0) {
-                                    printf("Data received successfully!!!\n");
-                                    printf("Message: \"%s\"\n", message_data);
+                        if (received_bytes != SOCKET_ERROR) {
+                            if (received_bytes > 0) {
+                                string request_data;
+                                request_data.data = (uint8 *)message_data;
+                                request_data.size = (usize)received_bytes;
 
-                                    int32 sent_bytes = send(client_socket, http_response, sizeof(http_response), 0);
+                                http::Request request = http::parse_request(request_data);
+                                if (request.method == http::HTTP_REQUEST_GET) {
+                                    if (equals_to_cstr(request.path, "/favicon.ico")) {
 
-                                    if (sent_bytes != SOCKET_ERROR) {
-                                        if (sent_bytes > 0) {
-                                            printf("Response sent successfully!!!\n");
+                                        char favicon_header[] =
+                                            "HTTP/1.1 200 OK\n"
+                                            "Content-Length: 1150\n"
+                                            "Content-Type: image/x-icon\n"
+                                            "Connection: close\n"
+                                            "\n";
+
+                                        int32 sent_bytes = send(client_socket, favicon_header, sizeof(favicon_header) - 1, 0);
+                                        if (sent_bytes != SOCKET_ERROR) {
+                                            sent_bytes = send(client_socket, (const char *)favicon_data.data, (int)favicon_data.size, 0);
+                                            if (sent_bytes != SOCKET_ERROR) {
+                                                printf("Favicon successfully sent!\n");
+                                            } else {
+                                                printf("Could not send favicon binary data!\n");
+                                                printf("%s\n", get_socket_send_error());
+                                            }
+                                        } else {
+                                            printf("Could not send favicon haeder. How pathetic!\n");
+                                            printf("%s\n", get_socket_send_error());
                                         }
+                                    } else if (equals_to_cstr(request.path, "/200_face.png")) {
+                                        char image_header[1024];
+                                        int image_header_size = sprintf(image_header,
+                                            "HTTP/1.1 200 OK\n"
+                                            "Content-Length: %zu\n"
+                                            "Content-Type: image/png\n"
+                                            "Connection: close\n"
+                                            "\n",
+                                            response_200_image.size);
+
+                                        int32 sent_bytes = send(client_socket, image_header, image_header_size - 1, 0);
+                                        sent_bytes = send(client_socket, (const char *)response_200_image.data, (int)response_200_image.size, 0);
+                                    } else {
+                                        int32 sent_bytes = send(client_socket, http_200_response, sizeof(http_200_response), 0);
+                                        if (sent_bytes != SOCKET_ERROR) {
+                                        } else {
+                                            printf("Failed to send response.\n");
+                                            printf("%s\n", get_socket_send_error());
+                                        }
+                                    }
+                                } else {
+                                    int32 sent_bytes = send(client_socket, http_404_response, sizeof(http_404_response), 0);
+                                    if (sent_bytes != SOCKET_ERROR) {
                                     } else {
                                         printf("Failed to send response.\n");
                                         printf("%s\n", get_socket_send_error());
                                     }
                                 }
-                            } else {
-                                printf("Failed to receive message.\n");
-                                printf("%s\n", get_socket_recv_error());
                             }
-
-                            ec = closesocket(client_socket);
                         } else {
-                            printf("Failed to accept the connection on socket %llu\n", s);
-                            printf("%s\n", get_socket_accept_error());
+                            printf("Failed to receive message.\n");
+                            printf("%s\n", get_socket_recv_error());
                         }
+                    } else {
+                        printf("Failed to accept the connection on socket %llu\n", s);
+                        printf("%s\n", get_socket_accept_error());
                     }
-                } else {
-                    printf("Failed to listen socket %llu\n", s);
-                    printf("%s\n", get_socket_listen_error());
                 }
             } else {
-                printf("Failed to bind socket %llu\n", s);
-
-
-            }
-
-            ec = closesocket(s);
-            if (ec != SOCKET_ERROR) {
-                printf("Socket %llu closed.\n", s);
-            } else {
-                printf("Failed to close socket %llu\n", s);
-
+                printf("Failed to listen socket %llu\n", s);
+                printf("%s\n", get_socket_listen_error());
             }
         } else {
-            printf("Failed to create socket\n");
-
-        }
-
-        ec = WSACleanup();
-        if (ec == 0) {
-            printf("Successful WSACleanup.\n");
-        } else {
-            printf("Failed do WSACleanup\n");
+            printf("Failed to bind socket %llu\n", s);
+            printf("%s\n", get_socket_bind_error());
         }
     } else {
-
+        printf("Failed to create socket\n");
+        printf("%s\n", get_socket_create_error());
     }
 
     return 0;

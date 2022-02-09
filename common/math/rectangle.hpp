@@ -56,6 +56,12 @@ f32 get_height(rectangle2 rect) {
 }
 
 INLINE
+v2 get_center(rectangle2 rect) {
+    v2 result = 0.5f * (rect.min + rect.max);
+    return result;
+}
+
+INLINE
 v2 get_dimensions(rectangle2 rect) {
     v2 result = rect.max - rect.min;
 
@@ -65,9 +71,9 @@ v2 get_dimensions(rectangle2 rect) {
 INLINE
 bool32 in_rectangle(rectangle2 rect, v2 v) {
     bool32 result = ((v.x >= rect.min.x) &&
-                     (v.x <  rect.max.x) &&
+                     (v.x <= rect.max.x) &&
                      (v.y >= rect.min.y) &&
-                     (v.y <  rect.max.y));
+                     (v.y <= rect.max.y));
 
     return result;
 }
