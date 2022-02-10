@@ -2,7 +2,7 @@
 #include <math.hpp>
 #include <debug/casts.hpp>
 
-#define ASUKA_DEBUG_FOLLOWING_CAMERA 0
+#define ASUKA_DEBUG_FOLLOWING_CAMERA 1
 
 
 INTERNAL_FUNCTION
@@ -29,7 +29,7 @@ void DrawBitmap(
     Game_OffscreenBuffer* buffer,
     math::v2 top_left, math::v2 bottom_right,
     Bitmap *image,
-    bool32 stroke = false)
+    float32 c_alpha = 1.0f)
 {
     using math::vector2i;
     using math::vector2;
@@ -101,7 +101,7 @@ void DrawBitmap(
                 f32 r = red / 255.f;
                 f32 g = green / 255.f;
                 f32 b = blue / 255.f;
-                f32 a = alpha / 255.f;
+                f32 a = (alpha / 255.f) * c_alpha;
 
                 f32 back_r = (*Pixel & 0xFF) / 255.f;
                 f32 back_g = ((*Pixel & 0xFF00) >> 8) / 255.f;
@@ -340,6 +340,26 @@ LowEntityIndex add_player(GameState *game_state) {
 
 
 INTERNAL_FUNCTION
+Entity add_monster(GameState *game_state, int32 chunk_x, int32 chunk_y, int32 chunk_z, math::v2 p) {
+    WorldPosition position {};
+    position.chunk_x = chunk_x;
+    position.chunk_y = chunk_y;
+    position.chunk_z = chunk_z;
+    position.relative_position_in_chunk = p;
+
+    LowEntityIndex index = add_low_entity(game_state, position);
+    Entity entity = get_entity(game_state, index);
+
+    entity.low->type = ENTITY_TYPE_MONSTER;
+    entity.low->world_position = position;
+    entity.low->collidable = true;
+    entity.low->hitbox = math::v2 { 2.2f, 2.2f };
+
+    return entity;
+}
+
+
+INTERNAL_FUNCTION
 Entity add_wall(GameState *game_state, int32 chunk_x, int32 chunk_y, int32 chunk_z, math::v2 p) {
     WorldPosition position {};
     position.chunk_x = chunk_x;
@@ -353,7 +373,7 @@ Entity add_wall(GameState *game_state, int32 chunk_x, int32 chunk_y, int32 chunk
     entity.low->type = ENTITY_TYPE_WALL;
     entity.low->world_position = position;
     entity.low->collidable = true;
-    entity.low->hitbox = math::v2 { 1.0f, 1.0f };
+    entity.low->hitbox = math::v2 { 1.0f, 0.4f };
 
     return entity;
 }
@@ -579,34 +599,23 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_state->low_entity_count  = 1;
         game_state->high_entity_count = 1;
 
-        const char *wav_filename = "piano2.wav";
-        game_state->test_wav_file = load_wav_file(wav_filename);
+        game_state->test_wav_file = load_wav_file("piano2.wav");
         game_state->test_current_sound_cursor = 0;
 
-        const char *floor_texture_filename = "tile_16x16.png";
-        game_state->floor_texture = load_png_file_myself(floor_texture_filename);
+        game_state->grass_texture = load_sprite_asset("grass_texture.png", math::v2::zero());
+        // game_state->wall_texture  = load_sprite_asset("tile_60x60.bmp")
 
-        const char *grass_texture_filename = "grass_texture.png";
-        game_state->grass_texture = load_png_file(grass_texture_filename);
+        game_state->tree_texture        = load_sprite_asset("tree_60x100.png", make_v2(0.5, 0.9));
+        game_state->heart_full_texture  = load_sprite_asset("heart_full.png", make_v2(0.5, 0.5));
+        game_state->heart_empty_texture = load_sprite_asset("heart_empty.png", make_v2(0.5, 0.5));
+        game_state->monster_head        = load_sprite_asset("monster_head.png", make_v2(0.5, 0.45));
+        game_state->monster_left_arm    = load_sprite_asset("monster_left_arm.png", make_v2(0.5, 0.6));
+        game_state->monster_right_arm   = load_sprite_asset("monster_right_arm.png", make_v2(0.5, 0.6));
 
-        const char *wall_texture_filename = "tile_60x60.bmp";
-        game_state->wall_texture = load_bmp_file(wall_texture_filename);
-
-        char *heart_full_texture_filename = "heart_full.png";
-        game_state->heart_full_texture = load_png_file(heart_full_texture_filename);
-
-        char *heart_empty_texture_filename = "heart_empty.png";
-        game_state->heart_empty_texture = load_png_file(heart_empty_texture_filename);
-
-        const char *player_face_texture_filename = "character_1.png";
-        const char *player_left_texture_filename = "character_2.png";
-        const char *player_right_texture_filename = "character_3.png";
-        const char *player_back_texture_filename = "character_4.png";
-
-        game_state->player_textures[0] = load_png_file(player_face_texture_filename);
-        game_state->player_textures[1] = load_png_file(player_left_texture_filename);
-        game_state->player_textures[2] = load_png_file(player_right_texture_filename);
-        game_state->player_textures[3] = load_png_file(player_back_texture_filename);
+        game_state->player_textures[0] = load_sprite_asset("character_1.png", make_v2(0.5, 1));
+        game_state->player_textures[1] = load_sprite_asset("character_2.png", make_v2(0.5, 1));
+        game_state->player_textures[2] = load_sprite_asset("character_3.png", make_v2(0.5, 1));
+        game_state->player_textures[3] = load_sprite_asset("character_4.png", make_v2(0.5, 1));
 
         MemoryArena *arena = &game_state->world_arena;
 
@@ -625,7 +634,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         // ===================== WORLD GENERATION ===================== //
 
-        i32 screen_count = 2;
+        i32 screen_count = 6;
 
         i32 screen_x = 0;
         i32 screen_y = 0;
@@ -742,8 +751,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             previous_choice = choice;
         }
 
+
         WorldPosition camera_position {};
         // camera_position.relative_position_in_chunk = v2{ (f32)room_width_in_tiles, (f32)room_height_in_tiles } * world->tile_side_in_meters * 0.5f;
+
+        // @note: Add a monster BEFORE calling set camera position so it could be brought to the high entity set before player appearing on the screen.
+        add_monster(game_state, 0, 0, 0, make_v2(1, 1));
 
         set_camera_position(game_state, camera_position);
 
@@ -754,7 +767,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     float32 pixels_per_meter = 60.f; // [pixels/m]
 
-    v2  character_dimensions = { 0.75f, 1.0f }; // [m; m]
     f32 character_speed = 2.5f; // [m/s]
     f32 character_mass = 80.0f; // [kg]
     v3 gravity = { 0.0f, 0.0f, -9.8f }; // [m/s^2]
@@ -922,93 +934,72 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     // Background grass
     // DrawBitmap(Buffer, { 0, 0 }, { (float32)Buffer->Width, (f32)Buffer->Height }, &game_state->grass_texture);
 
-    WorldPosition *camera_p = &game_state->camera_position;
-
-#if 1
-    int32 tile_side_in_pixels = (i32)((f32)world->tile_side_in_meters * (f32)pixels_per_meter);
-    int32 render_tiles_half_count_y = Buffer->Height / tile_side_in_pixels;
-    int32 render_tiles_half_count_x = Buffer->Width / tile_side_in_pixels;
-#else
-    int32 tile_side_in_pixels = (i32)((f32)world->tile_side_in_meters * (f32)pixels_per_meter) / 3;
-    int32 render_tiles_half_count_y = Buffer->Height / tile_side_in_pixels * 2;
-    int32 render_tiles_half_count_x = Buffer->Width / tile_side_in_pixels * 2;
-#endif
-
-    Entity entity_to_follow = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
-    WorldPosition chunk_pos_for_camera_to_follow {};
-    if (entity_to_follow.high != NULL) {
-        // chunk_pos_for_camera_to_follow = GetChunkPosition(world, entity_to_follow.low->world_position);
-    }
-
     // ===================== RENDERING ENTITIES ===================== //
 
     for (HighEntityIndex entity_index { 0 }; entity_index < game_state->high_entity_count; entity_index++) {
         Entity entity = get_entity(game_state, entity_index);
         if (entity.high != NULL) {
+
+            AssetGroup asset_group {};
+
             if (entity.low->world_position.chunk_z != game_state->camera_position.chunk_z) {
                 continue;
+            }
+
+            if (entity.low->type == ENTITY_TYPE_PLAYER) {
+                asset_group.assets[asset_group.count++] = game_state->player_textures[entity.high->face_direction];
+
+
+                game_state->player_max_health = 3;
+                game_state->player_health = 2;
+
+                for (int32 health_index = 0; health_index < game_state->player_max_health; health_index++){
+                    u32 idx = asset_group.count++;
+
+                    if (health_index + 1 > game_state->player_health) {
+                        asset_group.assets[idx] = game_state->heart_empty_texture;
+                    } else {
+                        asset_group.assets[idx] = game_state->heart_full_texture;
+                    }
+
+                    asset_group.assets[idx].offset.x -= (health_index - 1) * 20.f;
+                    asset_group.assets[idx].offset_z = game_state->player_textures[0].bitmap.height + 10.f;
+                }
+
+            } else if (entity.low->type == ENTITY_TYPE_WALL) {
+                asset_group.assets[asset_group.count++] = game_state->tree_texture;
+            } else if (entity.low->type == ENTITY_TYPE_MONSTER) {
+                asset_group.assets[asset_group.count++] = game_state->monster_head;
+
+                asset_group.assets[asset_group.count++] = game_state->monster_left_arm;
+                asset_group.assets[asset_group.count++] = game_state->monster_right_arm;
+            } else {
+                INVALID_CODE_PATH;
             }
 
             v2 entity_position_in_pixels =
                 0.5f * v2{ (f32)Buffer->Width, (f32)Buffer->Height } +
                 v2{ entity.high->position.x, -entity.high->position.y } * pixels_per_meter;
 
-            if (entity.low->type == ENTITY_TYPE_PLAYER) {
-                // Hitbox rectangle
-                DrawRectangle(
-                    Buffer,
-                    entity_position_in_pixels - 0.5f * entity.low->hitbox * pixels_per_meter,
-                    entity_position_in_pixels + 0.5f * entity.low->hitbox * pixels_per_meter,
-                    color24{ 1.f, 1.f, 0.f });
+            v2 top_left = {
+                entity_position_in_pixels.x,
+                entity_position_in_pixels.y - entity.high->position.z * pixels_per_meter,
+            };
 
-                // Exact character's position point
-                DrawRectangle(
-                    Buffer,
-                    entity_position_in_pixels - v2{ 3.f, 3.f },
-                    entity_position_in_pixels + v2{ 3.f, 3.f },
-                    color24{ 0.f, 0.f, 0.f });
+            // Hitbox rectangle
+            DrawRectangle(
+                Buffer,
+                entity_position_in_pixels - 0.5f * entity.low->hitbox * pixels_per_meter,
+                entity_position_in_pixels + 0.5f * entity.low->hitbox * pixels_per_meter,
+                color24{ 1.f, 1.f, 0.f });
 
-                auto *texture = &game_state->player_textures[entity.high->face_direction];
-                v2 top_left = {
-                    entity_position_in_pixels.x - 0.5f * character_dimensions.x * pixels_per_meter,
-                    entity_position_in_pixels.y - 1.0f * character_dimensions.y * pixels_per_meter - entity.high->position.z * pixels_per_meter,
-                };
-                v2 bottom_right = top_left + v2{ (f32)texture->width, (f32)texture->height };
+            for (u32 asset_index = 0; asset_index < asset_group.count; asset_index++) {
 
-                // Character's bitmap
-                DrawBitmap(
-                    Buffer,
-                    top_left,
-                    bottom_right,
-                    texture);
-                game_state->player_max_health = 3;
-                game_state->player_health = 2;
-                for (uint32 health_index = 0; health_index < game_state->player_max_health; health_index++){
-                    v2 heart_top_left = entity_position_in_pixels + v2{ (health_index - 1.5f) * game_state->heart_full_texture.width, - (f32)game_state->player_textures[0].height - 10.0f};
-                    if (health_index + 1 > game_state->player_health) {
-                        DrawBitmap(
-                            Buffer,
-                            heart_top_left,
-                            heart_top_left + v2{(f32)game_state->heart_full_texture.width, (f32)game_state->heart_full_texture.height},
-                            &game_state->heart_empty_texture);
-                    } else {
-                        DrawBitmap(
-                            Buffer,
-                            heart_top_left,
-                            heart_top_left + v2{(f32)game_state->heart_full_texture.width, (f32)game_state->heart_full_texture.height},
-                            &game_state->heart_full_texture);
-                    }
-                }
-            } else {
-                auto TileColor = color24{ 0.2f, 0.3f, 0.2f };
+                SpriteAsset *asset = &asset_group.assets[asset_index];
 
-                v2 top_left = entity_position_in_pixels - 0.5f * entity.low->hitbox * pixels_per_meter;
-                v2 bottom_right = top_left + entity.low->hitbox * pixels_per_meter;
-                DrawRectangle(
-                    Buffer,
-                    top_left,
-                    bottom_right,
-                    TileColor, true);
+                v2 bottom_right = top_left + make_v2(asset->bitmap.width, asset->bitmap.height);
+                v2 z = v2::ey() * asset->offset_z;
+                DrawBitmap(Buffer, top_left - asset->offset - z, bottom_right - asset->offset - z, &asset->bitmap, asset->alpha);
             }
         }
     }

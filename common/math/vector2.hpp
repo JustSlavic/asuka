@@ -288,14 +288,8 @@ intersection_result segment_segment_intersection(vector2 p0, vector2 p1, vector2
 
 } // namespace math
 
-
-math::v2 make_v2(f32 x, f32 y) {
-    math::v2 result{ x, y };
-    return result;
-}
-
-
-math::v2 make_v2(i32 x, i32 y) {
+template <typename T1, typename T2>
+math::v2 make_v2(T1 x, T2 y) {
     math::v2 result{ (f32)x, (f32)y };
     return result;
 }

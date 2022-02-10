@@ -208,6 +208,8 @@ enum EntityType {
     ENTITY_TYPE_NULL,
     ENTITY_TYPE_PLAYER,
     ENTITY_TYPE_WALL,
+    ENTITY_TYPE_FAMILIAR,
+    ENTITY_TYPE_MONSTER,
 };
 
 
@@ -242,6 +244,36 @@ struct Entity {
 };
 
 
+struct SpriteAsset {
+    // @todo: Consider storing pointer here, but then you'd have to store bitmaps in the GameState
+    // separate from the offsets, which are heeded to draw bitmaps.
+    Bitmap bitmap;
+    math::vector2 offset;
+    float32 offset_z; // for floating stuff
+    float32 alpha;
+};
+
+
+INLINE
+SpriteAsset load_sprite_asset(char const* filename, math::v2 base) {
+    auto bitmap = load_png_file(filename);
+
+    SpriteAsset result {};
+    result.bitmap = bitmap;
+    result.offset = make_v2(base.x * bitmap.width, base.y * bitmap.height);
+    result.offset_z = 0;
+    result.alpha = 1.0f;
+
+    return result;
+}
+
+
+struct AssetGroup {
+    u32 count;
+    SpriteAsset assets[8];
+};
+
+
 struct GameState {
     WorldPosition camera_position;
 
@@ -262,17 +294,19 @@ struct GameState {
 
     wav_file_contents test_wav_file;
 
-    // @todo: Make Sprite struct with additional information, e.g. base point of bitmap (origin of local coordinate system inside bitmap, to place base point of a sprite to exact location of an entity).
-    // @todo: Make a tree asset.
-    Bitmap wall_texture;
-    Bitmap floor_texture;
-    Bitmap grass_texture;
-    Bitmap heart_full_texture;
-    Bitmap heart_empty_texture;
+    SpriteAsset wall_texture;
+    SpriteAsset tree_texture;
+    SpriteAsset grass_texture;
+    SpriteAsset heart_full_texture;
+    SpriteAsset heart_empty_texture;
 
-    Bitmap player_textures[4];
-    uint32 player_health;
-    uint32 player_max_health;
+    SpriteAsset monster_head;
+    SpriteAsset monster_left_arm;
+    SpriteAsset monster_right_arm;
+
+    SpriteAsset player_textures[4];
+    int32 player_health;
+    int32 player_max_health;
 
     uint32 test_current_sound_cursor;
 };

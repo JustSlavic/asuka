@@ -16,6 +16,11 @@ struct string {
 };
 
 
+bool32 is_empty(string s) {
+    return (s.data == 0) || (s.size == 0);
+}
+
+
 bool32 equals_to_cstr(string s, char *cstr) {
     bool32 equal = true;
     while ((s.size > 0) && (*cstr != 0)) {
