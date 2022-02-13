@@ -5,6 +5,9 @@
 #define ASUKA_DEBUG_FOLLOWING_CAMERA 1
 
 
+GLOBAL_VARIABLE math::v3 gravity = { 0.0f, 0.0f, -9.8f }; // [m/s^2]
+
+
 INTERNAL_FUNCTION
 void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, GameState* game_state) {
     sound_sample_t* SampleOut = SoundBuffer->Samples;
@@ -27,7 +30,7 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, GameState* game_state
 INTERNAL_FUNCTION
 void DrawBitmap(
     Game_OffscreenBuffer* buffer,
-    math::v2 top_left, math::v2 bottom_right,
+    float32 left, float32 top,
     Bitmap *image,
     float32 c_alpha = 1.0f)
 {
@@ -35,8 +38,8 @@ void DrawBitmap(
     using math::vector2;
 
     // @note: Top-down coordinate system.
-    vector2i tl = round_to_vector2i(top_left);
-    vector2i br = round_to_vector2i(bottom_right);
+    vector2i tl = round_to_vector2i(make_v2(left, top));
+    vector2i br = tl + round_to_vector2i(make_v2(image->width, image->height));
 
     vector2i image_tl = vector2i{ 0, 0 };
     vector2i image_br = vector2i{ (i32)image->width, (i32)image->height };
@@ -178,10 +181,10 @@ void DrawBorder(Game_OffscreenBuffer* Buffer, uint32 Width, math::color24 Color)
 
 
 INTERNAL_FUNCTION
-LowFrequencyEntity *get_low_entity(GameState *game_state, LowEntityIndex index) {
+LowEntity *get_low_entity(GameState *game_state, LowEntityIndex index) {
     ASSERT(index < ARRAY_COUNT(game_state->low_entities));
 
-    LowFrequencyEntity *result = NULL;
+    LowEntity *result = NULL;
     if ((index > 0) && (index < game_state->low_entity_count)) {
         result = game_state->low_entities + index;
     }
@@ -191,10 +194,10 @@ LowFrequencyEntity *get_low_entity(GameState *game_state, LowEntityIndex index) 
 
 
 INTERNAL_FUNCTION
-HighFrequencyEntity *get_high_entity(GameState *game_state, HighEntityIndex index) {
+HighEntity *get_high_entity(GameState *game_state, HighEntityIndex index) {
     ASSERT(index < ARRAY_COUNT(game_state->high_entities));
 
-    HighFrequencyEntity *result = NULL;
+    HighEntity *result = NULL;
     if ((index > 0) && (index < game_state->high_entity_count)) {
         result = game_state->high_entities + index;
     }
@@ -204,19 +207,19 @@ HighFrequencyEntity *get_high_entity(GameState *game_state, HighEntityIndex inde
 
 
 INLINE
-math::vector2 get_camera_space_position(GameState *game_state, LowFrequencyEntity *entity_low) {
+math::vector2 get_camera_space_position(GameState *game_state, LowEntity *entity_low) {
     math::v2 result = position_difference(game_state->world, entity_low->world_position, game_state->camera_position);
     return result;
 }
 
 
 INTERNAL_FUNCTION
-HighFrequencyEntity *make_entity_high_frequency(GameState *game_state, LowFrequencyEntity *entity_low, LowEntityIndex low_index, math::v2 camera_space_position) {
+HighEntity *make_entity_high_frequency(GameState *game_state, LowEntity *entity_low, LowEntityIndex low_index, math::v2 camera_space_position) {
     ASSERT(entity_low->high_index == 0);
     ASSERT_MSG(game_state->high_entity_count < ARRAY_COUNT(game_state->high_entities), "Out of room for high frequency entities.");
 
     HighEntityIndex high_index = HighEntityIndex{ game_state->high_entity_count++ };
-    HighFrequencyEntity *entity_high = get_high_entity(game_state, high_index);
+    HighEntity *entity_high = get_high_entity(game_state, high_index);
 
     entity_high->position.xy = camera_space_position;
     entity_high->velocity = math::v3::zero();
@@ -231,10 +234,10 @@ HighFrequencyEntity *make_entity_high_frequency(GameState *game_state, LowFreque
 
 
 INTERNAL_FUNCTION
-HighFrequencyEntity *make_entity_high_frequency(GameState *game_state, LowEntityIndex low_index) {
-    LowFrequencyEntity *entity_low = get_low_entity(game_state, low_index);
+HighEntity *make_entity_high_frequency(GameState *game_state, LowEntityIndex low_index) {
+    LowEntity *entity_low = get_low_entity(game_state, low_index);
 
-    HighFrequencyEntity *entity_high = NULL;
+    HighEntity *entity_high = NULL;
     if (entity_low->high_index == 0) {
         math::v2 camera_space_position = get_camera_space_position(game_state, entity_low);
         entity_high = make_entity_high_frequency(game_state, entity_low, low_index, camera_space_position);
@@ -248,22 +251,22 @@ HighFrequencyEntity *make_entity_high_frequency(GameState *game_state, LowEntity
 
 INTERNAL_FUNCTION
 void make_entity_low_frequency(GameState *game_state, LowEntityIndex low_index) {
-    LowFrequencyEntity *entity_low = get_low_entity(game_state, low_index);
+    LowEntity *entity_low = get_low_entity(game_state, low_index);
     HighEntityIndex index_to_remove = entity_low->high_index;
 
     if (index_to_remove != 0) {
-        HighFrequencyEntity *entity_to_remove = get_high_entity(game_state, index_to_remove);
+        HighEntity *entity_to_remove = get_high_entity(game_state, index_to_remove);
         HighEntityIndex last_high_index = HighEntityIndex{ game_state->high_entity_count - 1 };
 
         if (index_to_remove != last_high_index) {
-            HighFrequencyEntity *last_high_entity = get_high_entity(game_state, last_high_index);
+            HighEntity *last_high_entity = get_high_entity(game_state, last_high_index);
 
             // Put last element in place of element that we remove from high entity table.
             *entity_to_remove = *last_high_entity;
 
             // Patch all low entities that were pointing at the last element so that they point into index_to_remove instead.
             for (LowEntityIndex index_to_patch { 1 }; index_to_patch < game_state->low_entity_count; index_to_patch++) {
-                LowFrequencyEntity *to_patch = get_low_entity(game_state, index_to_patch);
+                LowEntity *to_patch = get_low_entity(game_state, index_to_patch);
                 if (to_patch->high_index == last_high_index) {
                     to_patch->high_index = index_to_remove;
                 }
@@ -281,7 +284,7 @@ LowEntityIndex add_low_entity(GameState *game_state, WorldPosition position) {
     ASSERT(game_state->low_entity_count < ARRAY_COUNT(game_state->low_entities));
     LowEntityIndex low_index { game_state->low_entity_count++ };
 
-    LowFrequencyEntity *low_entity = get_low_entity(game_state, low_index);
+    LowEntity *low_entity = get_low_entity(game_state, low_index);
     ASSERT(low_entity);
 
     *low_entity = {};
@@ -293,13 +296,19 @@ LowEntityIndex add_low_entity(GameState *game_state, WorldPosition position) {
 
 INTERNAL_FUNCTION
 Entity get_entity(GameState *game_state, LowEntityIndex index) {
+    LowEntity *low = get_low_entity(game_state, index);
+
     Entity entity {};
 
-    ASSERT(index < ARRAY_COUNT(game_state->low_entities));
+    if (low) {
+        entity.low_index = index;
+        entity.low = low;
 
-    entity.low = get_low_entity(game_state, index);
-    if (entity.low) {
-        entity.high = get_high_entity(game_state, entity.low->high_index);
+        HighEntity *high = get_high_entity(game_state, low->high_index);
+        if (high) {
+            entity.high_index = low->high_index;
+            entity.high = high;
+        }
     }
 
     return entity;
@@ -308,13 +317,19 @@ Entity get_entity(GameState *game_state, LowEntityIndex index) {
 
 INTERNAL_FUNCTION
 Entity get_entity(GameState *game_state, HighEntityIndex index) {
+    HighEntity *high = get_high_entity(game_state, index);
+
     Entity entity {};
 
-    ASSERT(index < ARRAY_COUNT(game_state->high_entities));
+    if (high) {
+        entity.high_index = index;
+        entity.high = high;
 
-    entity.high = get_high_entity(game_state, index);
-    if (entity.high) {
-        entity.low = get_low_entity(game_state, entity.high->low_index);
+        LowEntity *low = get_low_entity(game_state, high->low_index);
+        ASSERT(low);
+
+        entity.low_index = high->low_index;
+        entity.low = low;
     }
 
     return entity;
@@ -322,7 +337,7 @@ Entity get_entity(GameState *game_state, HighEntityIndex index) {
 
 
 INTERNAL_FUNCTION
-LowEntityIndex add_player(GameState *game_state) {
+Entity add_player(GameState *game_state) {
     WorldPosition position {};
     LowEntityIndex index = add_low_entity(game_state, position);
 
@@ -333,9 +348,35 @@ LowEntityIndex add_player(GameState *game_state) {
     entity.low->collidable = true;
     entity.low->hitbox = math::v2 { 0.5f, 0.4f }; // In top-down coordinates, but in meters.
 
+    entity.low->health_max = 3;
+    entity.low->health = 3;
+
     make_entity_high_frequency(game_state, index);
 
-    return index;
+    return entity;
+}
+
+
+INTERNAL_FUNCTION
+Entity add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, V2 p) {
+    WorldPosition position {};
+    position.chunk_x = chunk_x;
+    position.chunk_y = chunk_y;
+    position.chunk_z = chunk_z;
+    position.relative_position_in_chunk = p;
+
+    LowEntityIndex index = add_low_entity(game_state, position);
+
+    Entity entity = get_entity(game_state, index);
+    entity.low->type = ENTITY_TYPE_FAMILIAR;
+    entity.low->world_position = position;
+    // @todo: fix coordinates for hitbox
+    entity.low->collidable = false;
+
+    HighEntity *high = make_entity_high_frequency(game_state, index);
+    high->position.z = 2.0f;
+
+    return entity;
 }
 
 
@@ -507,6 +548,38 @@ void move_entity(GameState *game_state, HighEntityIndex entity_index, math::v3 a
 }
 
 
+void update_familiar(GameState *game_state, Entity entity, f32 dt) {
+    Entity closest_player {};
+    f32 closest_distance_squared = math::square(5.0f); // @note: maximum following distance
+
+    for (HighEntityIndex index { 1 }; index < game_state->high_entity_count; index++) {
+        Entity test_entity = get_entity(game_state, index);
+
+        if (test_entity.low->type == ENTITY_TYPE_PLAYER) {
+            f32 distance_squared = (test_entity.high->position - entity.high->position).length_2();
+            if (distance_squared < closest_distance_squared) {
+                closest_distance_squared = distance_squared;
+                closest_player = test_entity;
+            }
+        }
+    }
+
+    if (closest_player.high && closest_distance_squared > 2.0f) {
+        f32 speed = 5;
+        math::v3 nn_direction = (closest_player.high->position - entity.high->position);
+        math::v3 friction = -2.0f * entity.high->velocity;
+        math::v3 acceleration = speed * nn_direction / math::sqrt(closest_distance_squared) + friction + gravity;
+
+        move_entity(game_state, entity.high_index, acceleration, dt);
+    }
+}
+
+
+void update_monster(GameState *game_state, Entity entity, f32 dt) {
+
+}
+
+
 INTERNAL_FUNCTION
 void set_camera_position(GameState *game_state, WorldPosition new_camera_position) {
     auto *world = game_state->world;
@@ -555,7 +628,7 @@ void set_camera_position(GameState *game_state, WorldPosition new_camera_positio
                     for (uint32 i = 0; i < block->entity_count; i++) {
                         LowEntityIndex entity_index = block->entities[i];
 
-                        LowFrequencyEntity *entity_low = get_low_entity(game_state, entity_index);
+                        LowEntity *entity_low = get_low_entity(game_state, entity_index);
                         if (entity_low->high_index == 0) {
                             auto camera_space_position = get_camera_space_position(game_state, entity_low);
                             if (in_rectangle(high_zone_in_meters, camera_space_position)) {
@@ -602,20 +675,20 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_state->test_wav_file = load_wav_file("piano2.wav");
         game_state->test_current_sound_cursor = 0;
 
-        game_state->grass_texture = load_sprite_asset("grass_texture.png", math::v2::zero());
-        // game_state->wall_texture  = load_sprite_asset("tile_60x60.bmp")
+        game_state->grass_texture       = load_png_file("grass_texture.png");
+        game_state->tree_texture        = load_png_file("tree_60x100.png");
+        game_state->heart_full_texture  = load_png_file("heart_full.png");
+        game_state->heart_empty_texture = load_png_file("heart_empty.png");
+        game_state->monster_head        = load_png_file("monster_head.png");
+        game_state->monster_left_arm    = load_png_file("monster_left_arm.png");
+        game_state->monster_right_arm   = load_png_file("monster_right_arm.png");
+        game_state->familiar_texture    = load_png_file("familiar.png");
+        game_state->shadow_texture      = load_png_file("shadow.png");
 
-        game_state->tree_texture        = load_sprite_asset("tree_60x100.png", make_v2(0.5, 0.9));
-        game_state->heart_full_texture  = load_sprite_asset("heart_full.png", make_v2(0.5, 0.5));
-        game_state->heart_empty_texture = load_sprite_asset("heart_empty.png", make_v2(0.5, 0.5));
-        game_state->monster_head        = load_sprite_asset("monster_head.png", make_v2(0.5, 0.45));
-        game_state->monster_left_arm    = load_sprite_asset("monster_left_arm.png", make_v2(0.5, 0.6));
-        game_state->monster_right_arm   = load_sprite_asset("monster_right_arm.png", make_v2(0.5, 0.6));
-
-        game_state->player_textures[0] = load_sprite_asset("character_1.png", make_v2(0.5, 1));
-        game_state->player_textures[1] = load_sprite_asset("character_2.png", make_v2(0.5, 1));
-        game_state->player_textures[2] = load_sprite_asset("character_3.png", make_v2(0.5, 1));
-        game_state->player_textures[3] = load_sprite_asset("character_4.png", make_v2(0.5, 1));
+        game_state->player_textures[0]  = load_png_file("character_1.png");
+        game_state->player_textures[1]  = load_png_file("character_2.png");
+        game_state->player_textures[2]  = load_png_file("character_3.png");
+        game_state->player_textures[3]  = load_png_file("character_4.png");
 
         MemoryArena *arena = &game_state->world_arena;
 
@@ -756,7 +829,11 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // camera_position.relative_position_in_chunk = v2{ (f32)room_width_in_tiles, (f32)room_height_in_tiles } * world->tile_side_in_meters * 0.5f;
 
         // @note: Add a monster BEFORE calling set camera position so it could be brought to the high entity set before player appearing on the screen.
-        add_monster(game_state, 0, 0, 0, make_v2(1, 1));
+        add_monster(game_state, 0, 0, 0, make_v2(2, 1));
+        for (int i = 0; i < 1; i++) {
+            f32 x = -5.0f + i * 1.0f;
+            add_familiar(game_state, 0, 0, 0, make_v2(x, 1));
+        }
 
         set_camera_position(game_state, camera_position);
 
@@ -769,7 +846,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     f32 character_speed = 2.5f; // [m/s]
     f32 character_mass = 80.0f; // [kg]
-    v3 gravity = { 0.0f, 0.0f, -9.8f }; // [m/s^2]
 
     f32 friction_coefficient = 1.5f;
 
@@ -777,16 +853,15 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         Game_ControllerInput* ControllerInput = GetControllerInput(Input, ControllerIndex);
 
         LowEntityIndex low_entity_index = game_state->player_index_for_controller[ControllerIndex.index];
-        Entity entity = get_entity(game_state, low_entity_index);
+        Entity player = get_entity(game_state, low_entity_index);
 
-        if (entity.low == NULL && entity.high == NULL) {
+        if (player.low == NULL && player.high == NULL) {
             if (GetPressCount(ControllerInput->Start)) {
-                LowEntityIndex player_index = add_player(game_state);
-                entity = get_entity(game_state, player_index);
+                player = add_player(game_state);
 
                 if (game_state->player_index_for_controller[ControllerIndex.index] == 0) {
-                    game_state->player_index_for_controller[ControllerIndex.index] = player_index;
-                    game_state->index_of_entity_for_camera_to_follow = player_index;
+                    game_state->player_index_for_controller[ControllerIndex.index] = player.low_index;
+                    game_state->index_of_entity_for_camera_to_follow = player.low_index;
                     game_state->index_of_controller_for_camera_to_follow = { ControllerIndex.index };
                 }
             } else {
@@ -805,39 +880,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
 
         if (GetPressCount(ControllerInput->X)) {
-            WorldPosition *pos = &entity.low->world_position;
-            // Tile tile_value = GetTileValue(world, pos->absolute_tile_x, pos->absolute_tile_y, pos->chunk_z);
-
-            // if (tile_value == TILE_DOOR_UP) {
-            //     WorldPosition move_up_position = *pos;
-            //     move_up_position.chunk_z += 1;
-
-            //     // bool up_tile_empty = IsWorldPointEmpty(world, move_up_position);
-            //     if (up_tile_empty) {
-            //         pos->chunk_z += 1;
-            //         Entity followed_entity = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
-            //         game_state->camera_position.chunk_z = followed_entity.low->world_position.chunk_z;
-            //         osOutputDebugString("Entity %d go upstairs\n", low_entity_index.index);
-            //     }
-            // }
-
-            // if (tile_value == TILE_DOOR_DOWN) {
-            //     WorldPosition move_down_position = *pos;
-            //     move_down_position.chunk_z -= 1;
-
-            //     // bool down_tile_empty = IsWorldPointEmpty(world, move_down_position);
-            //     if (down_tile_empty) {
-            //         pos->chunk_z -= 1;
-            //         Entity followed_entity = get_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
-            //         game_state->camera_position.chunk_z = followed_entity.low->world_position.chunk_z;
-            //         osOutputDebugString("Entity %d go downstairs\n", low_entity_index.index);
-            //     }
-            // }
+            WorldPosition *pos = &player.low->world_position;
         }
 
         // ================= MOVEMENT SIMULATION ====================== //
 
-        if (entity.high == NULL) {
+        if (player.high == NULL) {
             // @todo: Handle multiple simulation regions for cooperative multiplayer.
             // @todo: Network cooperative multiplayer?
             continue;
@@ -855,38 +903,40 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         math::v3 friction_acceleration {};
 
         // @note: accelerate the guy only if he's standing on the ground.
-        if (entity.high->position.z < EPSILON) {
+        // if (player.high->position.z < EPSILON)
+        {
             acceleration.xy = acceleration_coefficient * input_strength * input_direction;
 
             // [m/s^2] = [m/s] * [units] * [m/s^2]
             // @todo: why units do not add up?
-            friction_acceleration.xy = (entity.high->velocity.xy) * friction_coefficient * gravity.z;
+            // @note: N = nu * g []
+            friction_acceleration.xy = (player.high->velocity.xy) * friction_coefficient * gravity.z;
         }
 
         // @note: gravity works always, no matter where we are.
         acceleration += gravity; // [m/s^2] of gravity
 
-        if (GetHoldsCount(ControllerInput->A) > 0 && entity.high->position.z < EPSILON) {
+        if (GetPressCount(ControllerInput->A) > 0)
+        {
             acceleration.z += 100.0f;
         }
 
-        HighEntityIndex high_entity_index = entity.low->high_index;
-        // ASSERT(high_entity_index > 0);
+        HighEntityIndex high_entity_index = player.low->high_index;
 
         move_entity(game_state, high_entity_index, acceleration + friction_acceleration, dt);
 
         if (input_direction.length_2() > 0) {
             if (math::absolute(input_direction.x) > math::absolute(input_direction.y)) {
                 if (input_direction.x > 0) {
-                    entity.high->face_direction = FACE_DIRECTION_RIGHT;
+                    player.high->face_direction = FACE_DIRECTION_RIGHT;
                 } else {
-                    entity.high->face_direction = FACE_DIRECTION_LEFT;
+                    player.high->face_direction = FACE_DIRECTION_LEFT;
                 }
             } else {
                 if (input_direction.y > 0) {
-                    entity.high->face_direction = FACE_DIRECTION_UP;
+                    player.high->face_direction = FACE_DIRECTION_UP;
                 } else {
-                    entity.high->face_direction = FACE_DIRECTION_DOWN;
+                    player.high->face_direction = FACE_DIRECTION_DOWN;
                 }
             }
         }
@@ -947,59 +997,90 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             }
 
             if (entity.low->type == ENTITY_TYPE_PLAYER) {
-                asset_group.assets[asset_group.count++] = game_state->player_textures[entity.high->face_direction];
+                auto *shadow_texture = &game_state->shadow_texture;
+                push_asset(&asset_group, shadow_texture, make_v2(0.5f * shadow_texture->width, 0.8f * shadow_texture->height), 0, 1.0f / (1.0f + entity.high->position.z));
 
+                auto *player_texture = &game_state->player_textures[entity.high->face_direction];
+                push_asset(&asset_group, player_texture,
+                    make_v2(0.5f * player_texture->width, 1.0f * player_texture->height), entity.high->position.z * pixels_per_meter);
 
-                game_state->player_max_health = 3;
-                game_state->player_health = 2;
+                f32 offset_x = 8 + 20; // pixels
+                f32 offset_y = 8;
+                f32 offset_z = player_texture->height + 10.f;
 
-                for (int32 health_index = 0; health_index < game_state->player_max_health; health_index++){
-                    u32 idx = asset_group.count++;
-
-                    if (health_index + 1 > game_state->player_health) {
-                        asset_group.assets[idx] = game_state->heart_empty_texture;
+                for (int32 health_index = 0; health_index < entity.low->health_max; health_index++){
+                    if (health_index + 1 > entity.low->health) {
+                        push_asset(&asset_group, &game_state->heart_empty_texture, make_v2(offset_x, offset_y), offset_z);
                     } else {
-                        asset_group.assets[idx] = game_state->heart_full_texture;
+                        push_asset(&asset_group, &game_state->heart_full_texture, make_v2(offset_x, offset_y), offset_z);
                     }
 
-                    asset_group.assets[idx].offset.x -= (health_index - 1) * 20.f;
-                    asset_group.assets[idx].offset_z = game_state->player_textures[0].bitmap.height + 10.f;
+                    offset_x -= 20.0f;
                 }
 
-            } else if (entity.low->type == ENTITY_TYPE_WALL) {
-                asset_group.assets[asset_group.count++] = game_state->tree_texture;
-            } else if (entity.low->type == ENTITY_TYPE_MONSTER) {
-                asset_group.assets[asset_group.count++] = game_state->monster_head;
+            }
+            else if (entity.low->type == ENTITY_TYPE_FAMILIAR)
+            {
+                update_familiar(game_state, entity, dt);
 
-                asset_group.assets[asset_group.count++] = game_state->monster_left_arm;
-                asset_group.assets[asset_group.count++] = game_state->monster_right_arm;
-            } else {
-                INVALID_CODE_PATH;
+                entity.high->tBob += dt;
+                if (entity.high->tBob > 2 * math::pi) {
+                    entity.high->tBob -= 2 * math::pi;
+                }
+
+                f32 a = 6.0f;
+                f32 h = a * math::sin(2.0f * entity.high->tBob);
+
+                auto *shadow = &game_state->shadow_texture;
+                push_asset(&asset_group, shadow, make_v2(30.0f, 50.0f), 0, 1.0f / (2.0f + a + h));
+
+                auto *texture = &game_state->familiar_texture;
+                push_asset(&asset_group, texture, make_v2(30.0f, 30.0f), 50.f + 3 * h);
+
+                entity.low->hitbox = make_v2(0.5, 0.5);
+                entity.low->collidable = true;
+            }
+            else if (entity.low->type == ENTITY_TYPE_MONSTER)
+            {
+                update_monster(game_state, entity, dt);
+
+                auto *head = &game_state->monster_head;
+                auto *left_arm  = &game_state->monster_left_arm;
+                auto *right_arm = &game_state->monster_right_arm;
+
+                push_asset(&asset_group, head, make_v2(0.5 * head->width, 0.45 * head->height), 0);
+                push_asset(&asset_group, left_arm, make_v2(0.5 * left_arm->width, 0.45 * left_arm->height), 0);
+                push_asset(&asset_group, right_arm, make_v2(0.5 * right_arm->width, 0.45 * right_arm->height), 0);
+            }
+            else if (entity.low->type == ENTITY_TYPE_WALL)
+            {
+                auto *texture = &game_state->tree_texture;
+                push_asset(&asset_group, texture, make_v2(0.5 * texture->width, 0.9 * texture->height), 0);
+            }
+            else
+            {
+                INVALID_CODE_PATH();
             }
 
             v2 entity_position_in_pixels =
                 0.5f * v2{ (f32)Buffer->Width, (f32)Buffer->Height } +
                 v2{ entity.high->position.x, -entity.high->position.y } * pixels_per_meter;
 
-            v2 top_left = {
-                entity_position_in_pixels.x,
-                entity_position_in_pixels.y - entity.high->position.z * pixels_per_meter,
-            };
+            f32 x = entity_position_in_pixels.x;
+            f32 y = entity_position_in_pixels.y;
 
             // Hitbox rectangle
-            DrawRectangle(
-                Buffer,
-                entity_position_in_pixels - 0.5f * entity.low->hitbox * pixels_per_meter,
-                entity_position_in_pixels + 0.5f * entity.low->hitbox * pixels_per_meter,
-                color24{ 1.f, 1.f, 0.f });
+            // DrawRectangle(
+            //     Buffer,
+            //     entity_position_in_pixels - 0.5f * entity.low->hitbox * pixels_per_meter,
+            //     entity_position_in_pixels + 0.5f * entity.low->hitbox * pixels_per_meter,
+            //     color24{ 1.f, 1.f, 0.f });
 
             for (u32 asset_index = 0; asset_index < asset_group.count; asset_index++) {
+                auto *asset = &asset_group.assets[asset_index];
+                ASSERT(asset && asset->bitmap);
 
-                SpriteAsset *asset = &asset_group.assets[asset_index];
-
-                v2 bottom_right = top_left + make_v2(asset->bitmap.width, asset->bitmap.height);
-                v2 z = v2::ey() * asset->offset_z;
-                DrawBitmap(Buffer, top_left - asset->offset - z, bottom_right - asset->offset - z, &asset->bitmap, asset->alpha);
+                DrawBitmap(Buffer, x - asset->offset.x, y - asset->offset.y - asset->offset_z, asset->bitmap, asset->alpha);
             }
         }
     }

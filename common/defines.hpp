@@ -78,12 +78,12 @@ typedef signed long long   int64;
 #define ASSERT(COND)  if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
 #define ASSERT_MSG(COND, MSG)  if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
 #else // ASUKA_DEBUG
-#define ASSERT(COND)
-#define ASSERT_MSG(COND, MSG)
+#define ASSERT(COND)  void(0)
+#define ASSERT_MSG(COND, MSG)  void(0)
 #endif // ASUKA_DEBUG
 
 #define ASSERT_FAIL(MSG)  ASSERT_MSG(NULL, MSG)
-#define INVALID_CODE_PATH  ASSERT_FAIL("Invalid code path.")
+#define INVALID_CODE_PATH(...)  ASSERT_FAIL("Invalid code path")
 
 #define STATIC_ASSERT(COND)  static_assert(COND, "")
 #define STATIC_ASSERT_MSG(COND, MSG)  static_assert(COND, MSG)

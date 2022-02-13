@@ -29,6 +29,11 @@ inline vector2i operator - (vector2i a, vector2i b) {
     return result;
 }
 
+inline vector2i operator + (vector2i a, vector2i b) {
+    vector2i result = vector2i{ a.x + b.x, a.y + b.y};
+    return result;
+}
+
 
 struct vector2 {
     union {
@@ -294,5 +299,7 @@ math::v2 make_v2(T1 x, T2 y) {
     return result;
 }
 
+using Vector2 = math::vector2;
+using V2 = math::vector2;
 
 #endif // ASUKA_COMMON_MATH_VECTOR2_HPP

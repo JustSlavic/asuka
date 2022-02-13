@@ -213,20 +213,24 @@ enum EntityType {
 };
 
 
-struct HighFrequencyEntity;
-using HighEntityIndex = Index<HighFrequencyEntity>;
+struct HighEntity;
+using HighEntityIndex = Index<HighEntity>;
 
-struct HighFrequencyEntity {
+struct HighEntity {
     math::v3 position; // Relative to the camera
     math::v3 velocity;
     int32 chunk_z; // for moving up and down "stairs"
+
+    f32 tBob = 0.0f;
 
     FaceDirection face_direction;
 
     LowEntityIndex low_index;
 };
 
-struct LowFrequencyEntity {
+
+
+struct LowEntity {
     EntityType type;
     WorldPosition world_position;
     // @note: for "stairs"
@@ -235,43 +239,44 @@ struct LowFrequencyEntity {
     math::v2 hitbox;
     bool32 collidable;
 
+    int32 health_max;
+    int32 health;
+
     HighEntityIndex high_index;
 };
 
 struct Entity {
-    HighFrequencyEntity *high;
-    LowFrequencyEntity  *low;
+    HighEntityIndex high_index;
+    HighEntity *high;
+
+    LowEntityIndex low_index;
+    LowEntity  *low;
 };
 
 
-struct SpriteAsset {
-    // @todo: Consider storing pointer here, but then you'd have to store bitmaps in the GameState
-    // separate from the offsets, which are heeded to draw bitmaps.
-    Bitmap bitmap;
-    math::vector2 offset;
+struct Asset {
+    Bitmap *bitmap;
+    Vector2 offset;
     float32 offset_z; // for floating stuff
     float32 alpha;
 };
 
 
-INLINE
-SpriteAsset load_sprite_asset(char const* filename, math::v2 base) {
-    auto bitmap = load_png_file(filename);
-
-    SpriteAsset result {};
-    result.bitmap = bitmap;
-    result.offset = make_v2(base.x * bitmap.width, base.y * bitmap.height);
-    result.offset_z = 0;
-    result.alpha = 1.0f;
-
-    return result;
-}
-
-
 struct AssetGroup {
     u32 count;
-    SpriteAsset assets[8];
+    Asset assets[8];
 };
+
+
+void push_asset(AssetGroup *group, Bitmap *bitmap, math::vector2 offset, f32 offset_z, f32 alpha = 1.0f) {
+    ASSERT(group->count < ARRAY_COUNT(group->assets));
+
+    Asset *asset = group->assets + (group->count++);
+    asset->bitmap = bitmap;
+    asset->offset = offset;
+    asset->offset_z = offset_z;
+    asset->alpha = alpha;
+}
 
 
 struct GameState {
@@ -279,10 +284,10 @@ struct GameState {
 
     // @note: 0-th entity is invalid in both arrays (high entities and low entities) and should not be used (it indicates wrong index).
     uint32 low_entity_count;
-    LowFrequencyEntity low_entities[10000];
+    LowEntity low_entities[10000];
 
     uint32 high_entity_count;
-    HighFrequencyEntity high_entities[256];
+    HighEntity high_entities[256];
 
     LowEntityIndex player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
     LowEntityIndex index_of_entity_for_camera_to_follow;
@@ -294,19 +299,19 @@ struct GameState {
 
     wav_file_contents test_wav_file;
 
-    SpriteAsset wall_texture;
-    SpriteAsset tree_texture;
-    SpriteAsset grass_texture;
-    SpriteAsset heart_full_texture;
-    SpriteAsset heart_empty_texture;
+    Bitmap wall_texture;
+    Bitmap tree_texture;
+    Bitmap grass_texture;
+    Bitmap heart_full_texture;
+    Bitmap heart_empty_texture;
+    Bitmap familiar_texture;
+    Bitmap shadow_texture;
 
-    SpriteAsset monster_head;
-    SpriteAsset monster_left_arm;
-    SpriteAsset monster_right_arm;
+    Bitmap monster_head;
+    Bitmap monster_left_arm;
+    Bitmap monster_right_arm;
 
-    SpriteAsset player_textures[4];
-    int32 player_health;
-    int32 player_max_health;
+    Bitmap player_textures[4];
 
     uint32 test_current_sound_cursor;
 };

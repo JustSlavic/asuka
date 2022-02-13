@@ -4,6 +4,7 @@
 #include <os/file.hpp>
 
 #include "parser_http.hpp"
+#include "user_controllers.hpp"
 
 #include <windows.h>
 
@@ -268,8 +269,10 @@ int main() {
                                 http::Request request = http::parse_request(request_data);
                                 if (request.method == http::HTTP_REQUEST_GET) {
                                     if (equals_to_cstr(request.path, "/favicon.ico")) {
+                                        auto response = serve_favicon(request);
+                                        string bytes = serialize_response(response);
 
-                                        char favicon_header[] =
+                                        static const char favicon_header[] =
                                             "HTTP/1.1 200 OK\n"
                                             "Content-Length: 1150\n"
                                             "Content-Type: image/x-icon\n"
@@ -278,7 +281,8 @@ int main() {
 
                                         int32 sent_bytes = send(client_socket, favicon_header, sizeof(favicon_header) - 1, 0);
                                         if (sent_bytes != SOCKET_ERROR) {
-                                            sent_bytes = send(client_socket, (const char *)favicon_data.data, (int)favicon_data.size, 0);
+                                            sent_bytes = send(client_socket, (const char *)bytes.data, (int)bytes.size, 0);
+
                                             if (sent_bytes != SOCKET_ERROR) {
                                                 printf("Favicon successfully sent!\n");
                                             } else {

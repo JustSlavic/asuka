@@ -22,8 +22,11 @@ void initialize_arena(MemoryArena *arena, void* memory, usize size) {
 }
 
 
-#define push_struct(ARENA, TYPE) (TYPE*)push_memory(ARENA, sizeof(TYPE))
-#define push_array(ARENA, TYPE, SIZE) (TYPE*)push_memory(ARENA, sizeof(TYPE)*SIZE)
+#define allocate_struct(ARENA, TYPE) (TYPE*)push_memory(ARENA, sizeof(TYPE))
+#define allocate_array(ARENA, TYPE, SIZE) (TYPE*)push_memory(ARENA, sizeof(TYPE)*SIZE)
+
+#define push_struct(ARENA, TYPE) allocate_struct(ARENA, TYPE)
+#define push_array(ARENA, TYPE, SIZE) allocate_array(ARENA, TYPE, SIZE)
 
 INLINE
 void* push_memory(MemoryArena *arena, usize size) {

@@ -35,15 +35,15 @@ contexts:
       scope: asuka.preprocessor.head
       push: preprocessor
 
-    - match: 'struct'
+    - match: '\bstruct\b'
       scope: asuka.keyword.struct
       push: struct
 
-    - match: 'enum'
+    - match: '\benum\b'
       scope: asuka.keyword.enum
       push: enum
 
-    - match: 'namespace'
+    - match: '\bnamespace\b'
       scope: asuka.keyword.namespace
       push: namespace
 
@@ -237,10 +237,10 @@ contexts:
       scope: asuka.constant.numeric
     - match: 'NULL'
       scope: asuka.constant
-    - match: 'struct'
+    - match: '\bstruct\b'
       scope: asuka.keyword.struct
       push: struct
-    - match: 'enum'
+    - match: '\benum\b'
       scope: asuka.keyword.enum
       push: enum
     - match: '[\-=+<&!\|\*>%/]'

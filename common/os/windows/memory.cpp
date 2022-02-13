@@ -1,5 +1,7 @@
 #include "memory.hpp"
 
+#include <windows.h>
+
 namespace memory {
 namespace internal {
 

@@ -1,6 +1,7 @@
 #ifndef ASUKA_COMMON_STRING_HPP
 #define ASUKA_COMMON_STRING_HPP
 
+#include <defines.hpp>
 
 //
 // @note: String acts like string_view (copyable, shares data between instances).

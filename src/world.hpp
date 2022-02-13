@@ -16,8 +16,8 @@ enum Tile {
 };
 
 
-struct LowFrequencyEntity;
-using LowEntityIndex = Index<LowFrequencyEntity>;
+struct LowEntity;
+using LowEntityIndex = Index<LowEntity>;
 
 
 struct EntityBlock {

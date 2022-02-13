@@ -1,6 +1,6 @@
 @echo off
 
-SET COMMON_CL_FLAGS=/std:c++17 /MTd /nologo /GR- /Oi /Zi /EHa- /W4 /WX /wd4201 /wd4100 /wd4189 /wd4505
+SET COMMON_CL_FLAGS=/std:c++17 /MTd /nologo /GR- /Oi /Zi /EHa- /W4 /WX /wd4201 /wd4100 /wd4189 /wd4505 /wd4702
 SET COMMON_LINKER_FLAGS=/opt:ref
 SET COMMON_MY_FLAGS=/DUNITY_BUILD=1 /DASUKA_DEBUG=1 /DASUKA_OS_WINDOWS=1 /DLITTLE_ENDIAN=1 /I../common /I../src /D_CRT_SECURE_NO_WARNINGS
 SET COMMON_LIBS=User32.lib Xinput.lib Gdi32.lib Winmm.lib
@@ -26,6 +26,8 @@ echo WAITING FOR PDB > lock.tmp
 cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DLL_BUILD /Feasuka ../src/asuka.cpp /LD /link /PDB:%PDB_FILENAME% %COMMON_LINKER_FLAGS%
 del lock.tmp
 cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DLL_BUILD /Femain /Fmwin32_main.map ../src/win32_main.cpp /link %COMMON_LINKER_FLAGS% %COMMON_LIBS%
+
+rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /DUNITY_BUILD=1 /DASUKA_OS_WINDOWS=1 /DLITTLE_ENDIAN=1 /D_CRT_SECURE_NO_WARNINGS /I../common /Ferei ../rei/main.cpp          /link
 
 rem cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /Feclient  ../web/client.cpp          /link Ws2_32.lib
 rem cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /Feserver  ../web/server.cpp          /link Ws2_32.lib

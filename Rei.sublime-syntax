@@ -1,0 +1,55 @@
+%YAML 1.2
+---
+name: Rei
+file_extensions:
+  - rei
+scope: rei
+contexts:
+  main:
+    # Comments begin with a '//' and finish at the end of the line
+    - match: '//'
+      scope: asuka.comment
+      push: line_comment
+
+    - match: '\/\*'
+      scope: asuka.comment
+      push: multiline_comment
+
+  string:
+    - meta_scope: asuka.string
+    - match: '\\.'
+      scope: asuka.constant.character.escape
+    - match: '"'
+      scope: asuka.string.end
+      pop: true
+
+  character:
+    - meta_scope: asuka.string
+    - match: '\\.'
+      scope: asuka.constant.character.escape
+    - match: ''''
+      scope: asuka.string.end
+      pop: true
+
+
+  line_comment:
+    - meta_scope: comment.line.example-c
+    - match: '@todo:?'
+      scope: asuka.todo
+    - match: '@note:?'
+      scope: asuka.note
+    - match: '@nocommit\b'
+      scope: asuka.nocommit
+    - match: $
+      pop: true
+
+  multiline_comment:
+    - meta_scope: asuka.comment
+    - match: '@todo:?'
+      scope: asuka.todo
+    - match: '@note:?'
+      scope: asuka.note
+    - match: '@nocommit\b'
+      scope: asuka.nocommit
+    - match: '\*\/'
+      pop: true

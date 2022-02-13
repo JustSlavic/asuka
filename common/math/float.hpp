@@ -165,6 +165,12 @@ inline float32 smoothstep(float32 x) {
     return result;
 }
 
+inline float32 sin(float32 x) {
+    float32 result = sinf(x);
+    return result;
+}
+
+
 } // namespace math
 
 #ifdef UNITY_BUILD
