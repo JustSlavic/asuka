@@ -157,6 +157,7 @@ typedef int16 sound_sample_t;
 typedef uint64 hash_t;
 
 typedef int32  bool32;
+typedef int32  b32;
 typedef size_t usize;
 typedef uint64 uintptr;
 typedef int64  intptr;
@@ -173,8 +174,9 @@ typedef uint32 u32;
 typedef uint64 u64;
 
 typedef float  float32;
-typedef float  f32;
 typedef double float64;
+
+typedef float  f32;
 typedef double f64;
 
 #define loop while(true)

@@ -22,6 +22,7 @@ bool is_digit(char c) { return c >= '0' && c <= '9'; }
 bool is_valid_identifier_head(char c) { return c == '_' || is_alpha(c); }
 bool is_valid_identifier_body(char c) { return c == '_' || is_alpha(c) || is_digit(c) || c == '\''; }
 
+using namespace asuka;
 
 INLINE
 TokenType get_identifier_type(string id) {
@@ -48,10 +49,10 @@ struct Lexer {
 };
 
 
-uint8 *get_char_pointer(Lexer *lexer) {
+char *get_char_pointer(Lexer *lexer) {
     ASSERT(lexer->index < lexer->buffer.size);
 
-    uint8 *result = lexer->buffer.data + lexer->index;
+    char *result = lexer->buffer.data + lexer->index;
     return result;
 }
 
@@ -167,7 +168,7 @@ Token get_token(Lexer *lexer) {
             t.line = lexer->line;
             t.column = lexer->column;
 
-            auto eq_cstr = [](uint8 *s1, const char *s2) -> bool32 {
+            auto eq_cstr = [](char *s1, const char *s2) -> bool32 {
                 while (*s1 && *s2) {
                     if (*s1 != *s2) return false;
                     s1 += 1;
@@ -180,7 +181,7 @@ Token get_token(Lexer *lexer) {
             // Compute the string where you'd store operator
             // string op = consume_operator(lexer, allowed, allowed_count);
 
-            uint8 *op_pointer = get_char_pointer(lexer);
+            char *op_pointer = get_char_pointer(lexer);
             if (eq_cstr(op_pointer, "::")) {
                 t.type = TOKEN_DOUBLE_COLON;
                 t.span.data = op_pointer;
@@ -239,7 +240,7 @@ void print_token(Token t) {
 
 struct Parser {
     Lexer lexer;
-    MemoryArena arena;
+    MemoryArena *arena;
 
     // List<Ast_FunctionDeclaration *> declared_functions;
     // List<Ast_OperatorDeclaration *> declared_operators;
@@ -267,7 +268,7 @@ AST__literal *Parser::parse_literal() {
         (t.type == TOKEN_STRING_LITERAL))
     {
         eat_token(&lexer);
-        AST__literal *literal = push_struct(&arena, AST__literal);
+        AST__literal *literal = push_struct(arena, AST__literal);
 
         literal->value = t;
         return literal;
@@ -339,6 +340,8 @@ AST__literal *Parser::parse_literal() {
 AST__expression *Parser::parse_expression_operand() {
     Lexer saved = lexer;
 
+    AST__expression *result = NULL;
+
     // AST__expression *function_call = parse_function_call();
     // if (function_call) {
     //     return function_call;
@@ -348,8 +351,8 @@ AST__expression *Parser::parse_expression_operand() {
 
     AST__literal *literal = parse_literal();
     if (literal) {
-        AST__expression *result = allocate_struct(&arena, AST__expression);
-        result->type = AST_EXPRESSION_LITERAL;
+        result = allocate_struct(arena, AST__expression);
+        result->tag = AST_EXPRESSION_LITERAL;
         result->literal = literal;
         return result;
     }
@@ -357,17 +360,19 @@ AST__expression *Parser::parse_expression_operand() {
     lexer = saved; // Restore lexer state to another try
 
     Token variable = get_token(&lexer);
-    if (variable.type != TOKEN_IDENTIFIER) {
-        return nullptr;
+    if (variable.type == TOKEN_IDENTIFIER) {
+        eat_token(&lexer);
+        AST__variable *var = allocate_struct(arena, AST__variable);
+        var->name = variable.span;
+
+        result = allocate_struct(arena, AST__expression);
+        result->tag = AST_EXPRESSION_VARIABLE;
+        result->variable = var;
+
+        return result;
     }
 
-    // eat_token(&lexer);
-    // Ast_Variable *p_variable = push_struct(&arena, Ast_Variable);
-    // p_variable->tag = AST_VARIABLE;
-    // p_variable->value = variable;
-
-    // return (AST__expression *) p_variable;
-    return nullptr;
+    return result;
 }
 
 
@@ -426,7 +431,7 @@ AST__expression *Parser::parse_expression(int precedence) {
     }
 
     // @todo: move this push into parse_expression_operand function
-    // Ast_Literal *p_left_operand = push_struct(&arena, Ast_Literal);
+    // Ast_Literal *p_left_operand = push_struct(arena, Ast_Literal);
     // p_left_operand->tag = AST_LITERAL; // Or function call or variable? Do I need to know what kind of literal is this?
 
     // AST__expression *left_expr = (AST__expression *) p_left_operand;
@@ -447,13 +452,13 @@ AST__expression *Parser::parse_expression(int precedence) {
             return nullptr;
         }
 
-        AST__operator_call *operator_call = allocate_struct(&arena, AST__operator_call);
+        AST__operator_call *operator_call = allocate_struct(arena, AST__operator_call);
         operator_call->left_operand = left_expr;
         operator_call->right_operand = right_expr;
         operator_call->op = op;
 
-        AST__expression *result = allocate_struct(&arena, AST__expression);
-        result->type = AST_EXPRESSION_OPERATOR_CALL;
+        AST__expression *result = allocate_struct(arena, AST__expression);
+        result->tag = AST_EXPRESSION_OPERATOR_CALL;
         result->operator_call = operator_call;
 
         left_expr = result;
@@ -470,7 +475,7 @@ AST__type *Parser::parse_type() {
         return nullptr;
     }
 
-    AST__type *type = allocate_struct(&arena, AST__type);
+    AST__type *type = allocate_struct(arena, AST__type);
     type->name = type_name.span;
     return type;
 }
@@ -516,7 +521,7 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
             }
         }
 
-        AST__variable_declaration *declaration = allocate_struct(&arena, AST__variable_declaration);
+        AST__variable_declaration *declaration = allocate_struct(arena, AST__variable_declaration);
         declaration->name = name.span;
         declaration->type = type;
         declaration->initialization = initialization;
@@ -539,7 +544,7 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
             return nullptr;
         }
 
-        AST__variable_declaration *declaration = allocate_struct(&arena, AST__variable_declaration);
+        AST__variable_declaration *declaration = allocate_struct(arena, AST__variable_declaration);
         declaration->name = name.span;
         declaration->type = NULL; // @note: Type will be deduced later.
         declaration->initialization = expression;
@@ -562,7 +567,7 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
 //             return false;
 //         }
 
-//         Ast_SequenceEntry *entry = push_struct(&arena, Ast_SequenceEntry);
+//         Ast_SequenceEntry *entry = push_struct(arena, Ast_SequenceEntry);
 //         entry->value = (Ast *) declaration;
 
 //         if (head == nullptr && tail == nullptr) {
@@ -587,7 +592,7 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
 //             break; // Trailing comma
 //         }
 
-//         Ast_SequenceEntry *entry = push_struct(&arena, Ast_SequenceEntry);
+//         Ast_SequenceEntry *entry = push_struct(arena, Ast_SequenceEntry);
 //         entry->value = (Ast *) declaration;
 
 //         if (head == nullptr && tail == nullptr) {
@@ -614,7 +619,7 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
 //         return false;
 //     }
 
-//     auto return_statement = push_struct(&arena, Ast_ReturnStatement);
+//     auto return_statement = push_struct(arena, Ast_ReturnStatement);
 //     return_statement->tag = AST_RETURN_STATEMENT;
 //     return_statement->return_expression = p_expr;
 
@@ -638,7 +643,7 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
 //                 return false;
 //             }
 
-//             Ast_SequenceEntry *entry = push_struct(&arena, Ast_SequenceEntry);
+//             Ast_SequenceEntry *entry = push_struct(arena, Ast_SequenceEntry);
 //             entry->value = (Ast *) return_statement;
 
 //             if (head == nullptr && tail == nullptr) {
@@ -662,7 +667,7 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
 //                 return false;
 //             }
 
-//             Ast_SequenceEntry *entry = push_struct(&arena, Ast_SequenceEntry);
+//             Ast_SequenceEntry *entry = push_struct(arena, Ast_SequenceEntry);
 //             entry->value = (Ast *) declaration;
 
 //             if (head == nullptr && tail == nullptr) {
@@ -686,7 +691,7 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
 //                 return false;
 //             }
 
-//             Ast_SequenceEntry *entry = push_struct(&arena, Ast_SequenceEntry);
+//             Ast_SequenceEntry *entry = push_struct(arena, Ast_SequenceEntry);
 //             entry->value = (Ast *) p_expr;
 
 //             if (head == nullptr && tail == nullptr) {
@@ -741,28 +746,51 @@ AST__block *Parser::parse_block() {
                     }
 
                     if (expressions_head == NULL && expressions_last == NULL) {
-                        expressions_head = expressions_last = allocate_struct(&arena, List<AST__expression *>);
-                    } else if (expressions_head == NULL && expressions_last == NULL) {
-                        expressions_last->next = allocate_struct(&arena, List<AST__expression *>);
+                        expressions_head = expressions_last = allocate_struct(arena, List<AST__expression *>);
+                    } else if (expressions_head != NULL && expressions_last != NULL) {
+                        expressions_last->next = allocate_struct(arena, List<AST__expression *>);
                         expressions_last = expressions_last->next;
                     } else {
                         INVALID_CODE_PATH();
                     }
 
-                    AST__return_statement *return_statement = allocate_struct(&arena, AST__return_statement);
+                    AST__return_statement *return_statement = allocate_struct(arena, AST__return_statement);
                     return_statement->expr = return_expression;
 
-                    AST__expression *return_statement_wrapper_expression = allocate_struct(&arena, AST__expression);
-                    return_statement_wrapper_expression->type = AST_EXPRESSION_RETURN;
+                    AST__expression *return_statement_wrapper_expression = allocate_struct(arena, AST__expression);
+                    return_statement_wrapper_expression->tag = AST_EXPRESSION_RETURN;
                     return_statement_wrapper_expression->return_statement = return_statement;
 
                     expressions_last->value = return_statement_wrapper_expression;
+
+                    continue;
                 }
-                continue;
             }
 
-            AST__variable_declaration *variable_declaration = parse_variable_declaration();
-            if (variable_declaration) {
+            AST__variable_declaration *var_decl = parse_variable_declaration();
+            if (var_decl) {
+                t = eat_token(&lexer);
+                if (t.type != TOKEN_SEMICOLON) {
+                    lexer = saved;
+                    printf("Expected ';' but found %.*s", PRINT_SPAN(t.span));
+                    return NULL;
+                }
+
+                if (expressions_head == NULL && expressions_last == NULL) {
+                    expressions_head = expressions_last = allocate_struct(arena, List<AST__expression *>);
+                } else if (expressions_head != NULL && expressions_last != NULL) {
+                    expressions_last->next = allocate_struct(arena, List<AST__expression *>);
+                    expressions_last = expressions_last->next;
+                } else {
+                    INVALID_CODE_PATH();
+                }
+
+                AST__expression *expr = allocate_struct(arena, AST__expression);
+                expr->tag = AST_EXPRESSION_VARIABLE_DECLARATION;
+                expr->variable_declaration = var_decl;
+
+                expressions_last->value = expr;
+
                 continue;
             }
 
@@ -777,7 +805,7 @@ AST__block *Parser::parse_block() {
     }
 
 
-    AST__block *result = allocate_struct(&arena, AST__block);
+    AST__block *result = allocate_struct(arena, AST__block);
     result->expressions = expressions_head;
 
     return result;
@@ -816,9 +844,9 @@ AST__function_declaration *Parser::parse_function_declaration() {
             AST__variable_declaration *arg = parse_variable_declaration();
             if (arg) {
                 if (arguments_head == NULL && arguments_last == NULL) {
-                    arguments_head = arguments_last = allocate_struct(&arena, List<AST__variable_declaration *>);
+                    arguments_head = arguments_last = allocate_struct(arena, List<AST__variable_declaration *>);
                 } else if (arguments_head != NULL && arguments_last != NULL) {
-                    arguments_last->next = allocate_struct(&arena, List<AST__variable_declaration *>);
+                    arguments_last->next = allocate_struct(arena, List<AST__variable_declaration *>);
                     arguments_last = arguments_last->next;
                 } else {
                     INVALID_CODE_PATH();
@@ -862,7 +890,7 @@ AST__function_declaration *Parser::parse_function_declaration() {
         }
     }
 
-    AST__function_declaration *declaration = allocate_struct(&arena, AST__function_declaration);
+    AST__function_declaration *declaration = allocate_struct(arena, AST__function_declaration);
     declaration->name = name.span;
     declaration->argument_list = arguments_head;
     declaration->return_type = return_type;
@@ -978,7 +1006,7 @@ AST__function_declaration *Parser::parse_function_declaration() {
 //         }
 //     }
 
-//     auto declaration = push_struct(&arena, Ast_OperatorDeclaration);
+//     auto declaration = push_struct(arena, Ast_OperatorDeclaration);
 //     declaration->tag = AST_OPERATOR_DECLARATION;
 //     declaration->operator_name = op;
 //     declaration->type = OPERATOR_INFIX;

@@ -185,7 +185,7 @@ struct Token {
         f64 floating;
     };
 
-    string span;
+    asuka::string span;
 };
 
 

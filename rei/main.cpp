@@ -1,19 +1,39 @@
-// /*
+/*
 
-// GLOBAL TODO:
+   GLOBAL TODO:
 
-// - Make testing framework + write simple tests for parsing
-// - Parse function calls
-// - Parse expressions (a + b * c)
-// - Scope checking
-// - Type checking
-// - AST generation
-// - C code generation
-// - Compiling C code
-// - [optionally] Interpreter
+- Make testing framework + write simple tests for parsing
+- Parse function calls
++ Parse expressions (a + b * c)
+- Scope checking
+- Type checking
+- AST generation
+- C code generation
+- Compiling C code
+- [optionally] Interpreter
 
-// */
+Types:
+- Type parsing
+- Type representation
+- Struct type
+- Pointer type
+- Tuple type (multiplication of types)
+- Unit type (empty tuple)
+- Enum type
+- Discriminated union type (sum of types)
 
+EXPERIMENTAL:
+- Make space to be valid in name context ?
+  e.g.:
+
+        name of something := call something ();
+        why can I use this : because everything is = separated ( by=punctuation );
+
+  equivalent to:
+
+        name_of_something := call_something();
+        why_can_I_use_this : because_everything_is = separated(by=punctuation);
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,9 +41,12 @@
 #include <string.hpp>
 #include <memory_arena.hpp>
 #include "parser.hpp"
+#include "typecheck.hpp"
 
 #include "token.hpp"
 
+
+using asuka::string;
 
 string load_entire_file(char* filename) {
     string result{};
@@ -44,7 +67,7 @@ string load_entire_file(char* filename) {
             size = read_bytes;
         }
 
-        result.data = (uint8 *) memory;
+        result.data = (char *) memory;
         result.size = size;
     }
 
@@ -70,7 +93,10 @@ int main() {
 
     rei::Parser parser{};
     parser.lexer = lexer;
-    parser.arena = arena;
+    parser.arena = &arena;
+
+    rei::print_settings settings;
+    settings.indentation = 4;
 
     bool32 running = true;
 
@@ -95,7 +121,16 @@ int main() {
                 break;
             }
 
-            rei::print_ast(global_var_decl);
+            rei::AST__expression expr;
+            expr.tag = rei::AST_EXPRESSION_VARIABLE_DECLARATION;
+            expr.variable_declaration = global_var_decl;
+
+            bool32 ok = rei::check_types(&arena, &expr);
+            printf("Types are %sOK!\n", ok ? "" : "not ");
+
+            rei::print_ast(global_var_decl, settings);
+            printf("\n");
+
             continue;
         }
 
@@ -103,7 +138,15 @@ int main() {
 
         rei::AST__function_declaration *function_declaration = parser.parse_function_declaration();
         if (function_declaration) {
-            rei::print_ast(function_declaration);
+            rei::AST__expression expr;
+            expr.tag = rei::AST_EXPRESSION_FUNCTION_DECLARATION;
+            expr.function_declaration = function_declaration;
+
+            bool32 ok = rei::check_types(&arena, &expr);
+            printf("Types are %sOK!\n", ok ? "" : "not ");
+
+            rei::print_ast(function_declaration, settings);
+            printf("\n");
             continue;
         }
 
@@ -130,13 +173,6 @@ int main() {
 
         running = false;
     }
-
-    // while (true) {
-    //     Token t = eat_token(&lexer);
-    //     print_token(t);
-
-    //     if (t.type == TOKEN_EOF) break;
-    // }
 
     return 0;
 }
