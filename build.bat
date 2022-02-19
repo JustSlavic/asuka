@@ -1,7 +1,7 @@
 @echo off
 
 SET COMMON_CL_FLAGS=/std:c++17 /MTd /nologo /GR- /Oi /Zi /EHa- /W4 /WX /wd4201 /wd4100 /wd4189 /wd4505 /wd4702
-SET COMMON_LINKER_FLAGS=/opt:ref
+SET COMMON_LINKER_FLAGS=/opt:ref /incremental:no
 SET COMMON_MY_FLAGS=/DUNITY_BUILD=1 /DASUKA_DEBUG=1 /DASUKA_OS_WINDOWS=1 /DLITTLE_ENDIAN=1 /I../common /I../src /D_CRT_SECURE_NO_WARNINGS
 SET COMMON_LIBS=User32.lib Xinput.lib Gdi32.lib Winmm.lib
 

@@ -11,9 +11,10 @@ Reference: http://www.libpng.org/pub/png/spec/1.2/PNG-Structure.html
 
 #include "stdlib.h"
 
+#if 1
 #define STB_IMAGE_IMPLEMENTATION
 #include <external/stb_image.h>
-
+#endif
 
 #pragma pack(push, 1)
 struct PNG_ChunkHeader {
@@ -310,9 +311,9 @@ void decode_idat_chunk(uint8 *data, usize size, Bitmap *result) {
 Bitmap load_png_file_myself(const char *filename) {
     Bitmap result {};
 
-    string contents = os::load_entire_file(filename);
+    asuka::string contents = os::load_entire_file(filename);
 
-    uint8 *data = contents.data;
+    u8 *data = (u8 *) contents.data;
 
     uint32 signature1 = *PNG_CONSUME_STRUCT(data, uint32);
     uint32 signature2 = *PNG_CONSUME_STRUCT(data, uint32);
@@ -322,7 +323,7 @@ Bitmap load_png_file_myself(const char *filename) {
 
     bool end = false;
 
-    while (data < (contents.data + contents.size)) {
+    while (data < ((u8 *)contents.data + contents.size)) {
         //
         // Chunks of PNG file follow this layout:
         //
@@ -382,7 +383,8 @@ Bitmap load_png_file_myself(const char *filename) {
 Bitmap load_png_file(const char* filename) {
     Bitmap result {};
 
-    string contents = os::load_entire_file(filename);
+#if 1
+    asuka::string contents = os::load_entire_file(filename);
     if (contents.data == NULL) {
         // @todo: handle error
         return result;
@@ -396,6 +398,7 @@ Bitmap load_png_file(const char* filename) {
     result.width = x;
     result.height = y;
     result.bytes_per_pixel = n;
+#endif
 
     return result;
 }

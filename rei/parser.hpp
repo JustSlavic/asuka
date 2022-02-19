@@ -229,38 +229,28 @@ Token eat_token(Lexer *lexer) {
 }
 
 
-void print_token(Token t) {
-    if (t.type == TOKEN_EOF) {
-        // printf("TOKEN:%d:%d{ EOF };\n", t.line, t.column);
-    } else {
-        // printf("TOKEN:%d:%d{ %.*s };\n", t.line, t.column, PRINT_SPAN(t.span));
-    }
-}
-
 
 struct Parser {
     Lexer lexer;
     MemoryArena *arena;
 
-    // List<Ast_FunctionDeclaration *> declared_functions;
-    // List<Ast_OperatorDeclaration *> declared_operators;
+    AST__scope *global_scope;
+    AST__scope *current_scope;
 
-    AST__literal *parse_literal();
+    AST__expression *parse_literal();
     // Ast_FunctionCall *parse_function_call();
     AST__expression *parse_expression(int precedence);
     AST__expression *parse_expression_operand();
+    AST__expression *parse_return_statement();
     AST__type *parse_type();
-    AST__variable_declaration *parse_variable_declaration();
-    AST__function_declaration *parse_function_declaration();
+    AST__expression *parse_variable_declaration();
+    AST__expression *parse_function_declaration();
     AST__block *parse_block();
-    // bool32 parse_argument_list(Ast_SequenceEntry **result);
-    // Ast_ReturnStatement *parse_return_statement();
-    // bool32 parse_statement_list(Ast_SequenceEntry **result);
-    // Ast_OperatorDeclaration *parse_operator_declaration();
+    AST__scope *parse_scope();
 };
 
 
-AST__literal *Parser::parse_literal() {
+AST__expression *Parser::parse_literal() {
     Token t = get_token(&lexer);
 
     if ((t.type == TOKEN_INT_LITERAL) ||
@@ -268,10 +258,11 @@ AST__literal *Parser::parse_literal() {
         (t.type == TOKEN_STRING_LITERAL))
     {
         eat_token(&lexer);
-        AST__literal *literal = push_struct(arena, AST__literal);
+        AST__expression *result = push_struct(arena, AST__expression);
+        result->tag = AST_EXPRESSION_LITERAL;
+        result->literal.value = t;
 
-        literal->value = t;
-        return literal;
+        return result;
     }
 
     return nullptr;
@@ -349,12 +340,9 @@ AST__expression *Parser::parse_expression_operand() {
 
     lexer = saved; // Restore lexer state to another try
 
-    AST__literal *literal = parse_literal();
+    AST__expression *literal = parse_literal();
     if (literal) {
-        result = allocate_struct(arena, AST__expression);
-        result->tag = AST_EXPRESSION_LITERAL;
-        result->literal = literal;
-        return result;
+        return literal;
     }
 
     lexer = saved; // Restore lexer state to another try
@@ -362,12 +350,10 @@ AST__expression *Parser::parse_expression_operand() {
     Token variable = get_token(&lexer);
     if (variable.type == TOKEN_IDENTIFIER) {
         eat_token(&lexer);
-        AST__variable *var = allocate_struct(arena, AST__variable);
-        var->name = variable.span;
 
         result = allocate_struct(arena, AST__expression);
         result->tag = AST_EXPRESSION_VARIABLE;
-        result->variable = var;
+        result->variable.name = variable.span;
 
         return result;
     }
@@ -452,16 +438,8 @@ AST__expression *Parser::parse_expression(int precedence) {
             return nullptr;
         }
 
-        AST__operator_call *operator_call = allocate_struct(arena, AST__operator_call);
-        operator_call->left_operand = left_expr;
-        operator_call->right_operand = right_expr;
-        operator_call->op = op;
-
-        AST__expression *result = allocate_struct(arena, AST__expression);
-        result->tag = AST_EXPRESSION_OPERATOR_CALL;
-        result->operator_call = operator_call;
-
-        left_expr = result;
+        auto *op_call = make_operator_call(arena, left_expr, right_expr, op);
+        left_expr = op_call;
     }
 
     return left_expr;
@@ -481,7 +459,7 @@ AST__type *Parser::parse_type() {
 }
 
 
-AST__variable_declaration *Parser::parse_variable_declaration() {
+AST__expression *Parser::parse_variable_declaration() {
 //     // x : int
 //     // x : int = 0
 //     // x : = 0
@@ -492,14 +470,14 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
 
     if (name.type != TOKEN_IDENTIFIER) {
         // @error: variable declaration should start with a name.
-        return nullptr;
+        return NULL;
     }
     eat_token(&lexer);
 
     Token colon = eat_token(&lexer);
     if (colon.type != TOKEN_COLON) {
         // @error: colon is required
-        return nullptr;
+        return NULL;
     }
 
     Lexer saved = lexer;
@@ -517,15 +495,17 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
             if (!initialization) {
                 lexer = saved;
                 // @error: after equal sign there should be expression
-                return nullptr;
+                return NULL;
             }
         }
 
-        AST__variable_declaration *declaration = allocate_struct(arena, AST__variable_declaration);
-        declaration->name = name.span;
-        declaration->type = type;
-        declaration->initialization = initialization;
+        Token semicolon = eat_token(&lexer);
+        if (semicolon.type != TOKEN_SEMICOLON) {
+            printf("Expected semicolon at the end of variable declaration!\n");
+            return NULL;
+        }
 
+        AST__expression *declaration = make_variable_declaration(arena, name.span, type, initialization);
         return declaration;
     } else {
         lexer = saved; // Restore lexer state but continue, because type is optional.
@@ -544,87 +524,33 @@ AST__variable_declaration *Parser::parse_variable_declaration() {
             return nullptr;
         }
 
-        AST__variable_declaration *declaration = allocate_struct(arena, AST__variable_declaration);
-        declaration->name = name.span;
-        declaration->type = NULL; // @note: Type will be deduced later.
-        declaration->initialization = expression;
+        Token semicolon = eat_token(&lexer);
+        if (semicolon.type != TOKEN_SEMICOLON) {
+            printf("Expected semicolon at the end of variable declaration!\n");
+            return NULL;
+        }
 
+        // @note: Type is NULL to deduce it later.
+        AST__expression *declaration = make_variable_declaration(arena, name.span, NULL, expression);
         return declaration;
     }
 }
 
 
-// bool32 Parser::parse_argument_list(Ast_SequenceEntry **result) {
-//     Ast_SequenceEntry *head = *result;
-//     Ast_SequenceEntry *tail = nullptr;
+AST__expression *Parser::parse_return_statement() {
+    Token return_keyword = eat_token(&lexer);
+    if (return_keyword.type != TOKEN_KW_RETURN) {
+        return NULL;
+    }
 
-//     {
-//         Lexer saved = lexer;
+    AST__expression *returned_expression = parse_expression(0);
+    if (!returned_expression) {
+        return NULL;
+    }
 
-//         Ast_VariableDeclaration *declaration = parse_variable_declaration();
-//         if (!declaration) {
-//             lexer = saved;
-//             return false;
-//         }
-
-//         Ast_SequenceEntry *entry = push_struct(arena, Ast_SequenceEntry);
-//         entry->value = (Ast *) declaration;
-
-//         if (head == nullptr && tail == nullptr) {
-//             head = tail = entry;
-//         } else {
-//             tail->next = entry;
-//             tail = entry;
-//         }
-//     }
-
-
-//     while (true) {
-//         Token comma = get_token(&lexer);
-//         if (comma.type == TOKEN_COMMA) {
-//             eat_token(&lexer);
-//         } else {
-//             break; // End of the list
-//         }
-
-//         Ast_VariableDeclaration *declaration = parse_variable_declaration();
-//         if (!declaration) {
-//             break; // Trailing comma
-//         }
-
-//         Ast_SequenceEntry *entry = push_struct(arena, Ast_SequenceEntry);
-//         entry->value = (Ast *) declaration;
-
-//         if (head == nullptr && tail == nullptr) {
-//             head = tail = entry;
-//         } else {
-//             tail->next = entry;
-//             tail = entry;
-//         }
-//     }
-
-//     *result = head;
-//     return true;
-// }
-
-
-// Ast_ReturnStatement *Parser::parse_return_statement() {
-//     Token return_keyword = eat_token(&lexer);
-//     if (return_keyword.type != TOKEN_KW_RETURN) {
-//         return false;
-//     }
-
-//     Ast_Expression *p_expr = parse_expression(0);
-//     if (!p_expr) {
-//         return false;
-//     }
-
-//     auto return_statement = push_struct(arena, Ast_ReturnStatement);
-//     return_statement->tag = AST_RETURN_STATEMENT;
-//     return_statement->return_expression = p_expr;
-
-//     return return_statement;
-// }
+    auto *return_statement = make_return_statement(arena, returned_expression);
+    return return_statement;
+}
 
 
 // bool32 Parser::parse_statement_list(Ast_SequenceEntry **result) {
@@ -726,77 +652,7 @@ AST__block *Parser::parse_block() {
         return false;
     }
 
-    List<AST__expression *> *expressions_head = NULL;
-    List<AST__expression *> *expressions_last = NULL;
-
-    {
-        while (true) {
-
-            Token t = get_token(&lexer);
-            if (t.type == TOKEN_KW_RETURN) {
-                eat_token(&lexer);
-
-                AST__expression *return_expression = parse_expression(0);
-                if (return_expression) {
-                    t = eat_token(&lexer);
-                    if (t.type != TOKEN_SEMICOLON) {
-                        lexer = saved;
-                        printf("Expected ';' but found %.*s", PRINT_SPAN(t.span));
-                        return NULL;
-                    }
-
-                    if (expressions_head == NULL && expressions_last == NULL) {
-                        expressions_head = expressions_last = allocate_struct(arena, List<AST__expression *>);
-                    } else if (expressions_head != NULL && expressions_last != NULL) {
-                        expressions_last->next = allocate_struct(arena, List<AST__expression *>);
-                        expressions_last = expressions_last->next;
-                    } else {
-                        INVALID_CODE_PATH();
-                    }
-
-                    AST__return_statement *return_statement = allocate_struct(arena, AST__return_statement);
-                    return_statement->expr = return_expression;
-
-                    AST__expression *return_statement_wrapper_expression = allocate_struct(arena, AST__expression);
-                    return_statement_wrapper_expression->tag = AST_EXPRESSION_RETURN;
-                    return_statement_wrapper_expression->return_statement = return_statement;
-
-                    expressions_last->value = return_statement_wrapper_expression;
-
-                    continue;
-                }
-            }
-
-            AST__variable_declaration *var_decl = parse_variable_declaration();
-            if (var_decl) {
-                t = eat_token(&lexer);
-                if (t.type != TOKEN_SEMICOLON) {
-                    lexer = saved;
-                    printf("Expected ';' but found %.*s", PRINT_SPAN(t.span));
-                    return NULL;
-                }
-
-                if (expressions_head == NULL && expressions_last == NULL) {
-                    expressions_head = expressions_last = allocate_struct(arena, List<AST__expression *>);
-                } else if (expressions_head != NULL && expressions_last != NULL) {
-                    expressions_last->next = allocate_struct(arena, List<AST__expression *>);
-                    expressions_last = expressions_last->next;
-                } else {
-                    INVALID_CODE_PATH();
-                }
-
-                AST__expression *expr = allocate_struct(arena, AST__expression);
-                expr->tag = AST_EXPRESSION_VARIABLE_DECLARATION;
-                expr->variable_declaration = var_decl;
-
-                expressions_last->value = expr;
-
-                continue;
-            }
-
-            break;
-        }
-    }
+    AST__scope *scope = parse_scope();
 
     Token close_brace = eat_token(&lexer);
     if (close_brace.type != TOKEN_CLOSE_BRACE) {
@@ -806,13 +662,13 @@ AST__block *Parser::parse_block() {
 
 
     AST__block *result = allocate_struct(arena, AST__block);
-    result->expressions = expressions_head;
+    result->scope = scope;
 
     return result;
 }
 
 
-AST__function_declaration *Parser::parse_function_declaration() {
+AST__expression *Parser::parse_function_declaration() {
     Lexer saved = lexer;
     // <identifier> :: (<argument-list>) [-> <return-type>] <block>
     Token name = eat_token(&lexer);
@@ -833,27 +689,13 @@ AST__function_declaration *Parser::parse_function_declaration() {
         return nullptr;
     }
 
-    List<AST__variable_declaration *> *arguments_head = NULL;
-    List<AST__variable_declaration *> *arguments_last = NULL;
     Token close_paren = get_token(&lexer);
     if (close_paren.type == TOKEN_CLOSE_PAREN) {
         eat_token(&lexer); // eat close paren
     } else {
         while (true) {
             saved = lexer;
-            AST__variable_declaration *arg = parse_variable_declaration();
-            if (arg) {
-                if (arguments_head == NULL && arguments_last == NULL) {
-                    arguments_head = arguments_last = allocate_struct(arena, List<AST__variable_declaration *>);
-                } else if (arguments_head != NULL && arguments_last != NULL) {
-                    arguments_last->next = allocate_struct(arena, List<AST__variable_declaration *>);
-                    arguments_last = arguments_last->next;
-                } else {
-                    INVALID_CODE_PATH();
-                }
-
-                arguments_last->value = arg;
-            }
+            AST__expression *arg = parse_variable_declaration();
         }
 
         close_paren = eat_token(&lexer);
@@ -890,12 +732,7 @@ AST__function_declaration *Parser::parse_function_declaration() {
         }
     }
 
-    AST__function_declaration *declaration = allocate_struct(arena, AST__function_declaration);
-    declaration->name = name.span;
-    declaration->argument_list = arguments_head;
-    declaration->return_type = return_type;
-    declaration->body = body;
-
+    auto *declaration = make_function_declaration(arena, name.span, NULL, body);
     return declaration;
 }
 
@@ -1016,6 +853,53 @@ AST__function_declaration *Parser::parse_function_declaration() {
 
 //     return declaration;
 // }
+
+
+AST__scope *Parser::parse_scope()
+{
+    AST__scope *scope = allocate_struct(arena, AST__scope);
+    scope->parent_scope = current_scope;
+    current_scope = scope;
+
+    while (true)
+    {
+        Token t = get_token(&lexer);
+        if (t.type == TOKEN_EOF) break;
+
+        Lexer saved = lexer;
+
+        AST__expression *variable_declaration = parse_variable_declaration();
+        if (variable_declaration)
+        {
+            push_expression(scope, variable_declaration);
+            continue;
+        }
+
+        lexer = saved;
+
+        AST__expression *function_declaration = parse_function_declaration();
+        if (function_declaration)
+        {
+            push_expression(scope, function_declaration);
+            continue;
+        }
+
+        lexer = saved;
+
+        AST__expression *return_statement = parse_return_statement();
+        if (return_statement)
+        {
+            push_expression(scope, return_statement);
+            continue;
+        }
+
+        break;
+    }
+
+    current_scope = current_scope->parent_scope;
+
+    return scope;
+}
 
 
 } // namespace rei

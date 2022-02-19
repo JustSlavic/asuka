@@ -153,6 +153,9 @@ typedef signed long long   int64;
 #define UINT32_MAX (0xFFFF'FFFF)
 #define UINT64_MAX (0xFFFF'FFFF'FFFF'FFFF)
 
+#define SUCCESS    (1)
+#define FAILURE    (0)
+
 typedef int16 sound_sample_t;
 typedef uint64 hash_t;
 
@@ -178,6 +181,9 @@ typedef double float64;
 
 typedef float  f32;
 typedef double f64;
+
+typedef float  F32;
+typedef double F64;
 
 #define loop while(true)
 

@@ -98,80 +98,15 @@ int main() {
     rei::print_settings settings;
     settings.indentation = 4;
 
-    bool32 running = true;
+    rei::AST__scope *global_scope = parser.parse_scope();
 
-    while (running) {
-        rei::Token t = rei::get_token(&parser.lexer);
-        if (t.type == rei::TOKEN_EOF) break;
+    auto *expression = global_scope->expressions;
+    while (expression) {
+        bool32 ok = check_types(&arena, global_scope, expression);
+        printf("Types are %sOK!!\n", ok ? "" : "_NOT_ ");
+        if (ok) print_ast(expression, settings, 0);
 
-        rei::Lexer saved = parser.lexer;
-
-        // @todo:
-        // 1. Global variables
-        // 2. Main function
-        // 3. Struct definition
-        // 3. Function declaration
-
-        // Global variable
-        rei::AST__variable_declaration *global_var_decl = parser.parse_variable_declaration();
-        if (global_var_decl) {
-            rei::Token semicolon = rei::eat_token(&parser.lexer);
-            if (semicolon.type != rei::TOKEN_SEMICOLON) {
-                printf("Expected semicolon at the end of variable declaration!\n");
-                break;
-            }
-
-            rei::AST__expression expr;
-            expr.tag = rei::AST_EXPRESSION_VARIABLE_DECLARATION;
-            expr.variable_declaration = global_var_decl;
-
-            bool32 ok = rei::check_types(&arena, &expr);
-            printf("Types are %sOK!\n", ok ? "" : "not ");
-
-            rei::print_ast(global_var_decl, settings);
-            printf("\n");
-
-            continue;
-        }
-
-        parser.lexer = saved;
-
-        rei::AST__function_declaration *function_declaration = parser.parse_function_declaration();
-        if (function_declaration) {
-            rei::AST__expression expr;
-            expr.tag = rei::AST_EXPRESSION_FUNCTION_DECLARATION;
-            expr.function_declaration = function_declaration;
-
-            bool32 ok = rei::check_types(&arena, &expr);
-            printf("Types are %sOK!\n", ok ? "" : "not ");
-
-            rei::print_ast(function_declaration, settings);
-            printf("\n");
-            continue;
-        }
-
-        // Struct declaration (mere existance)
-        // Struct definition  (with memory layout)
-
-        // Function declaration (pre declaration)
-        // Function definition  (with body)
-
-
-    //     parser.lexer = saved;
-
-    //     Ast_OperatorDeclaration *operator_declaration = parser.parse_operator_declaration();
-    //     if (operator_declaration) {
-    //         print_ast((Ast *) operator_declaration);
-    //         auto entry = push_struct(&parser.arena, ListEntry<Ast_OperatorDeclaration *>);
-    //         entry->value = operator_declaration;
-
-    //         push_back<Ast_OperatorDeclaration *>(&parser.declared_operators, entry);
-    //         continue;
-    //     }
-
-    //     parser.lexer = saved;
-
-        running = false;
+        expression = expression->next;
     }
 
     return 0;

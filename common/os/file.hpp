@@ -6,6 +6,8 @@
 
 namespace os {
 
+using asuka::string;
+
 string load_entire_file(const char* filename);
 bool write_file(const char* filename, string contents);
 

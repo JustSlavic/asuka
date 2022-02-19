@@ -52,7 +52,7 @@ uint8 *consume_memory(uint8 **data, uint64 size) {
 wav_file_contents load_wav_file(const char* filename) {
     wav_file_contents result {};
 
-    string contents = os::load_entire_file(filename);
+    asuka::string contents = os::load_entire_file(filename);
     if (contents.size == 0) {
         // @todo: handle error
         return result;

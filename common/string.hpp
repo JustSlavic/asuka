@@ -3,14 +3,12 @@
 
 #include <defines.hpp>
 #include <type.hpp>
+#include "array.hpp"
 #include "byte.hpp"
 
 //
-// @note: String acts like string_view (copyable, shares data between instances).
+// @note: Strings act like string_view (copyable, shares data between instances).
 // You should free in manually via your allocator.
-//
-// @note: Size does not include null termination.
-// @todo: Shoud I include it to be honest with the user???
 //
 
 namespace asuka {
@@ -66,48 +64,14 @@ bool equals(char *s1, char *s2) {
 
 } // namespace cstring
 
-template <typename T>
-struct base_string {
-    T     *data;
-    usize  size;
 
-    IN_CLASS_FUNCTION
-    base_string<T> from_cstr(const char *s) {
-        static_assert(type::is_same<T, char>::value);
-
-        base_string<T> result;
-        result.data = (char *) s;
-        result.size = cstring::size_no0(s);
-
-        return result;
-    }
-};
-
-
-template <typename T>
-bool32 operator == (base_string<T> lhs, base_string<T> rhs) {
-    bool32 same = lhs.size == rhs.size;
-    for (usize i = 0; same && (i < lhs.size); i++) {
-        if (lhs.data[i] != rhs.data[i]) same = false;
-    }
-
-    return same;
-}
-
-template <typename T>
-bool32 operator != (base_string<T> lhs, base_string<T> rhs) {
-    bool32 same = (lhs == rhs);
-    return !same;
-}
-
-
-using byte_string = base_string<byte>;
-using string = base_string<char>;
+using byte_string = array<byte>;
+using string = array<char>;
 // using utf8_string = bast_string<>; // @todo: utf8 string
 
 
 template <typename T>
-byte_string to_byte_string(base_string<T> s) {
+byte_string to_byte_string(array<T> s) {
     byte_string result;
     result.data = (byte *) s.data;
     result.size = s.size * sizeof(T);
@@ -117,8 +81,8 @@ byte_string to_byte_string(base_string<T> s) {
 
 
 template <typename T>
-base_string<T> from_byte_string(byte_string s) {
-    base_string<T> result;
+array<T> from_byte_string(byte_string s) {
+    array<T> result;
     result.data = (T *) s.data;
     result.size = s.size / sizeof(T);
 
@@ -154,7 +118,7 @@ bool32 equals_to_cstr(string s, char *cstr) {
 
 // What did I do?
 template <typename Allocator, typename T>
-base_string<T> allocate_string_of_size(Allocator allocator, usize size) {
+array<T> allocate_string_of_size(Allocator allocator, usize size) {
     string result {};
     result.data = memory::allocate(allocator, size, alignof(T));
     result.size = size;
@@ -165,7 +129,7 @@ base_string<T> allocate_string_of_size(Allocator allocator, usize size) {
 
 // ???
 template <typename Allocator, typename T>
-void free_string(Allocator allocator, base_string<T> s) {
+void free_string(Allocator allocator, array<T> s) {
     memory::free(allocator, s.data);
 }
 

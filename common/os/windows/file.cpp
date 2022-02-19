@@ -47,7 +47,7 @@ string load_entire_file(const char* filename) {
         return result;
     }
 
-    result.data = (uint8 *) Memory;
+    result.data = (char *) Memory;
     result.size = FileSize.QuadPart;
     return result;
 }
