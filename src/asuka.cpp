@@ -287,7 +287,7 @@ LowEntityIndex add_low_entity(GameState *game_state, WorldPosition position) {
     LowEntity *low_entity = get_low_entity(game_state, low_index);
     ASSERT(low_entity);
 
-    *low_entity = {};
+    memory::set(low_entity, 0, sizeof(LowEntity));
     change_entity_location(game_state->world, low_index, NULL, &position, &game_state->world_arena);
 
     return low_index;
@@ -349,7 +349,9 @@ Entity add_player(GameState *game_state) {
     entity.low->hitbox = math::v2 { 0.5f, 0.4f }; // In top-down coordinates, but in meters.
 
     entity.low->health_max = 3;
-    entity.low->health = 3;
+    for (i32 health_index = 0; health_index < entity.low->health_max; health_index++) {
+        entity.low->health[health_index].fill_level = 100;
+    }
 
     make_entity_high_frequency(game_state, index);
 
@@ -358,7 +360,7 @@ Entity add_player(GameState *game_state) {
 
 
 INTERNAL_FUNCTION
-Entity add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, V2 p) {
+Entity add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, math::v2 p) {
     WorldPosition position {};
     position.chunk_x = chunk_x;
     position.chunk_y = chunk_y;
@@ -690,7 +692,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_state->player_textures[2]  = load_png_file("character_3.png");
         game_state->player_textures[3]  = load_png_file("character_4.png");
 
-        MemoryArena *arena = &game_state->world_arena;
+        memory::arena_allocator *arena = &game_state->world_arena;
 
         initialize_arena(
             arena,
@@ -985,12 +987,13 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     // DrawBitmap(Buffer, { 0, 0 }, { (float32)Buffer->Width, (f32)Buffer->Height }, &game_state->grass_texture);
 
     // ===================== RENDERING ENTITIES ===================== //
+    VisiblePieceGroup group {};
+    group.pixels_per_meter = pixels_per_meter;
 
     for (HighEntityIndex entity_index { 0 }; entity_index < game_state->high_entity_count; entity_index++) {
         Entity entity = get_entity(game_state, entity_index);
         if (entity.high != NULL) {
-
-            AssetGroup asset_group {};
+            group.count = 0;
 
             if (entity.low->world_position.chunk_z != game_state->camera_position.chunk_z) {
                 continue;
@@ -998,24 +1001,28 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
             if (entity.low->type == ENTITY_TYPE_PLAYER) {
                 auto *shadow_texture = &game_state->shadow_texture;
-                push_asset(&asset_group, shadow_texture, make_v2(0.5f * shadow_texture->width, 0.8f * shadow_texture->height), 0, 1.0f / (1.0f + entity.high->position.z));
+                push_asset(&group, shadow_texture, make_v3(-0.5f, 0.8f, 0), 1.0f / (1.0f + entity.high->position.z));
 
                 auto *player_texture = &game_state->player_textures[entity.high->face_direction];
-                push_asset(&asset_group, player_texture,
-                    make_v2(0.5f * player_texture->width, 1.0f * player_texture->height), entity.high->position.z * pixels_per_meter);
+                push_asset(&group, player_texture, make_v3(-0.4f, 1.0f, entity.high->position.z));
 
-                f32 offset_x = 8 + 20; // pixels
-                f32 offset_y = 8;
-                f32 offset_z = player_texture->height + 10.f;
+                f32 health_width   = 0.1f; // meters
+                f32 health_spacing = 1.5f * health_width; // pixels
 
-                for (int32 health_index = 0; health_index < entity.low->health_max; health_index++){
-                    if (health_index + 1 > entity.low->health) {
-                        push_asset(&asset_group, &game_state->heart_empty_texture, make_v2(offset_x, offset_y), offset_z);
+                entity.low->health_max = 5;
+                f32 offset_x = -0.5f * health_spacing * (entity.low->health_max - 1);
+                f32 offset_y = 1.0f;
+
+                for (int32 health_index = 0; health_index < entity.low->health_max; health_index++) {
+                    HealthPoint hp = entity.low->health[health_index];
+
+                    if (hp.fill_level > 0) {
+                        push_rectangle(&group, make_v3(offset_x, offset_y, 0), v2::from(health_width), { 0.0f, 1.0f, 0.0f, 1.0f });
                     } else {
-                        push_asset(&asset_group, &game_state->heart_full_texture, make_v2(offset_x, offset_y), offset_z);
+                        push_rectangle(&group, make_v3(offset_x, offset_y, 0), v2::from(health_width), { 1.0f, 0.0f, 0.0f, 1.0f });
                     }
 
-                    offset_x -= 20.0f;
+                    offset_x += health_spacing;
                 }
 
             }
@@ -1028,14 +1035,15 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     entity.high->tBob -= 2 * math::pi;
                 }
 
-                f32 a = 6.0f;
-                f32 h = a * math::sin(2.0f * entity.high->tBob);
+                f32 a = 2.0f;
+                f32 t = a * math::sin(2.0f * entity.high->tBob);
+                f32 h = 2.0f / (2.0f + a + t);
 
                 auto *shadow = &game_state->shadow_texture;
-                push_asset(&asset_group, shadow, make_v2(30.0f, 50.0f), 0, 1.0f / (2.0f + a + h));
+                push_asset(&group, shadow, make_v3(-0.5f, 0.8f, 0), h);
 
                 auto *texture = &game_state->familiar_texture;
-                push_asset(&asset_group, texture, make_v2(30.0f, 30.0f), 50.f + 3 * h);
+                push_asset(&group, texture, make_v3(-0.5f, 0.8f, 0.2f / h));
 
                 entity.low->hitbox = make_v2(0.5, 0.5);
                 entity.low->collidable = true;
@@ -1048,14 +1056,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 auto *left_arm  = &game_state->monster_left_arm;
                 auto *right_arm = &game_state->monster_right_arm;
 
-                push_asset(&asset_group, head, make_v2(0.5 * head->width, 0.45 * head->height), 0);
-                push_asset(&asset_group, left_arm, make_v2(0.5 * left_arm->width, 0.45 * left_arm->height), 0);
-                push_asset(&asset_group, right_arm, make_v2(0.5 * right_arm->width, 0.45 * right_arm->height), 0);
+                push_asset(&group, head, make_v3(-2.5f, 2.5f, 0));
+                push_asset(&group, left_arm, make_v3(-2.0f, 2.5f, 0));
+                push_asset(&group, right_arm, make_v3(-3.0f, 2.5f, 0));
             }
             else if (entity.low->type == ENTITY_TYPE_WALL)
             {
                 auto *texture = &game_state->tree_texture;
-                push_asset(&asset_group, texture, make_v2(0.5 * texture->width, 0.9 * texture->height), 0);
+                push_asset(&group, texture, make_v3(-0.5f, 1.6f, 0));
             }
             else
             {
@@ -1076,11 +1084,17 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             //     entity_position_in_pixels + 0.5f * entity.low->hitbox * pixels_per_meter,
             //     color24{ 1.f, 1.f, 0.f });
 
-            for (u32 asset_index = 0; asset_index < asset_group.count; asset_index++) {
-                auto *asset = &asset_group.assets[asset_index];
-                ASSERT(asset && asset->bitmap);
+            for (u32 asset_index = 0; asset_index < group.count; asset_index++) {
+                auto *asset = &group.assets[asset_index];
+                ASSERT(asset);
 
-                DrawBitmap(Buffer, x - asset->offset.x, y - asset->offset.y - asset->offset_z, asset->bitmap, asset->alpha);
+                v2 center = make_v2(x, y) + asset->offset;
+                if (asset->bitmap) {
+                    DrawBitmap(Buffer, center.x, center.y, asset->bitmap, asset->color.a);
+                } else {
+                    v2 half_dim = 0.5f * asset->dimensions;
+                    DrawRectangle(Buffer, center - half_dim, center + half_dim, asset->color.rgb);
+                }
             }
         }
     }

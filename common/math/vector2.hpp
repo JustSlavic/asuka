@@ -43,7 +43,7 @@ struct vector2 {
     };
 
     IN_CLASS_FUNCTION
-    vector2 make(float32 v) {
+    vector2 from(float32 v) {
         vector2 result { v, v };
         return result;
     }
@@ -293,13 +293,12 @@ intersection_result segment_segment_intersection(vector2 p0, vector2 p1, vector2
 
 } // namespace math
 
-template <typename T1, typename T2>
-math::v2 make_v2(T1 x, T2 y) {
-    math::v2 result{ (f32)x, (f32)y };
+
+template <typename LHS, typename RHS>
+math::v2 make_v2(LHS x, RHS y) {
+    math::v2 result{ (f32) x, (f32) y };
     return result;
 }
 
-using Vector2 = math::vector2;
-using V2 = math::vector2;
 
 #endif // ASUKA_COMMON_MATH_VECTOR2_HPP

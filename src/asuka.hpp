@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdio.h>
 #include <defines.hpp>
 #include <math.hpp>
 #include <wav.hpp>
@@ -229,6 +230,12 @@ struct HighEntity {
 };
 
 
+struct HealthPoint {
+    u32 fill_level; // In percent (max 100).
+    b32 shielded;
+    b32 poisoned;
+};
+
 
 struct LowEntity {
     EntityType type;
@@ -240,7 +247,7 @@ struct LowEntity {
     bool32 collidable;
 
     int32 health_max;
-    int32 health;
+    HealthPoint health[32];
 
     HighEntityIndex high_index;
 };
@@ -253,29 +260,49 @@ struct Entity {
     LowEntity  *low;
 };
 
+using math::v2;
+using math::color32;
 
-struct Asset {
+struct VisiblePiece {
+    // @note: offset and dimenstions in pixel, top-down screen space
+    v2 offset;
+    v2 dimensions;
+
     Bitmap *bitmap;
-    Vector2 offset;
-    float32 offset_z; // for floating stuff
-    float32 alpha;
+    color32 color;
 };
 
 
-struct AssetGroup {
+struct VisiblePieceGroup {
     u32 count;
-    Asset assets[8];
+    VisiblePiece assets[8];
+
+    f32 pixels_per_meter;
 };
 
 
-void push_asset(AssetGroup *group, Bitmap *bitmap, math::vector2 offset, f32 offset_z, f32 alpha = 1.0f) {
+void push_rectangle(VisiblePieceGroup *group, math::v3 offset_in_meters, math::v2 dim_in_meters, math::color32 color) {
+    // @note offset and dimensions are in world space (in meters, bottom-up coordinate space)
     ASSERT(group->count < ARRAY_COUNT(group->assets));
 
-    Asset *asset = group->assets + (group->count++);
+    VisiblePiece *asset = group->assets + (group->count++);
+    memory::set(asset, 0, sizeof(VisiblePiece));
+
+    asset->offset = v2{ offset_in_meters.x, -(offset_in_meters.y + offset_in_meters.z) } * group->pixels_per_meter;
+    asset->dimensions = dim_in_meters * group->pixels_per_meter;
+    asset->color = color;
+}
+
+void push_asset(VisiblePieceGroup *group, Bitmap *bitmap, math::v3 offset_in_meters, f32 alpha = 1.0f) {
+    // @note offset and dimensions are in world space (in meters, bottom-up coordinate space)
+    ASSERT(group->count < ARRAY_COUNT(group->assets));
+
+    VisiblePiece *asset = group->assets + (group->count++);
+    memory::set(asset, 0, sizeof(VisiblePiece));
+
     asset->bitmap = bitmap;
-    asset->offset = offset;
-    asset->offset_z = offset_z;
-    asset->alpha = alpha;
+    asset->offset = v2{ offset_in_meters.x, -(offset_in_meters.y + offset_in_meters.z) } * group->pixels_per_meter;
+    asset->color.a = alpha;
 }
 
 
@@ -295,7 +322,7 @@ struct GameState {
 
     World *world;
 
-    MemoryArena world_arena;
+    memory::arena_allocator world_arena;
 
     wav_file_contents test_wav_file;
 

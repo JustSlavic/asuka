@@ -165,7 +165,7 @@ AST__expression *find_symbol_in_scope(AST__scope *scope, string symbol)
 }
 
 
-AST__expression *make_literal(MemoryArena *arena, Token value)
+AST__expression *make_literal(memory::arena_allocator *arena, Token value)
 {
     auto *result = allocate_struct(arena, AST__expression);
     result->tag = AST_EXPRESSION_LITERAL;
@@ -175,7 +175,7 @@ AST__expression *make_literal(MemoryArena *arena, Token value)
 }
 
 
-AST__expression *make_variable(MemoryArena *arena, string name)
+AST__expression *make_variable(memory::arena_allocator *arena, string name)
 {
     auto *result = allocate_struct(arena, AST__expression);
     result->tag = AST_EXPRESSION_LITERAL;
@@ -185,7 +185,7 @@ AST__expression *make_variable(MemoryArena *arena, string name)
 }
 
 
-AST__expression *make_variable_declaration(MemoryArena *arena, string name, AST__type *type, AST__expression *init)
+AST__expression *make_variable_declaration(memory::arena_allocator *arena, string name, AST__type *type, AST__expression *init)
 {
     auto *result = allocate_struct(arena, AST__expression);
     result->tag = AST_EXPRESSION_VARIABLE_DECLARATION;
@@ -197,7 +197,7 @@ AST__expression *make_variable_declaration(MemoryArena *arena, string name, AST_
 }
 
 
-AST__expression *make_function_declaration(MemoryArena *arena, string name, AST__type *type, AST__block *body)
+AST__expression *make_function_declaration(memory::arena_allocator *arena, string name, AST__expression *arguments, AST__type *type, AST__block *body)
 {
     auto *result = allocate_struct(arena, AST__expression);
     result->tag = AST_EXPRESSION_FUNCTION_DECLARATION;
@@ -208,7 +208,7 @@ AST__expression *make_function_declaration(MemoryArena *arena, string name, AST_
     return result;
 }
 
-AST__expression *make_function_call(MemoryArena *arena)
+AST__expression *make_function_call(memory::arena_allocator *arena)
 {
     auto *result = allocate_struct(arena, AST__expression);
     result->tag = AST_EXPRESSION_FUNCTION_CALL;
@@ -217,7 +217,7 @@ AST__expression *make_function_call(MemoryArena *arena)
 }
 
 
-AST__expression *make_operator_call(MemoryArena *arena, AST__expression *lhs, AST__expression *rhs, Token op)
+AST__expression *make_operator_call(memory::arena_allocator *arena, AST__expression *lhs, AST__expression *rhs, Token op)
 {
     auto *result = allocate_struct(arena, AST__expression);
     result->tag = AST_EXPRESSION_OPERATOR_CALL;
@@ -229,7 +229,7 @@ AST__expression *make_operator_call(MemoryArena *arena, AST__expression *lhs, AS
 }
 
 
-AST__expression *make_return_statement(MemoryArena *arena, AST__expression *returned_expression)
+AST__expression *make_return_statement(memory::arena_allocator *arena, AST__expression *returned_expression)
 {
     auto *result = allocate_struct(arena, AST__expression);
     result->tag = AST_EXPRESSION_RETURN;

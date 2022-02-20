@@ -3,6 +3,8 @@
 // @todo: get rid of windows.h here
 #include <windows.h>
 
+#include <defines.hpp>
+
 
 namespace os {
 namespace internal {

@@ -11,6 +11,7 @@ struct color24 {
     struct { f32 r; f32 g; f32 b; };
 
     static color24 white;
+    static color24 red;
 };
 
 
@@ -20,6 +21,13 @@ struct color32 {
         struct { color24 rgb; f32 pad_; };
         f32 components[4];
     };
+
+    static color32 white;
+    static color32 black;
+
+    static color32 red;
+    static color32 green;
+    static color32 blue;
 };
 
 
@@ -59,6 +67,18 @@ math::color24 make_color(f32 r, f32 g, f32 b) {
 
 INLINE
 math::color32 make_color(f32 r, f32 g, f32 b, f32 a) {
+    math::color32 result{ r, g, b, a };
+    return result;
+}
+
+INLINE
+math::color24 rgb(f32 r, f32 g, f32 b) {
+    math::color24 result{ r, g, b };
+    return result;
+}
+
+INLINE
+math::color32 rgba(f32 r, f32 g, f32 b, f32 a) {
     math::color32 result{ r, g, b, a };
     return result;
 }

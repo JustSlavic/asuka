@@ -2,7 +2,6 @@
 #include <os/memory.hpp>
 
 
-
 void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_meters) {
     memory::set(world, 0, sizeof(World));
 
@@ -12,7 +11,7 @@ void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_m
 
 
 INTERNAL_FUNCTION INLINE
-Chunk* get_chunk(World* world, int32 chunk_x, int32 chunk_y, int32 chunk_z, MemoryArena *arena = NULL)
+Chunk* get_chunk(World* world, int32 chunk_x, int32 chunk_y, int32 chunk_z, memory::arena_allocator *arena = NULL)
 {
     // @todo: MAKE BETTER HASH FUNCTION!!!
     hash_t hash = chunk_x * 3 + chunk_y * 13 + chunk_z * 53;
@@ -57,7 +56,7 @@ Chunk* get_chunk(World* world, int32 chunk_x, int32 chunk_y, int32 chunk_z, Memo
 
 
 INLINE INTERNAL_FUNCTION
-Chunk *get_chunk(World *world, WorldPosition position, MemoryArena *arena = NULL) {
+Chunk *get_chunk(World *world, WorldPosition position, memory::arena_allocator *arena = NULL) {
     Chunk *result = get_chunk(world, position.chunk_x, position.chunk_y, position.chunk_z, arena);
     return result;
 }
@@ -91,7 +90,7 @@ bool32 in_same_chunk(World *world, WorldPosition p1, WorldPosition p2) {
 
 
 INTERNAL_FUNCTION
-EntityBlock *add_entity_block_to_chunk(World *world, Chunk *chunk, MemoryArena *arena) {
+EntityBlock *add_entity_block_to_chunk(World *world, Chunk *chunk, memory::arena_allocator *arena) {
     EntityBlock *block = chunk->entities;
 
     if (world->next_free_block) {
@@ -113,7 +112,7 @@ EntityBlock *add_entity_block_to_chunk(World *world, Chunk *chunk, MemoryArena *
 
 
 INTERNAL_FUNCTION
-void push_entity_into_chunk(World *world, Chunk *chunk, LowEntityIndex entity, MemoryArena *arena) {
+void push_entity_into_chunk(World *world, Chunk *chunk, LowEntityIndex entity, memory::arena_allocator *arena) {
     EntityBlock *block = chunk->entities;
 
     if ((block == NULL) ||
@@ -153,7 +152,7 @@ void remove_entity_from_chunk(World *world, Chunk *chunk, LowEntityIndex entity)
 }
 
 
-WorldPosition change_entity_location(World *world, LowEntityIndex entity, WorldPosition *old_position, WorldPosition *new_position, MemoryArena *arena) {
+WorldPosition change_entity_location(World *world, LowEntityIndex entity, WorldPosition *old_position, WorldPosition *new_position, memory::arena_allocator *arena) {
     WorldPosition result {};
 
     ASSERT(new_position);

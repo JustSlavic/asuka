@@ -133,4 +133,13 @@ inline vector3 lerp (vector3 a, vector3 b, f32 t) {
 } // namespace math
 
 
+using V3 = math::vector3;
+
+
+V3 make_v3(F32 x, F32 y, F32 z) {
+    V3 result { x, y, z };
+    return result;
+}
+
+
 #endif // ASUKA_COMMON_MATH_VECTOR3_HPP

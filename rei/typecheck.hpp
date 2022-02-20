@@ -7,7 +7,7 @@
 namespace rei {
 
 
-AST__type *get_type(MemoryArena *arena, AST__scope *scope, AST__expression *expression)
+AST__type *get_type(memory::arena_allocator *arena, AST__scope *scope, AST__expression *expression)
 {
     ASSERT(expression);
 
@@ -75,7 +75,7 @@ AST__type *get_type(MemoryArena *arena, AST__scope *scope, AST__expression *expr
     return expression->type;
 }
 
-bool32 check_types(MemoryArena *arena, AST__scope *scope, AST__expression *expression)
+bool32 check_types(memory::arena_allocator *arena, AST__scope *scope, AST__expression *expression)
 {
     ASSERT(expression);
 

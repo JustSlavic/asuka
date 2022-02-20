@@ -135,7 +135,10 @@ Token get_token(Lexer *lexer) {
             t.column = lexer->column;
             t.span.data = get_char_pointer(lexer);
 
-            i32 n = 0;
+            i32 n = 1;
+            eat_char(lexer);
+            c = get_char(lexer);
+
             while(is_valid_identifier_body(c)) {
                 eat_char(lexer);
                 c = get_char(lexer);
@@ -232,7 +235,7 @@ Token eat_token(Lexer *lexer) {
 
 struct Parser {
     Lexer lexer;
-    MemoryArena *arena;
+    memory::arena_allocator *arena;
 
     AST__scope *global_scope;
     AST__scope *current_scope;
@@ -243,7 +246,7 @@ struct Parser {
     AST__expression *parse_expression_operand();
     AST__expression *parse_return_statement();
     AST__type *parse_type();
-    AST__expression *parse_variable_declaration();
+    AST__expression *parse_variable_declaration(b32 is_argument = false);
     AST__expression *parse_function_declaration();
     AST__block *parse_block();
     AST__scope *parse_scope();
@@ -459,7 +462,7 @@ AST__type *Parser::parse_type() {
 }
 
 
-AST__expression *Parser::parse_variable_declaration() {
+AST__expression *Parser::parse_variable_declaration(b32 is_argument) {
 //     // x : int
 //     // x : int = 0
 //     // x : = 0
@@ -524,10 +527,12 @@ AST__expression *Parser::parse_variable_declaration() {
             return nullptr;
         }
 
-        Token semicolon = eat_token(&lexer);
-        if (semicolon.type != TOKEN_SEMICOLON) {
-            printf("Expected semicolon at the end of variable declaration!\n");
-            return NULL;
+        if (!is_argument) {
+            Token semicolon = eat_token(&lexer);
+            if (semicolon.type != TOKEN_SEMICOLON) {
+                printf("Expected semicolon at the end of variable declaration!\n");
+                return NULL;
+            }
         }
 
         // @note: Type is NULL to deduce it later.
@@ -551,95 +556,6 @@ AST__expression *Parser::parse_return_statement() {
     auto *return_statement = make_return_statement(arena, returned_expression);
     return return_statement;
 }
-
-
-// bool32 Parser::parse_statement_list(Ast_SequenceEntry **result) {
-//     // (<statement>;|<expression>;)*
-//     Lexer saved = lexer;
-
-//     Ast_SequenceEntry *head = nullptr;
-//     Ast_SequenceEntry *tail = nullptr;
-
-//     while (true) {
-//         Ast_ReturnStatement *return_statement = parse_return_statement();
-//         if (return_statement) {
-//             Token semicolon = eat_token(&lexer);
-//             if (semicolon.type != TOKEN_SEMICOLON) {
-//                 // @error: return statement should end with semicolon
-//                 return false;
-//             }
-
-//             Ast_SequenceEntry *entry = push_struct(arena, Ast_SequenceEntry);
-//             entry->value = (Ast *) return_statement;
-
-//             if (head == nullptr && tail == nullptr) {
-//                 head = tail = entry;
-//             } else {
-//                 tail->next = entry;
-//                 tail = entry;
-//             }
-
-//             saved = lexer;
-//             continue;
-//         } else {
-//             lexer = saved;
-//         }
-
-//         Ast_VariableDeclaration *declaration = parse_variable_declaration();
-//         if (declaration) {
-//             Token semicolon = eat_token(&lexer);
-//             if (semicolon.type != TOKEN_SEMICOLON) {
-//                 // @error: expression in block have to end with a semicolon.
-//                 return false;
-//             }
-
-//             Ast_SequenceEntry *entry = push_struct(arena, Ast_SequenceEntry);
-//             entry->value = (Ast *) declaration;
-
-//             if (head == nullptr && tail == nullptr) {
-//                 head = tail = entry;
-//             } else {
-//                 tail->next = entry;
-//                 tail = entry;
-//             }
-
-//             saved = lexer;
-//             continue;
-//         } else {
-//             lexer = saved;
-//         }
-
-//         Ast_Expression *p_expr = parse_expression(0);
-//         if (p_expr) {
-//             Token semicolon = eat_token(&lexer);
-//             if (semicolon.type != TOKEN_SEMICOLON) {
-//                 // @error: expression in block have to end with a semicolon.
-//                 return false;
-//             }
-
-//             Ast_SequenceEntry *entry = push_struct(arena, Ast_SequenceEntry);
-//             entry->value = (Ast *) p_expr;
-
-//             if (head == nullptr && tail == nullptr) {
-//                 head = tail = entry;
-//             } else {
-//                 tail->next = entry;
-//                 tail = entry;
-//             }
-
-//             saved = lexer;
-//             continue;
-//         } else {
-//             lexer = saved;
-//         }
-
-//         break;
-//     }
-
-//     *result = head;
-
-//     return true;
-// }
 
 
 AST__block *Parser::parse_block() {
@@ -674,39 +590,50 @@ AST__expression *Parser::parse_function_declaration() {
     Token name = eat_token(&lexer);
     if (name.type != TOKEN_IDENTIFIER) {
         // @error: function declaration should start from identifier
-        return nullptr;
+        return NULL;
     }
 
     Token double_colon = eat_token(&lexer);
     if (double_colon.type != TOKEN_DOUBLE_COLON) {
         // fprintf(stderr, "Expected double colon '::'. Got '%.*s'.\n", PRINT_SPAN(double_colon.span));
-        return nullptr;
+        return NULL;
     }
 
     Token open_paren = eat_token(&lexer);
     if (open_paren.type != TOKEN_OPEN_PAREN) {
         // fprintf(stderr, "Expected open parenthesis '('. Got '%.*s'.\n", PRINT_SPAN(open_paren.span));
-        return nullptr;
+        return NULL;
     }
+
+    AST__expression *argument_list_head = NULL;
+    AST__expression *argument_list_last = NULL;
 
     Token close_paren = get_token(&lexer);
     if (close_paren.type == TOKEN_CLOSE_PAREN) {
-        eat_token(&lexer); // eat close paren
+        eat_token(&lexer); // )
     } else {
         while (true) {
             saved = lexer;
-            AST__expression *arg = parse_variable_declaration();
+            AST__expression *arg = parse_variable_declaration(true);
+
+            if (argument_list_head == NULL && argument_list_last == NULL) {
+                argument_list_head = arg;
+                argument_list_last = arg;
+            } else {
+                argument_list_last->next = arg;
+                argument_list_last = arg;
+            }
         }
 
         close_paren = eat_token(&lexer);
         if (close_paren.type != TOKEN_CLOSE_PAREN) {
             // @error: closing parenthesis should close argument list
             lexer = saved;
-            return nullptr;
+            return NULL;
         }
     }
 
-    AST__type *return_type = nullptr;
+    AST__type *return_type = NULL;
     Token right_arrow = get_token(&lexer);
     if (right_arrow.type == TOKEN_RIGHT_ARROW) {
         eat_token(&lexer); // eat right arrow
@@ -716,7 +643,7 @@ AST__expression *Parser::parse_function_declaration() {
         if (!return_type) {
             // @error: there's right arrow but can't parse return type
             lexer = saved; // Restore lexer state after failure.
-            return nullptr;
+            return NULL;
         }
     }
 
@@ -732,7 +659,7 @@ AST__expression *Parser::parse_function_declaration() {
         }
     }
 
-    auto *declaration = make_function_declaration(arena, name.span, NULL, body);
+    auto *declaration = make_function_declaration(arena, name.span, argument_list_head, NULL, body);
     return declaration;
 }
 

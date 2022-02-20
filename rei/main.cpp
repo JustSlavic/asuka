@@ -35,6 +35,9 @@ EXPERIMENTAL:
         why_can_I_use_this : because_everything_is = separated(by=punctuation);
 */
 
+#include <defines.hpp>
+#include <math.hpp>
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -44,43 +47,17 @@ EXPERIMENTAL:
 #include "typecheck.hpp"
 
 #include "token.hpp"
-
-
-using asuka::string;
-
-string load_entire_file(char* filename) {
-    string result{};
-
-    FILE *f = fopen(filename, "rb");
-
-    if (f) {
-        defer { fclose(f); };
-
-        fseek(f, 0, SEEK_END);
-        size_t size = ftell(f);
-        fseek(f, 0, SEEK_SET);
-
-        char *memory = (char *)calloc(size, sizeof(char));
-        size_t read_bytes = fread(memory, sizeof(char), size, f);
-        if (read_bytes < size) {
-            // @warning
-            size = read_bytes;
-        }
-
-        result.data = (char *) memory;
-        result.size = size;
-    }
-
-    return result;
-}
+#include "../son/son.hpp"
 
 
 int main() {
-    MemoryArena arena{};
+    asuka::register_constructor("v2", make_v2);
+
+    memory::arena_allocator arena{};
     arena.size   = 1 << 16;
     arena.memory = calloc(sizeof(uint8), arena.size);
 
-    string file_contents = load_entire_file("example.rei");
+    asuka::string file_contents = os::load_entire_file("example.rei");
     if (file_contents.data == 0) {
         printf("Could not load file 'example.rei'\n");
         return 1;
