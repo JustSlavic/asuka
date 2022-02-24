@@ -2,5 +2,6 @@
 #include "math/float.hpp"
 #include "math/vector2.hpp"
 #include "math/vector3.hpp"
+#include "math/vector4.hpp"
 #include "math/color.hpp"
 #include "math/rectangle.hpp"

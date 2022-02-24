@@ -30,6 +30,32 @@ struct vector3 {
         return result;
     }
 
+    IN_CLASS_FUNCTION vector3 nan() {
+        vector3 result { NaN, NaN };
+        return result;
+    }
+
+    IN_CLASS_FUNCTION vector3 zero() {
+        vector3 result { 0.0f, 0.0f, 0.0f };
+        return result;
+    }
+
+    IN_CLASS_FUNCTION vector3 one() {
+        vector3 result { 1.0f, 1.0f, 1.0f };
+    }
+
+    IN_CLASS_FUNCTION vector3 ex() {
+        vector3 result { 1.0f, 0.0f, 0.0f };
+    }
+
+    IN_CLASS_FUNCTION vector3 ey() {
+        vector3 result { 0.0f, 1.0f, 0.0f };
+    }
+
+    IN_CLASS_FUNCTION vector3 ez() {
+        vector3 result { 0.0f, 0.0f, 1.0f };
+    }
+
     inline vector3& operator += (vector3 other) {
         x += other.x;
         y += other.y;
@@ -49,18 +75,6 @@ struct vector3 {
         y *= c;
         z *= c;
         return *this;
-    }
-
-    IN_CLASS_FUNCTION
-    constexpr vector3 nan() {
-        vector3 result { NaN, NaN };
-        return result;
-    }
-
-    IN_CLASS_FUNCTION
-    constexpr vector3 zero() {
-        vector3 result { 0.0f, 0.0f, 0.0f };
-        return result;
     }
 };
 
@@ -132,12 +146,17 @@ inline vector3 lerp (vector3 a, vector3 b, f32 t) {
 
 } // namespace math
 
+template <typename T>
+math::v3 V3(T value)
+{
+    math::v3 result { (f32) value, (f32) value, (f32) value };
+    return result;
+}
 
-using V3 = math::vector3;
-
-
-V3 make_v3(F32 x, F32 y, F32 z) {
-    V3 result { x, y, z };
+template <typename X, typename Y, typename Z>
+math::v3 V3(X x, Y y, Z z)
+{
+    math::v3 result { (f32) x, (f32) y, (f32) z };
     return result;
 }
 

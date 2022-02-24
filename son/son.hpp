@@ -223,60 +223,6 @@ son& son::operator=(son&& other) {
     return *this;
 }
 
-// son::son(son::string_t value)
-// {
-//     m_type  = type_t::string;
-//     m_value = value; // @todo: copy buffer?
-// }
-
-// son(son::type_t t)
-// {
-//     switch (t)
-//     {
-//         case null:
-//         {
-//             INVALID_CODE_PATH();
-//         }
-//         break;
-
-//         case boolean:
-//         {
-//             INVALID_CODE_PATH();
-//         }
-//         break;
-
-//         case integer:
-//         {
-//             INVALID_CODE_PATH();
-//         }
-//         break;
-
-//         case floating:
-//         {
-//             INVALID_CODE_PATH();
-//         }
-//         break;
-
-//         case string:
-//         {
-//             INVALID_CODE_PATH();
-//         }
-//         break;
-
-//         case object:
-//         {
-//             INVALID_CODE_PATH();
-//         }
-//         break;
-
-//         case array:
-//         {
-//             INVALID_CODE_PATH();
-//         }
-//         break;
-
-//     }
-// }
 
 son &son::operator=(bool value)
 {
@@ -824,18 +770,6 @@ son load_from_file(char const *filename)
     pretty_print(&result);
 
     return result;
-}
-
-
-template <typename Constructor>
-void register_constructor(char const *name, Constructor f)
-{
-    ASSERT(internal::constructor_count < ARRAY_COUNT(internal::constructor_callbacks));
-
-    internal::constructor_names[internal::constructor_count] = name;
-    internal::constructor_callbacks[internal::constructor_count] = (void *)f;
-
-
 }
 
 

@@ -38,8 +38,8 @@ void DrawBitmap(
     using math::vector2;
 
     // @note: Top-down coordinate system.
-    vector2i tl = round_to_vector2i(make_v2(left, top));
-    vector2i br = tl + round_to_vector2i(make_v2(image->width, image->height));
+    vector2i tl = round_to_vector2i(v2{left, top});
+    vector2i br = tl + round_to_vector2i(V2(image->width, image->height));
 
     vector2i image_tl = vector2i{ 0, 0 };
     vector2i image_br = vector2i{ (i32)image->width, (i32)image->height };
@@ -179,6 +179,51 @@ void DrawBorder(Game_OffscreenBuffer* Buffer, uint32 Width, math::color24 Color)
 }
 #endif
 
+INTERNAL_FUNCTION
+void push_piece(VisiblePieceGroup *group, math::v3 offset_in_meters, math::v2 dim_in_meters, Bitmap *bitmap, math::color32 color)
+{
+    // @note offset and dimensions are in world space (in meters, bottom-up coordinate space)
+    ASSERT(group->count < ARRAY_COUNT(group->assets));
+
+    VisiblePiece *asset = group->assets + (group->count++);
+    memory::set(asset, 0, sizeof(VisiblePiece));
+
+    asset->offset = v2{ offset_in_meters.x, -(offset_in_meters.y + offset_in_meters.z) } * group->pixels_per_meter;
+    asset->dimensions = dim_in_meters * group->pixels_per_meter;
+    asset->bitmap = bitmap;
+    asset->color = color;
+}
+
+INTERNAL_FUNCTION
+void push_rectangle(VisiblePieceGroup *group, math::v3 offset_in_meters, math::v2 dim_in_meters, math::color32 color) {
+    push_piece(group, offset_in_meters, dim_in_meters, NULL, color);
+}
+
+INTERNAL_FUNCTION
+void push_asset(VisiblePieceGroup *group, Bitmap *bitmap, math::v3 offset_in_meters, f32 alpha = 1.0f) {
+    push_piece(group, offset_in_meters, math::v2::zero(), bitmap, rgba(0, 0, 0, alpha));
+}
+
+INTERNAL_FUNCTION
+void draw_hitpoints(LowEntity *low, VisiblePieceGroup *group) {
+    f32 health_width   = 0.1f; // meters
+    f32 health_spacing = 1.5f * health_width; // pixels
+
+    f32 offset_x = -0.5f * health_spacing * (low->health_max - 1);
+    f32 offset_y = 1.0f;
+
+    for (int32 health_index = 0; health_index < low->health_max; health_index++) {
+        HealthPoint hp = low->health[health_index];
+
+        if (hp.fill > 0) {
+            push_rectangle(group, V3(offset_x, offset_y, 0), V2(health_width), rgba(0.0f, 1.0f, 0.0f, 1.0f));
+        } else {
+            push_rectangle(group, V3(offset_x, offset_y, 0), V2(health_width), rgba(1.0f, 0.0f, 0.0f, 1.0f));
+        }
+
+        offset_x += health_spacing;
+    }
+}
 
 INTERNAL_FUNCTION
 LowEntity *get_low_entity(GameState *game_state, LowEntityIndex index) {
@@ -335,6 +380,16 @@ Entity get_entity(GameState *game_state, HighEntityIndex index) {
     return entity;
 }
 
+INTERNAL_FUNCTION
+void init_hitpoints(LowEntity *low, u32 health_max) {
+    ASSERT(health_max < ARRAY_COUNT(low->health));
+
+    low->health_max = health_max;
+    low->health_fill_max = ENTITY_HEALTH_STARTING_FILL_MAX;
+    for (i32 health_index = 0; health_index < low->health_max; health_index++) {
+        low->health[health_index].fill = low->health_fill_max;
+    }
+}
 
 INTERNAL_FUNCTION
 Entity add_player(GameState *game_state) {
@@ -346,13 +401,9 @@ Entity add_player(GameState *game_state) {
     entity.low->world_position = position;
     // @todo: fix coordinates for hitbox
     entity.low->collidable = true;
-    entity.low->hitbox = math::v2 { 0.5f, 0.4f }; // In top-down coordinates, but in meters.
+    entity.low->hitbox = V2(0.8, 0.2); // In top-down coordinates, but in meters.
 
-    entity.low->health_max = 3;
-    for (i32 health_index = 0; health_index < entity.low->health_max; health_index++) {
-        entity.low->health[health_index].fill_level = 100;
-    }
-
+    init_hitpoints(entity.low, 3);
     make_entity_high_frequency(game_state, index);
 
     return entity;
@@ -374,6 +425,8 @@ Entity add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z
     entity.low->world_position = position;
     // @todo: fix coordinates for hitbox
     entity.low->collidable = false;
+    entity.low->hitbox = V2(0.8, 0.2);
+    entity.low->collidable = true;
 
     HighEntity *high = make_entity_high_frequency(game_state, index);
     high->position.z = 2.0f;
@@ -397,6 +450,8 @@ Entity add_monster(GameState *game_state, int32 chunk_x, int32 chunk_y, int32 ch
     entity.low->world_position = position;
     entity.low->collidable = true;
     entity.low->hitbox = math::v2 { 2.2f, 2.2f };
+
+    init_hitpoints(entity.low, 7);
 
     return entity;
 }
@@ -831,10 +886,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // camera_position.relative_position_in_chunk = v2{ (f32)room_width_in_tiles, (f32)room_height_in_tiles } * world->tile_side_in_meters * 0.5f;
 
         // @note: Add a monster BEFORE calling set camera position so it could be brought to the high entity set before player appearing on the screen.
-        add_monster(game_state, 0, 0, 0, make_v2(2, 1));
+        add_monster(game_state, 0, 0, 0, V2(2, 1));
         for (int i = 0; i < 1; i++) {
             f32 x = -5.0f + i * 1.0f;
-            add_familiar(game_state, 0, 0, 0, make_v2(x, 1));
+            add_familiar(game_state, 0, 0, 0, V2(x, 1));
         }
 
         set_camera_position(game_state, camera_position);
@@ -981,7 +1036,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     // Render pink background to see pixels I didn't drew.
     DrawRectangle(Buffer, {0, 0}, {(float32)Buffer->Width, (float32)Buffer->Height}, {1.f, 0.f, 1.f});
-    DrawRectangle(Buffer, v2{0, 0}, v2{(f32)Buffer->Width, (f32)Buffer->Height}, color24{ 0.5f, 0.5f, 0.5f });
+    DrawRectangle(Buffer, v2{0, 0}, v2{(f32)Buffer->Width, (f32)Buffer->Height}, rgb(0.5, 0.5, 0.5));
 
     // Background grass
     // DrawBitmap(Buffer, { 0, 0 }, { (float32)Buffer->Width, (f32)Buffer->Height }, &game_state->grass_texture);
@@ -1001,30 +1056,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
             if (entity.low->type == ENTITY_TYPE_PLAYER) {
                 auto *shadow_texture = &game_state->shadow_texture;
-                push_asset(&group, shadow_texture, make_v3(-0.5f, 0.8f, 0), 1.0f / (1.0f + entity.high->position.z));
+                push_asset(&group, shadow_texture, V3(-0.5f, 0.85f, 0), 1.0f / (1.0f + entity.high->position.z));
 
                 auto *player_texture = &game_state->player_textures[entity.high->face_direction];
-                push_asset(&group, player_texture, make_v3(-0.4f, 1.0f, entity.high->position.z));
+                push_asset(&group, player_texture, V3(-0.4f, 1.0f, entity.high->position.z));
 
-                f32 health_width   = 0.1f; // meters
-                f32 health_spacing = 1.5f * health_width; // pixels
-
-                entity.low->health_max = 5;
-                f32 offset_x = -0.5f * health_spacing * (entity.low->health_max - 1);
-                f32 offset_y = 1.0f;
-
-                for (int32 health_index = 0; health_index < entity.low->health_max; health_index++) {
-                    HealthPoint hp = entity.low->health[health_index];
-
-                    if (hp.fill_level > 0) {
-                        push_rectangle(&group, make_v3(offset_x, offset_y, 0), v2::from(health_width), { 0.0f, 1.0f, 0.0f, 1.0f });
-                    } else {
-                        push_rectangle(&group, make_v3(offset_x, offset_y, 0), v2::from(health_width), { 1.0f, 0.0f, 0.0f, 1.0f });
-                    }
-
-                    offset_x += health_spacing;
-                }
-
+                draw_hitpoints(entity.low, &group);
             }
             else if (entity.low->type == ENTITY_TYPE_FAMILIAR)
             {
@@ -1036,17 +1073,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 }
 
                 f32 a = 2.0f;
-                f32 t = a * math::sin(2.0f * entity.high->tBob);
+                f32 t = a * math::sin(3.0f * entity.high->tBob);
                 f32 h = 2.0f / (2.0f + a + t);
 
                 auto *shadow = &game_state->shadow_texture;
-                push_asset(&group, shadow, make_v3(-0.5f, 0.8f, 0), h);
+                push_asset(&group, shadow, V3(-0.5f, 0.85f, 0), h);
 
                 auto *texture = &game_state->familiar_texture;
-                push_asset(&group, texture, make_v3(-0.5f, 0.8f, 0.2f / h));
-
-                entity.low->hitbox = make_v2(0.5, 0.5);
-                entity.low->collidable = true;
+                push_asset(&group, texture, V3(-0.5f, 0.8f, 0.2f / h));
             }
             else if (entity.low->type == ENTITY_TYPE_MONSTER)
             {
@@ -1056,14 +1090,16 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 auto *left_arm  = &game_state->monster_left_arm;
                 auto *right_arm = &game_state->monster_right_arm;
 
-                push_asset(&group, head, make_v3(-2.5f, 2.5f, 0));
-                push_asset(&group, left_arm, make_v3(-2.0f, 2.5f, 0));
-                push_asset(&group, right_arm, make_v3(-3.0f, 2.5f, 0));
+                push_asset(&group, head, V3(-2.5f, 2.5f, 0));
+                push_asset(&group, left_arm, V3(-2.0f, 2.5f, 0));
+                push_asset(&group, right_arm, V3(-3.0f, 2.5f, 0));
+
+                draw_hitpoints(entity.low, &group);
             }
             else if (entity.low->type == ENTITY_TYPE_WALL)
             {
                 auto *texture = &game_state->tree_texture;
-                push_asset(&group, texture, make_v3(-0.5f, 1.6f, 0));
+                push_asset(&group, texture, V3(-0.5f, 1.6f, 0));
             }
             else
             {
@@ -1088,7 +1124,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 auto *asset = &group.assets[asset_index];
                 ASSERT(asset);
 
-                v2 center = make_v2(x, y) + asset->offset;
+                v2 center = V2(x, y) + asset->offset;
                 if (asset->bitmap) {
                     DrawBitmap(Buffer, center.x, center.y, asset->bitmap, asset->color.a);
                 } else {
@@ -1106,14 +1142,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         math::v2 high_zone_center_in_meters = get_center(high_zone_in_meters);
 
-        math::v2 screen_center_in_pixels = 0.5f * make_v2(Buffer->Width, Buffer->Height);
+        math::v2 screen_center_in_pixels = 0.5f * V2(Buffer->Width, Buffer->Height);
         math::v2 min_corner_in_pixels = screen_center_in_pixels - (high_zone_center_in_meters - high_zone_in_meters.min) * pixels_per_meter;
         math::v2 max_corner_in_pixels = screen_center_in_pixels + (high_zone_in_meters.max - high_zone_center_in_meters) * pixels_per_meter;
 
-        DrawRectangle(Buffer, min_corner_in_pixels, make_v2(min_corner_in_pixels.x + 2, max_corner_in_pixels.y), make_color(1.0f, 1.0f, 0.0f));
-        DrawRectangle(Buffer, min_corner_in_pixels, make_v2(max_corner_in_pixels.x, min_corner_in_pixels.y + 2), make_color(1.0f, 1.0f, 0.0f));
-        DrawRectangle(Buffer, make_v2(min_corner_in_pixels.x, max_corner_in_pixels.y - 2), max_corner_in_pixels, make_color(1.0f, 1.0f, 0.0f));
-        DrawRectangle(Buffer, make_v2(max_corner_in_pixels.x - 2, min_corner_in_pixels.y), max_corner_in_pixels, make_color(1.0f, 1.0f, 0.0f));
+        DrawRectangle(Buffer, min_corner_in_pixels, V2(min_corner_in_pixels.x + 2, max_corner_in_pixels.y), rgb(1, 1, 0));
+        DrawRectangle(Buffer, min_corner_in_pixels, V2(max_corner_in_pixels.x, min_corner_in_pixels.y + 2), rgb(1, 1, 0));
+        DrawRectangle(Buffer, V2(min_corner_in_pixels.x, max_corner_in_pixels.y - 2), max_corner_in_pixels, rgb(1, 1, 0));
+        DrawRectangle(Buffer, V2(max_corner_in_pixels.x - 2, min_corner_in_pixels.y), max_corner_in_pixels, rgb(1, 1, 0));
     }
 #endif
 
@@ -1131,12 +1167,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
         case PLAYBACK_LOOP_RECORDING: {
             BorderVisible = true;
-            BorderColor = color24{ 1.f, 244.f / 255.f, 43.f / 255.f };
+            BorderColor = rgb(1.0f, 244.0f / 255.0f, 43.0f / 255.0f);
             break;
         }
         case PLAYBACK_LOOP_PLAYBACK: {
             BorderVisible = true;
-            BorderColor = color24{ 29.f / 255.f, 166.f / 255.f, 8.f / 255.f };
+            BorderColor = rgb(29.0f / 255.0f, 166.0f / 255.0f, 8.0f / 255.0f);
             break;
         }
     }

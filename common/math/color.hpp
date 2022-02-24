@@ -59,19 +59,6 @@ inline color24 lerp (const color24& a, const color24& b, f32 t) {
 
 
 INLINE
-math::color24 make_color(f32 r, f32 g, f32 b) {
-    math::color24 result{ r, g, b };
-    return result;
-}
-
-
-INLINE
-math::color32 make_color(f32 r, f32 g, f32 b, f32 a) {
-    math::color32 result{ r, g, b, a };
-    return result;
-}
-
-INLINE
 math::color24 rgb(f32 r, f32 g, f32 b) {
     math::color24 result{ r, g, b };
     return result;

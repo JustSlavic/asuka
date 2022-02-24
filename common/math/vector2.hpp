@@ -181,18 +181,8 @@ inline vector2i round_to_vector2i(vector2 v) {
     return result;
 }
 
-inline vector2i truncate_to_vector2i(vector2 v) {
-    vector2i result = vector2i{ truncate_to_int32(v.x), truncate_to_int32(v.y) };
-    return result;
-}
-
 inline vector2 upcast_to_vector2(vector2i v) {
     vector2 result = vector2{ (float32) v.x, (float32) v.y };
-    return result;
-}
-
-inline vector2 mul_per_axis(vector2 a, vector2 b) {
-    vector2 result = vector2{ a.x * b.x, a.y * b.y };
     return result;
 }
 
@@ -293,10 +283,17 @@ intersection_result segment_segment_intersection(vector2 p0, vector2 p1, vector2
 
 } // namespace math
 
+template <typename T>
+math::v2 V2(T value)
+{
+    math::v2 result { (f32) value, (f32) value };
+    return result;
+}
 
-template <typename LHS, typename RHS>
-math::v2 make_v2(LHS x, RHS y) {
-    math::v2 result{ (f32) x, (f32) y };
+template <typename X, typename Y>
+math::v2 V2(X x, Y y)
+{
+    math::v2 result { (f32) x, (f32) y };
     return result;
 }
 
