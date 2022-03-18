@@ -26,15 +26,15 @@ ASUKA_PROFILING=1
 
 #ifdef ASUKA_COMPILER_MICROSOFT
 
-typedef __int8 int8;
-typedef __int16 int16;
-typedef __int32 int32;
-typedef __int64 int64;
+typedef __int8  i8;
+typedef __int16 i16;
+typedef __int32 i32;
+typedef __int64 i64;
 
-typedef unsigned __int8 uint8;
-typedef unsigned __int16 uint16;
-typedef unsigned __int32 uint32;
-typedef unsigned __int64 uint64;
+typedef unsigned __int8  u8;
+typedef unsigned __int16 u16;
+typedef unsigned __int32 u32;
+typedef unsigned __int64 u64;
 
 #define ASUKA_DEBUG_BREAK __debugbreak
 #define FORCE_INLINE __forceinline
@@ -53,15 +53,15 @@ typedef unsigned __int64 uint64;
 
 #ifdef ASUKA_COMPILER_GNU
 
-typedef unsigned char      uint8;
-typedef unsigned short     uint16;
-typedef unsigned int       uint32;
-typedef unsigned long long uint64;
+typedef unsigned char      u8;
+typedef unsigned short     u16;
+typedef unsigned int       u32;
+typedef unsigned long long u64;
 
-typedef signed char        int8;
-typedef signed short       int16;
-typedef signed int         int32;
-typedef signed long long   int64;
+typedef signed char        i8;
+typedef signed short       i16;
+typedef signed int         i32;
+typedef signed long long   i64;
 
 #define ASUKA_DEBUG_BREAK __builtin_trap
 #define FORCE_INLINE __attribute__((always_inline))
@@ -119,17 +119,17 @@ typedef signed long long   int64;
 
 #define INTERNAL_FUNCTION static
 #define IN_CLASS_FUNCTION static
-#define STATIC_VARIABLE static
-#define GLOBAL_VARIABLE static
+#define STATIC_VARIABLE   static
+#define GLOBAL_VARIABLE   static
 
 #define INLINE inline
 
 #define ARRAY_COUNT(ARRAY) (sizeof(ARRAY) / sizeof((ARRAY)[0]))
 
-#define KILOBYTES(VALUE) (((uint64)(VALUE))*1024)
-#define MEGABYTES(VALUE) (KILOBYTES((uint64)(VALUE))*1024)
-#define GIGABYTES(VALUE) (MEGABYTES((uint64)(VALUE))*1024)
-#define TERABYTES(VALUE) (GIGABYTES((uint64)(VALUE))*1024)
+#define KILOBYTES(VALUE) (((u64)(VALUE))*1024)
+#define MEGABYTES(VALUE) (KILOBYTES((u64)(VALUE))*1024)
+#define GIGABYTES(VALUE) (MEGABYTES((u64)(VALUE))*1024)
+#define TERABYTES(VALUE) (GIGABYTES((u64)(VALUE))*1024)
 
 #define EPSILON (1e-7f)
 
@@ -156,38 +156,19 @@ typedef signed long long   int64;
 #define SUCCESS    (1)
 #define FAILURE    (0)
 
-typedef int16 sound_sample_t;
-typedef uint64 hash_t;
+typedef i16 sound_sample_t;
+typedef u64 hash_t;
 
-typedef int32  bool32;
-typedef int32  b32;
+typedef i32  b32;
 typedef size_t usize;
-typedef uint64 uintptr;
-typedef int64  intptr;
-typedef int64  ptrdiff;
-
-typedef int8   i8;
-typedef int16  i16;
-typedef int32  i32;
-typedef int64  i64;
-
-typedef uint8  u8;
-typedef uint16 u16;
-typedef uint32 u32;
-typedef uint64 u64;
-
-typedef float  float32;
-typedef double float64;
+typedef u64 uintptr;
+typedef i64  intptr;
+typedef i64  ptrdiff;
 
 typedef float  f32;
 typedef double f64;
 
-typedef float  F32;
-typedef double F64;
-
 #define loop while(true)
-
-#define memespace namespace
 
 template <typename Callback>
 struct Defer {

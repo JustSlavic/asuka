@@ -28,8 +28,8 @@ struct array {
 };
 
 template <typename T>
-bool32 operator == (array<T> lhs, array<T> rhs) {
-    bool32 same = lhs.size == rhs.size;
+b32 operator == (array<T> lhs, array<T> rhs) {
+    b32 same = lhs.size == rhs.size;
     for (usize i = 0; same && (i < lhs.size); i++) {
         if (lhs.data[i] != rhs.data[i]) same = false;
     }
@@ -38,8 +38,8 @@ bool32 operator == (array<T> lhs, array<T> rhs) {
 }
 
 template <typename T>
-bool32 operator != (array<T> lhs, array<T> rhs) {
-    bool32 same = (lhs == rhs);
+b32 operator != (array<T> lhs, array<T> rhs) {
+    b32 same = (lhs == rhs);
     return !same;
 }
 

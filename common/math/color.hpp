@@ -4,9 +4,6 @@
 #include <defines.hpp>
 
 
-namespace math {
-
-
 struct color24 {
     struct { f32 r; f32 g; f32 b; };
 
@@ -31,11 +28,11 @@ struct color32 {
 };
 
 
-inline uint32 pack_to_uint32(color24 color) {
-    uint32 result =
-        (round_to_u32(color.r * 255.f) << 16) |
-        (round_to_u32(color.g * 255.f) << 8) |
-        (round_to_u32(color.b * 255.f));
+inline u32 pack_to_uint32(color24 color) {
+    u32 result =
+        (math::round_to_u32(color.r * 255.f) << 16) |
+        (math::round_to_u32(color.g * 255.f) << 8) |
+        (math::round_to_u32(color.b * 255.f));
 
     return result;
 }
@@ -50,23 +47,16 @@ inline bool operator != (color24 lhs, color24 rhs) {
     return result;
 }
 
-inline color24 lerp (const color24& a, const color24& b, f32 t) {
-    color24 result = color24{ lerp(a.r, b.r, t), lerp(a.g, b.g, t), lerp(a.b, b.b, t) };
-    return result;
-}
-
-} // namespace math
-
 
 INLINE
-math::color24 rgb(f32 r, f32 g, f32 b) {
-    math::color24 result{ r, g, b };
+color24 rgb(f32 r, f32 g, f32 b) {
+    color24 result{ r, g, b };
     return result;
 }
 
 INLINE
-math::color32 rgba(f32 r, f32 g, f32 b, f32 a) {
-    math::color32 result{ r, g, b, a };
+color32 rgba(f32 r, f32 g, f32 b, f32 a) {
+    color32 result{ r, g, b, a };
     return result;
 }
 

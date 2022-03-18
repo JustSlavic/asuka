@@ -69,8 +69,8 @@ v2 get_dimensions(rectangle2 rect) {
 }
 
 INLINE
-bool32 in_rectangle(rectangle2 rect, v2 v) {
-    bool32 result = ((v.x >= rect.min.x) &&
+b32 in_rectangle(rectangle2 rect, v2 v) {
+    b32 result = ((v.x >= rect.min.x) &&
                      (v.x <= rect.max.x) &&
                      (v.y >= rect.min.y) &&
                      (v.y <= rect.max.y));

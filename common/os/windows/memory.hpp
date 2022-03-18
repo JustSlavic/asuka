@@ -4,9 +4,9 @@ namespace memory {
 namespace internal {
 
 
-void* allocate_pages(uint64 size);
-void* allocate_pages(void* base_address, uint64 size);
-void  free_pages(void* memory, uint64 size);
+void *allocate_pages(u64 size);
+void *allocate_pages(void *base_address, u64 size);
+void  free_pages(void *memory, u64 size);
 
 
 } // namespace internal

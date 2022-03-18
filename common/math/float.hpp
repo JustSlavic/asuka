@@ -20,47 +20,47 @@ typedef union {
     f32 f;
 } IEEE754_f32_repr;
 
-inline bool32 is_nan(float32 x) {
+inline b32 is_nan(f32 x) {
     union {
-        uint32  u;
-        float32 f;
+        u32  u;
+        f32 f;
     };
     f = x;
 
-    bool32 result = ((u & 0x7F80'0000) == 0x7F80'0000) && ((u & 0x007F'FFFF) != 0);
+    b32 result = ((u & 0x7F80'0000) == 0x7F80'0000) && ((u & 0x007F'FFFF) != 0);
     return result;
 }
 
-inline bool32 is_inf(float32 x) {
+inline b32 is_inf(f32 x) {
     union {
-        uint32  u;
-        float32 f;
+        u32  u;
+        f32 f;
     };
     f = x;
 
-    bool32 result = ((u & 0x7F80'0000) == 0x7F80'0000) && ((u & 0x007F'FFFF) == 0);
+    b32 result = ((u & 0x7F80'0000) == 0x7F80'0000) && ((u & 0x007F'FFFF) == 0);
     return result;
 }
 
-inline bool32 is_valid(float32 x) {
-    bool32 result = !is_nan(x) && !is_inf(x);
+inline b32 is_valid(f32 x) {
+    b32 result = !is_nan(x) && !is_inf(x);
     return result;
 }
 
-inline int32 sign(int32 value) {
-    int32 result = (value > 0) - (value < 0);
+inline i32 sign(i32 value) {
+    i32 result = (value > 0) - (value < 0);
     return result;
 }
 
-inline float32 sign(float32 value) {
-    float32 result = (float32)((value > 0) - (value < 0));
+inline f32 sign(f32 value) {
+    f32 result = (f32)((value > 0) - (value < 0));
     return result;
 }
 
-inline float32 absolute(float32 x) {
+inline f32 absolute(f32 x) {
     union {
-        uint32  u;
-        float32 f;
+        u32  u;
+        f32 f;
     };
     f = x;
     u = u & 0x7FFF'FFFF;
@@ -68,78 +68,78 @@ inline float32 absolute(float32 x) {
     return f;
 }
 
-inline int32 absolute(int32 x) {
+inline i32 absolute(i32 x) {
     if (x < 0) x = -x;
     return x;
 }
 
-inline int32 round_to_int32(float32 x) {
-    float32 result = x + 0.5f * sign(x);
-    return (int32) result;
+inline i32 round_to_int32(f32 x) {
+    f32 result = x + 0.5f * sign(x);
+    return (i32) result;
 }
 
-inline uint32 round_to_u32(float32 x) {
-    float32 result = (x + 0.5f);
-    return (uint32) result;
+inline u32 round_to_u32(f32 x) {
+    f32 result = (x + 0.5f);
+    return (u32) result;
 }
 
-inline int32 truncate_to_int32(float32 x) {
-    int32 result = (int32) x;
+inline i32 truncate_to_int32(f32 x) {
+    i32 result = (i32) x;
     return result;
 }
 
-inline uint32 rotate_left(uint32 x, uint32 n) {
+inline u32 rotate_left(u32 x, u32 n) {
     n &= 31;
-    uint32 result = (x << n) | (x >> (32 - n));
+    u32 result = (x << n) | (x >> (32 - n));
     return result;
 }
 
-inline uint32 rotate_right(uint32 x, uint32 n) {
+inline u32 rotate_right(u32 x, u32 n) {
     n &= 31;
-    uint32 result = (x >> n) | (x << (32 - n));
+    u32 result = (x >> n) | (x << (32 - n));
     return result;
 }
 
-inline int32 floor_to_int32(float32 x) {
-    float32 result = floorf(x);
-    return (int32) result;
+inline i32 floor_to_int32(f32 x) {
+    f32 result = floorf(x);
+    return (i32) result;
 }
 
-inline float32 min(float32 x, float32 y) {
-    float32 result = (x < y) ? x : y;
+inline f32 min(f32 x, f32 y) {
+    f32 result = (x < y) ? x : y;
     return result;
 }
 
-inline float32 max(float32 x, float32 y) {
-    float32 result = (x < y) ? y : x;
+inline f32 max(f32 x, f32 y) {
+    f32 result = (x < y) ? y : x;
     return result;
 }
 
-inline int32 min(int32 x, int32 y) {
-    int32 result = (x < y) ? x : y;
+inline i32 min(i32 x, i32 y) {
+    i32 result = (x < y) ? x : y;
     return result;
 }
 
-inline int32 max(int32 x, int32 y) {
-    int32 result = (x < y) ? y : x;
+inline i32 max(i32 x, i32 y) {
+    i32 result = (x < y) ? y : x;
     return result;
 }
 
-inline float32 square(float32 x) {
-    float32 result = x*x;
+inline f32 square(f32 x) {
+    f32 result = x*x;
     return result;
 }
 
-inline float32 sqrt(float32 x) {
+inline f32 sqrt(f32 x) {
     ASSERT(x >= 0);
 
     return ::sqrtf(x);
 }
 
-inline float32 clamp(f32 x, f32 min, f32 max) {
+inline f32 clamp(f32 x, f32 min, f32 max) {
     ASSERT(min < max);
 
-    float32 result = x;
+    f32 result = x;
     if (x > max) result = max;
     if (x < min) result = min;
 
@@ -152,8 +152,8 @@ inline f32 lerp(f32 a, f32 b, f32 t) {
     return (1.f - t) * a + t * b;
 }
 
-inline float32 smoothstep(float32 x) {
-    float32 result = 0;
+inline f32 smoothstep(f32 x) {
+    f32 result = 0;
     if (x <= 0) {
         result = 0;
     } else if (x <= 1) {
@@ -165,8 +165,8 @@ inline float32 smoothstep(float32 x) {
     return result;
 }
 
-inline float32 sin(float32 x) {
-    float32 result = sinf(x);
+inline f32 sin(f32 x) {
+    f32 result = sinf(x);
     return result;
 }
 

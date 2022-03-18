@@ -35,7 +35,7 @@ INLINE
 void* push_memory(arena_allocator *arena, usize size) {
     ASSERT((arena->used + size) < arena->size);
 
-    void* result = (uint8*)arena->memory + arena->used;
+    void* result = (u8*)arena->memory + arena->used;
     arena->used += size;
 
     memory::set(result, 0, size);

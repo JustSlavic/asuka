@@ -3,31 +3,31 @@
 
 
 struct RIFF_Header {
-    uint32 ChunkID;
-    uint32 ChunkSize;
-    uint8  Format[4];
+    u32 ChunkID;
+    u32 ChunkSize;
+    u8  Format[4];
 };
 
 
 struct WAV_Format {
-    uint32 Subchunk1ID;
-    uint32 Subchunk1Size;
-    uint16 AudioFormat;
-    uint16 NumChannels;
-    uint32 SampleRate;
-    uint32 ByteRate;
-    uint16 BlockAlign;
-    uint16 BitsPerSample;
+    u32 Subchunk1ID;
+    u32 Subchunk1Size;
+    u16 AudioFormat;
+    u16 NumChannels;
+    u32 SampleRate;
+    u32 ByteRate;
+    u16 BlockAlign;
+    u16 BitsPerSample;
 };
 
 
 struct WAV_Data {
-    uint32 Subchunk2ID;
-    uint32 Subchunk2Size;
+    u32 Subchunk2ID;
+    u32 Subchunk2Size;
 };
 
 
-#define WAV_MAGIC_NUMBER(a, b, c, d) ((((uint32)a) << 0) | (((uint32)b) << 8) | (((uint32)c) << 16) | (((uint32)d) << 24))
+#define WAV_MAGIC_NUMBER(a, b, c, d) ((((u32)a) << 0) | (((u32)b) << 8) | (((u32)c) << 16) | (((u32)d) << 24))
 
 enum {
     WAV_RIFF_ID = WAV_MAGIC_NUMBER('R', 'I', 'F', 'F'),
@@ -37,8 +37,8 @@ enum {
 
 
 INTERNAL_FUNCTION
-uint8 *consume_memory(uint8 **data, uint64 size) {
-    uint8 *result = *data;
+u8 *consume_memory(u8 **data, u64 size) {
+    u8 *result = *data;
 
     *data += size;
 
@@ -58,7 +58,7 @@ wav_file_contents load_wav_file(const char* filename) {
         return result;
     }
 
-    uint8 *data = (uint8 *)contents.data;
+    u8 *data = (u8 *)contents.data;
 
     RIFF_Header riff_header {};
     WAV_Format wav_format {};
@@ -66,7 +66,7 @@ wav_file_contents load_wav_file(const char* filename) {
 
     bool processing_headers = true;
     while (processing_headers) {
-        uint32 header_id = *(uint32*)data;
+        u32 header_id = *(u32*)data;
 
         switch (header_id) {
             case WAV_RIFF_ID: {

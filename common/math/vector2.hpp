@@ -5,184 +5,184 @@
 #include "float.hpp"
 
 
-namespace math {
-
-struct vector2i {
+struct v2i {
     union {
-        struct { int32  x, y; };
-        int32 coordinates[2];
+        struct { i32  x, y; };
+        i32 coordinates[2];
     };
 
-    inline int32 operator[] (int32 idx) {
-        int32 result = coordinates[idx];
+    inline i32 operator[] (i32 idx) {
+        i32 result = coordinates[idx];
         return result;
     }
 };
 
 
-typedef vector2i vec2i;
-typedef vector2i v2i;
-
-
-inline vector2i operator - (vector2i a, vector2i b) {
-    vector2i result = vector2i{ a.x - b.x, a.y - b.y };
+inline v2i operator - (v2i a, v2i b) {
+    v2i result = v2i{ a.x - b.x, a.y - b.y };
     return result;
 }
 
-inline vector2i operator + (vector2i a, vector2i b) {
-    vector2i result = vector2i{ a.x + b.x, a.y + b.y};
+inline v2i operator + (v2i a, v2i b) {
+    v2i result = v2i{ a.x + b.x, a.y + b.y};
     return result;
 }
 
 
-struct vector2 {
+struct v2 {
     union {
-        struct { float32  x,  y; };
-        struct { float32  u,  v; };
-        float32 coordinates[2];
+        struct { f32  x,  y; };
+        struct { f32  u,  v; };
+        f32 coordinates[2];
     };
 
-    IN_CLASS_FUNCTION
-    vector2 from(float32 v) {
-        vector2 result { v, v };
-        return result;
-    }
-
-    inline float32 length_2 () { return x*x + y*y; }
-    inline float32 length () { return sqrt(length_2()); }
-    inline float32 norm () { return length(); }
-    inline vector2 normalized () {
-        vector2 result {};
-
-        float32 n = norm();
-        if (n > 0) {
-            result = vector2{ x / n, y / n };
-        }
-
-        return result;
-    }
-
-    inline vector2& operator += (vector2 other) {
+    inline v2& operator += (v2 other) {
         x += other.x;
         y += other.y;
         return *this;
     }
 
-    inline vector2& operator -= (vector2 other) {
+    inline v2& operator -= (v2 other) {
         x -= other.x;
         y -= other.y;
         return *this;
     }
 
-    inline vector2& operator *= (float32 c) {
+    inline v2& operator *= (f32 c) {
         x *= c;
         y *= c;
         return *this;
     }
 
     IN_CLASS_FUNCTION
-    constexpr vector2 nan() {
-        vector2 result { NaN, NaN };
+    constexpr v2 nan() {
+        v2 result { math::NaN, math::NaN };
         return result;
     }
 
     IN_CLASS_FUNCTION
-    constexpr vector2 zero() {
-        vector2 result { 0, 0 };
+    constexpr v2 zero() {
+        v2 result { 0, 0 };
         return result;
     }
 
     IN_CLASS_FUNCTION
-    constexpr vector2 one() {
-        vector2 result { 1, 1 };
+    constexpr v2 one() {
+        v2 result { 1, 1 };
         return result;
     }
 
     IN_CLASS_FUNCTION
-    constexpr vector2 ex() {
-        vector2 result { 1, 0 };
+    constexpr v2 ex() {
+        v2 result { 1, 0 };
         return result;
     }
 
     IN_CLASS_FUNCTION
-    constexpr vector2 ey() {
-        vector2 result { 0, 1 };
+    constexpr v2 ey() {
+        v2 result { 0, 1 };
         return result;
     }
 };
 
 
-typedef vector2 vec2;
-typedef vector2 v2;
-
-
-inline bool32 is_valid(vector2 a) {
-    bool32 valid = is_valid(a.x) && is_valid(a.y);
+inline b32 is_valid(v2 a) {
+    b32 valid = math::is_valid(a.x) && math::is_valid(a.y);
     return valid;
 }
 
-inline vector2 operator - (vector2 a) {
-    vector2 result = vector2{ -a.x, -a.y };
+inline v2 operator - (v2 a) {
+    v2 result = v2{ -a.x, -a.y };
     return result;
 }
 
-inline vector2 operator + (vector2 a, vector2 b) {
-    vector2 result = vector2{ a.x + b.x, a.y + b.y };
+inline v2 operator + (v2 a, v2 b) {
+    v2 result = v2{ a.x + b.x, a.y + b.y };
     return result;
 }
 
-inline vector2 operator - (vector2 a, vector2 b) {
-    vector2 result = vector2{ a.x - b.x, a.y - b.y };
+inline v2 operator - (v2 a, v2 b) {
+    v2 result = v2{ a.x - b.x, a.y - b.y };
     return result;
 }
 
-inline vector2 operator * (vector2 a, f32 c) {
-    vector2 result = vector2{ c * a.x, c * a.y };
+inline v2 operator * (v2 a, f32 c) {
+    v2 result = v2{ c * a.x, c * a.y };
     return result;
 }
 
-inline vector2 operator * (f32 c, vector2 a) {
-    vector2 result = vector2{ c * a.x, c * a.y };
+inline v2 operator * (f32 c, v2 a) {
+    v2 result = v2{ c * a.x, c * a.y };
     return result;
 }
 
-inline vector2 operator / (vector2 a, f32 c) {
-    vector2 result = vector2{ a.x / c, a.y / c };
+inline v2 operator / (v2 a, f32 c) {
+    v2 result = v2{ a.x / c, a.y / c };
     return result;
 }
 
-inline bool operator == (vector2 a, vector2 b) {
+inline bool operator == (v2 a, v2 b) {
     bool result = (a.x == b.x) && (a.y == b.y);
     return result;
 }
 
-inline bool operator != (vector2 a, vector2 b) {
+inline bool operator != (v2 a, v2 b) {
     bool result = !(a == b);
     return result;
 }
 
-inline f32 dot (vector2 a, vector2 b) {
+inline f32 dot (v2 a, v2 b) {
     f32 result = a.x * b.x + a.y * b.y;
     return result;
 }
 
-inline vector2 clamp(vector2 a, f32 min, f32 max) {
-    vector2 result{ clamp(a.x, min, max), clamp(a.y, min, max) };
+[[nodiscard]] inline
+f32 length_squared(v2 a)
+{
+    f32 result = dot(a, a);
     return result;
 }
 
-inline vector2 lerp (vector2 a, vector2 b, f32 t) {
-    vector2 result = vector2{ lerp(a.x, b.x, t), lerp(a.y, b.y, t) };
+[[nodiscard]] inline
+f32 length(v2 a)
+{
+    f32 result = math::sqrt(length_squared(a));
     return result;
 }
 
-inline vector2i round_to_vector2i(vector2 v) {
-    vector2i result = vector2i{ round_to_int32(v.x), round_to_int32(v.y) };
+inline
+void normalize(v2& a)
+{
+    f32 n = length(a);
+    if (n > 0) {
+        a.x /= n;
+        a.y /= n;
+    }
+}
+
+inline v2 normalized(v2 a) {
+    v2 result = a;
+    normalize(result);
     return result;
 }
 
-inline vector2 upcast_to_vector2(vector2i v) {
-    vector2 result = vector2{ (float32) v.x, (float32) v.y };
+inline v2 clamp(v2 a, f32 min, f32 max) {
+    v2 result{ math::clamp(a.x, min, max), math::clamp(a.y, min, max) };
+    return result;
+}
+
+inline v2 lerp (v2 a, v2 b, f32 t) {
+    v2 result = v2{ math::lerp(a.x, b.x, t), math::lerp(a.y, b.y, t) };
+    return result;
+}
+
+inline v2i round_to_vector2i(v2 v) {
+    v2i result = v2i{ math::round_to_int32(v.x), math::round_to_int32(v.y) };
+    return result;
+}
+
+inline v2 upcast_to_vector2(v2i v) {
+    v2 result = v2{ (f32) v.x, (f32) v.y };
     return result;
 }
 
@@ -197,22 +197,22 @@ enum intersection_type {
 //
 // Projects 'a' onto 'b'
 //
-inline vector2 project(vector2 a, vector2 b) {
-    vector2 result = b * math::dot(a, b) / b.length_2();
+inline v2 project(v2 a, v2 b) {
+    v2 result = b * dot(a, b) / length_squared(b);
     return result;
 }
 
 //
 // Projects 'a' onto line with normal 'norm'
 //
-inline vector2 project_normal(vector2 a, vector2 norm) {
-    vector2 result = a - dot(a, norm) * norm;
+inline v2 project_normal(v2 a, v2 norm) {
+    v2 result = a - dot(a, norm) * norm;
     return result;
 }
 
 
-inline float32 projection(vector2 a, vector2 b) {
-    float32 result = math::dot(a, b) / b.length();
+inline f32 projection(v2 a, v2 b) {
+    f32 result = dot(a, b) / length(b);
     return result;
 }
 
@@ -222,56 +222,56 @@ struct intersection_result {
 };
 
 inline
-vector2 line_line_intersection(vector2 r0, vector2 r1, vector2 s0, vector2 s1) {
-    vector2 result;
+v2 line_line_intersection(v2 r0, v2 r1, v2 s0, v2 s1) {
+    v2 result;
 
-    vector2 r = r1 - r0;
-    vector2 s = s1 - s0;
+    v2 r = r1 - r0;
+    v2 s = s1 - s0;
 
-    float32 denom = r.x * s.y - r.y * s.x;
-    float32 nom = ((s0.x - r0.x) * s.y - (s0.y - r0.y) * s.x);
+    f32 denom = r.x * s.y - r.y * s.x;
+    f32 nom = ((s0.x - r0.x) * s.y - (s0.y - r0.y) * s.x);
 
-    float32 t = nom / denom;
+    f32 t = nom / denom;
     result = r0 + t * r;
 
     return result;
 }
 
 inline
-intersection_result segment_segment_intersection(vector2 p0, vector2 p1, vector2 q0, vector2 q1) {
+intersection_result segment_segment_intersection(v2 p0, v2 p1, v2 q0, v2 q1) {
     intersection_result result {};
 
-    vector2 r = p1 - p0;
-    vector2 s = q1 - q0;
+    v2 r = p1 - p0;
+    v2 s = q1 - q0;
 
-    float32 denom = r.x * s.y - r.y * s.x;
-    float32 nom = ((q0.x - p0.x) * s.y - (q0.y - p0.y) * s.x);
+    f32 denom = r.x * s.y - r.y * s.x;
+    f32 nom = ((q0.x - p0.x) * s.y - (q0.y - p0.y) * s.x);
 
-    if (absolute(denom) < EPSILON && absolute(nom) < EPSILON) {
+    if (math::absolute(denom) < EPSILON && math::absolute(nom) < EPSILON) {
         result = { INTERSECTION_COLLINEAR, v2::nan() };
         return result;
     }
 
-    if (absolute(denom) < EPSILON && absolute(nom) > EPSILON) {
+    if (math::absolute(denom) < EPSILON && math::absolute(nom) > EPSILON) {
         result = { INTERSECTION_PARALLEL, v2::nan() };
         return result;
     }
 
-    float32 t = nom / denom;
+    f32 t = nom / denom;
     v2 intersection = p0 + t * r;
 
     // t < 0 checks for  X<-p0-->p1 situation
     // t > 0 requires us to check whether it's p0-->p1->X situation
-    if ((t + EPSILON < 0) || (t > 0 && (intersection - p0).length_2() - EPSILON > r.length_2())) {
+    if ((t + EPSILON < 0) || (t > 0 && length_squared(intersection - p0) - EPSILON > length_squared(r))) {
         result = { INTERSECTION_OUT_BOUNDS, intersection };
         return result;
     }
 
     // dot(intersection - q0, q1 - q0) < 0           checks for X<-q0-->q1 situation
-    float32 vector_alignment = dot(intersection - q0, q1 - q0);
+    f32 vector_alignment = dot(intersection - q0, q1 - q0);
     // (intersection - q0).length_2() > s.length_2() checks for q0-->q1->X situation
-    float32 vector_iq0_length = (intersection - q0).length_2();
-    float32 vector_s_length = s.length_2();
+    f32 vector_iq0_length = length_squared(intersection - q0);
+    f32 vector_s_length = length_squared(s);
     if ((vector_alignment + EPSILON < 0) || (vector_iq0_length - EPSILON > vector_s_length)) {
         result = { INTERSECTION_OUT_BOUNDS, intersection };
         return result;
@@ -281,19 +281,24 @@ intersection_result segment_segment_intersection(vector2 p0, vector2 p1, vector2
     return result;
 }
 
-} // namespace math
 
 template <typename T>
-math::v2 V2(T value)
+v2 V2(T value)
 {
-    math::v2 result { (f32) value, (f32) value };
+    v2 result { (f32) value, (f32) value };
     return result;
 }
 
 template <typename X, typename Y>
-math::v2 V2(X x, Y y)
+v2 V2(X x, Y y)
 {
-    math::v2 result { (f32) x, (f32) y };
+    v2 result { (f32) x, (f32) y };
+    return result;
+}
+
+v2i V2I(i32 x, i32 y)
+{
+    v2i result { x, y };
     return result;
 }
 

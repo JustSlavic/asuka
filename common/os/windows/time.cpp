@@ -5,12 +5,12 @@ namespace os {
 namespace windows {
 
 
-uint64 get_processor_cycles() {
+u64 get_processor_cycles() {
     return __rdtsc();
 }
 
-int64 get_wall_clock_frequency() {
-    STATIC_VARIABLE int64 cache;
+i64 get_wall_clock_frequency() {
+    STATIC_VARIABLE i64 cache;
 
     if (cache == 0) {
         LARGE_INTEGER PerformanceCounterFrequency;
@@ -21,7 +21,7 @@ int64 get_wall_clock_frequency() {
     return cache;
 }
 
-int64 get_wall_clock() {
+i64 get_wall_clock() {
     LARGE_INTEGER PerformanceCounter;
     QueryPerformanceCounter(&PerformanceCounter); // Note: this always succeeds on WinXP and higher
 

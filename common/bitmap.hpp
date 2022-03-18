@@ -5,9 +5,9 @@
 struct Bitmap {
     void*  pixels;
     usize  size;   // in bytes
-    uint32 width;  // in pixels
-    uint32 height; // in pixels
-    uint32 bytes_per_pixel;
+    u32 width;  // in pixels
+    u32 height; // in pixels
+    u32 bytes_per_pixel;
 };
 
 

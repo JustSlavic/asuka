@@ -42,14 +42,14 @@ struct Game_ButtonState {
                                ^
                                second "press" on second frame which I want not to happen
 
-    To get number of "presses" happened on this frame, call 'uint32 GetPressCount(Game_ButtonState)' function.
-    To get number of "holds" happened on this frame, call 'uint32 GetHoldsCount(Game_ButtonState)' function.
+    To get number of "presses" happened on this frame, call 'u32 GetPressCount(Game_ButtonState)' function.
+    To get number of "holds" happened on this frame, call 'u32 GetHoldsCount(Game_ButtonState)' function.
 
     In the example, on frame one there should be 1 press and 1 hold. On frame 2 there should be 0 presses and 1 hold.
     */
 
-    bool32 EndedDown;  // Was it ended down?
-    int32  HalfTransitionCount; // How many times state was changed
+    b32 EndedDown;  // Was it ended down?
+    i32  HalfTransitionCount; // How many times state was changed
 };
 
 struct Game_AxisState {
@@ -77,25 +77,25 @@ struct Game_ControllerInput {
         };
     };
 
-    math::v2 LeftStickStarted;
-    math::v2 LeftStickEnded;
+    v2 LeftStickStarted;
+    v2 LeftStickEnded;
 
-    math::v2 RightStickStarted;
-    math::v2 RightStickEnded;
+    v2 RightStickStarted;
+    v2 RightStickEnded;
 
-    float32 TriggerLeftStarted;
-    float32 TriggerLeftEnded;
+    f32 TriggerLeftStarted;
+    f32 TriggerLeftEnded;
 
-    float32 TriggerRightStarted;
-    float32 TriggerRightEnded;
+    f32 TriggerRightStarted;
+    f32 TriggerRightEnded;
 };
 
 
 struct Game_MouseState {
     // Coordinates in client area coordinate space
-    uint32 X;
-    uint32 Y;
-    int32 Wheel;
+    u32 X;
+    u32 Y;
+    i32 Wheel;
 
     union {
         Game_ButtonState Buttons[5];
@@ -133,7 +133,7 @@ struct Game_Input {
     };
 
     // Probably should go to a game no in controller input?
-    float32 dt;
+    f32 dt;
 
 #if ASUKA_PLAYBACK_LOOP
     Debug_PlaybackLoopState PlaybackLoopState;
@@ -151,20 +151,20 @@ Game_ControllerInput* GetControllerInput(Game_Input* Input, InputIndex Controlle
 
 
 INLINE
-Game_ControllerInput* GetGamepadInput(Game_Input *Input, int32 GamepadIndex) {
+Game_ControllerInput* GetGamepadInput(Game_Input *Input, i32 GamepadIndex) {
     ASSERT(GamepadIndex < ARRAY_COUNT(Input->GamepadInputs));
     return &Input->GamepadInputs[GamepadIndex];
 }
 
 INLINE
-uint32 GetPressCount(Game_ButtonState button) {
-    uint32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
+u32 GetPressCount(Game_ButtonState button) {
+    u32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
     return result;
 }
 
 INLINE
-uint32 GetHoldsCount(Game_ButtonState button) {
-    uint32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
+u32 GetHoldsCount(Game_ButtonState button) {
+    u32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
     return result;
 }
 
@@ -172,100 +172,30 @@ uint32 GetHoldsCount(Game_ButtonState button) {
 struct Game_OffscreenBuffer {
     // Pixels are always 32-bits wide Little Endian, Memory Order BBGGRRxx
     void* Memory;
-    int Width;
-    int Height;
-    int Pitch;
-    int BytesPerPixel;
+    i32 Width;
+    i32 Height;
+    i32 Pitch;
+    i32 BytesPerPixel;
 };
 
 
 struct Game_SoundOutputBuffer {
     sound_sample_t* Samples;
-    int32 SampleCount;
-    int32 SamplesPerSecond;
+    i32 SampleCount;
+    i32 SamplesPerSecond;
 };
 
 
 struct Game_Memory {
-    uint64 PermanentStorageSize;
+    u64 PermanentStorageSize;
     void*  PermanentStorage;
 
-    uint64 TransientStorageSize;
+    u64 TransientStorageSize;
     void*  TransientStorage;
 
-    bool32 IsInitialized;
+    b32 IsInitialized;
 };
 
-
-enum FaceDirection {
-    FACE_DIRECTION_DOWN = 0,
-    FACE_DIRECTION_LEFT = 1,
-    FACE_DIRECTION_RIGHT = 2,
-    FACE_DIRECTION_UP = 3,
-};
-
-
-enum EntityType {
-    ENTITY_TYPE_NULL,
-    ENTITY_TYPE_PLAYER,
-    ENTITY_TYPE_WALL,
-    ENTITY_TYPE_FAMILIAR,
-    ENTITY_TYPE_MONSTER,
-};
-
-
-struct HighEntity;
-using HighEntityIndex = Index<HighEntity>;
-
-struct HighEntity {
-    math::v3 position; // Relative to the camera
-    math::v3 velocity;
-    int32 chunk_z; // for moving up and down "stairs"
-
-    f32 tBob = 0.0f;
-
-    FaceDirection face_direction;
-
-    LowEntityIndex low_index;
-};
-
-
-struct HealthPoint {
-    u32 fill; // In percent (max 100).
-    b32 shielded;
-    b32 poisoned;
-};
-
-
-enum {
-    ENTITY_HEALTH_STARTING_FILL_MAX = 3,
-};
-struct LowEntity {
-    EntityType type;
-    WorldPosition world_position;
-    // @note: for "stairs"
-    int32 d_abs_tile_z;
-
-    math::v2 hitbox;
-    bool32 collidable;
-
-    i32 health_max;
-    u32 health_fill_max;
-    HealthPoint health[32];
-
-    HighEntityIndex high_index;
-};
-
-struct Entity {
-    HighEntityIndex high_index;
-    HighEntity *high;
-
-    LowEntityIndex low_index;
-    LowEntity  *low;
-};
-
-using math::v2;
-using math::color32;
 
 struct VisiblePiece {
     // @note: offset and dimenstions in pixel, top-down screen space
@@ -289,10 +219,10 @@ struct GameState {
     WorldPosition camera_position;
 
     // @note: 0-th entity is invalid in both arrays (high entities and low entities) and should not be used (it indicates wrong index).
-    uint32 low_entity_count;
+    u32 low_entity_count;
     LowEntity low_entities[10000];
 
-    uint32 high_entity_count;
+    u32 high_entity_count;
     HighEntity high_entities[256];
 
     LowEntityIndex player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
@@ -312,6 +242,8 @@ struct GameState {
     Bitmap heart_empty_texture;
     Bitmap familiar_texture;
     Bitmap shadow_texture;
+    Bitmap fireball_texture;
+    Bitmap sword_texture;
 
     Bitmap monster_head;
     Bitmap monster_left_arm;
@@ -319,7 +251,7 @@ struct GameState {
 
     Bitmap player_textures[4];
 
-    uint32 test_current_sound_cursor;
+    u32 test_current_sound_cursor;
 };
 
 

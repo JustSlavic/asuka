@@ -5,10 +5,10 @@
 
 
 struct wav_file_contents {
-    int32 samples_per_second;
-    int32 channels;
+    i32 samples_per_second;
+    i32 channels;
     sound_sample_t* samples;
-    uint64 samples_count;
+    u64 samples_count;
 };
 
 

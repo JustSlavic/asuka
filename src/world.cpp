@@ -2,6 +2,9 @@
 #include <os/memory.hpp>
 
 
+#define INVALID_CHUNK_POSITION INT32_MAX
+
+
 void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_meters) {
     memory::set(world, 0, sizeof(World));
 
@@ -10,12 +13,27 @@ void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_m
 }
 
 
+WorldPosition null_position()
+{
+    WorldPosition result {};
+    result.chunk_x = INVALID_CHUNK_POSITION;
+
+    return result;
+}
+
+b32 is_valid(WorldPosition p)
+{
+    b32 result = (p.chunk_x != INVALID_CHUNK_POSITION) && (p.chunk_y != INVALID_CHUNK_POSITION) && (p.chunk_z != INVALID_CHUNK_POSITION);
+    return result;
+}
+
+
 INTERNAL_FUNCTION INLINE
-Chunk* get_chunk(World* world, int32 chunk_x, int32 chunk_y, int32 chunk_z, memory::arena_allocator *arena = NULL)
+Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, memory::arena_allocator *arena = NULL)
 {
     // @todo: MAKE BETTER HASH FUNCTION!!!
     hash_t hash = chunk_x * 3 + chunk_y * 13 + chunk_z * 53;
-    uint32 index = hash & (ARRAY_COUNT(world->chunks_hash_table) - 1);
+    u32 index = hash & (ARRAY_COUNT(world->chunks_hash_table) - 1);
     ASSERT(index < ARRAY_COUNT(world->chunks_hash_table));
 
     Chunk *chunk = world->chunks_hash_table + index;
@@ -62,8 +80,8 @@ Chunk *get_chunk(World *world, WorldPosition position, memory::arena_allocator *
 }
 
 
-math::vector2 position_difference(World *world, WorldPosition p1, WorldPosition p2) {
-    math::v2 result {};
+v2 position_difference(World *world, WorldPosition p1, WorldPosition p2) {
+    v2 result {};
 
     if (p1.chunk_z != p2.chunk_z) {
         return result;
@@ -80,8 +98,8 @@ math::vector2 position_difference(World *world, WorldPosition p1, WorldPosition 
 }
 
 
-bool32 in_same_chunk(World *world, WorldPosition p1, WorldPosition p2) {
-    bool32 result = ((p1.chunk_x == p2.chunk_x) &&
+b32 in_same_chunk(World *world, WorldPosition p1, WorldPosition p2) {
+    b32 result = ((p1.chunk_x == p2.chunk_x) &&
                      (p1.chunk_x == p2.chunk_x) &&
                      (p1.chunk_x == p2.chunk_x));
 
@@ -130,7 +148,7 @@ void remove_entity_from_chunk(World *world, Chunk *chunk, LowEntityIndex entity)
     EntityBlock *first_block = chunk->entities;
 
     for (EntityBlock *block = chunk->entities; block; block = block->next_block) {
-        for (uint32 idx = 0; idx < block->entity_count; idx++) {
+        for (u32 idx = 0; idx < block->entity_count; idx++) {
             if (block->entities[idx] == entity) {
                 // Found entity to remove!
                 block->entities[idx] = first_block->entities[first_block->entity_count - 1];
@@ -152,39 +170,67 @@ void remove_entity_from_chunk(World *world, Chunk *chunk, LowEntityIndex entity)
 }
 
 
-WorldPosition change_entity_location(World *world, LowEntityIndex entity, WorldPosition *old_position, WorldPosition *new_position, memory::arena_allocator *arena) {
+WorldPosition change_entity_location_internal(World *world, LowEntityIndex low_index, LowEntity *low, WorldPosition *new_position, memory::arena_allocator *arena)
+{
     WorldPosition result {};
 
-    ASSERT(new_position);
-
-    if (old_position && in_same_chunk(world, *old_position, *new_position)) {
+    if (low && new_position && in_same_chunk(world, low->world_position, *new_position))
+    {
         // Leave entity where it is.
-    } else {
-        if (old_position) {
-            Chunk *old_chunk = get_chunk(world, *old_position, arena);
-            remove_entity_from_chunk(world, old_chunk, entity);
+    }
+    else
+    {
+        if (is_valid(low->world_position))
+        {
+            Chunk *old_chunk = get_chunk(world, low->world_position, arena);
+            remove_entity_from_chunk(world, old_chunk, low_index);
         }
 
-        Chunk *chunk = get_chunk(world, *new_position, arena);
-        push_entity_into_chunk(world, chunk, entity, arena);
+        if (new_position)
+        {
+            Chunk *chunk = get_chunk(world, *new_position, arena);
+            push_entity_into_chunk(world, chunk, low_index, arena);
+        }
     }
 
     return result;
 }
 
 
-bool32 is_canonical(World *world, math::v2 p) {
-    bool32 result = (p.x >= -0.5f * world->chunk_side_in_meters) &&
-                    (p.x <=   0.5f * world->chunk_side_in_meters) &&
-                    (p.y >= -0.5f * world->chunk_side_in_meters) &&
-                    (p.y <=   0.5f * world->chunk_side_in_meters);
+WorldPosition change_entity_location(World *world, LowEntityIndex low_index, LowEntity *low, WorldPosition *new_position, memory::arena_allocator *arena)
+{
+    WorldPosition result = change_entity_location_internal(world, low_index, low, new_position, arena);
+
+    if (low)
+    {
+        if (new_position)
+        {
+            low->world_position = *new_position;
+        }
+        else
+        {
+            low->world_position = null_position();
+        }
+    }
 
     return result;
 }
 
 
-bool32 is_canonical(World *world, WorldPosition p) {
-    bool32 result = is_canonical(world, p.relative_position_in_chunk);
+
+b32 is_canonical(World *world, v2 p)
+{
+    b32 result = (p.x >= -0.5f * world->chunk_side_in_meters) &&
+                 (p.x <=  0.5f * world->chunk_side_in_meters) &&
+                 (p.y >= -0.5f * world->chunk_side_in_meters) &&
+                 (p.y <=  0.5f * world->chunk_side_in_meters);
+
+    return result;
+}
+
+
+b32 is_canonical(World *world, WorldPosition p) {
+    b32 result = is_canonical(world, p.relative_position_in_chunk);
 
     return result;
 }
@@ -193,18 +239,18 @@ bool32 is_canonical(World *world, WorldPosition p) {
 WorldPosition canonicalize_position(World *world, WorldPosition p) {
     WorldPosition result = p;
 
-    math::v2i chunk_offset = math::round_to_vector2i(p.relative_position_in_chunk / world->chunk_side_in_meters);
+    v2i chunk_offset = round_to_vector2i(p.relative_position_in_chunk / world->chunk_side_in_meters);
 
     result.chunk_x += chunk_offset.x;
     result.chunk_y += chunk_offset.y;
-    result.relative_position_in_chunk -= math::upcast_to_vector2(chunk_offset) * world->chunk_side_in_meters;
+    result.relative_position_in_chunk -= upcast_to_vector2(chunk_offset) * world->chunk_side_in_meters;
 
     ASSERT(is_canonical(world, result.relative_position_in_chunk));
     return result;
 }
 
 
-WorldPosition map_into_world_space(World *world, WorldPosition base_position, math::v2 offset) {
+WorldPosition map_into_world_space(World *world, WorldPosition base_position, v2 offset) {
     WorldPosition result = base_position;
     result.relative_position_in_chunk += offset;
 

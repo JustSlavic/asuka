@@ -5,10 +5,10 @@
 
 namespace asuka {
 
-enum byte : uint8 {};
+enum byte : u8 {};
 
 byte operator | (byte a, byte b) {
-    byte result = (byte) (((uint8) a) | ((uint8) b));
+    byte result = (byte) (((u8) a) | ((u8) b));
     return result;
 }
 

@@ -7,7 +7,7 @@
 //
 // Return the CRC of the bytes buf[0..len-1].
 //
-uint32 compute_crc(uint8 *buf, usize len);
+u32 compute_crc(u8 *buf, usize len);
 
 
 #ifdef UNITY_BUILD

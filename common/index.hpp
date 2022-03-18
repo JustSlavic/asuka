@@ -3,7 +3,7 @@
 
 template <typename T>
 struct Index {
-    uint32 index;
+    u32 index;
 };
 
 
@@ -14,7 +14,7 @@ template <typename T> Index<T> operator ++ (Index<T> &index, int) {
     return result;
 }
 
-template <typename T> Index<T> &operator += (Index<T> &index, uint32 value) {
+template <typename T> Index<T> &operator += (Index<T> &index, u32 value) {
     index.index += value;
     return index;
 }
@@ -37,25 +37,25 @@ template <typename T> bool operator != (Index<T> index1, Index<T> index2) {
     return result;
 }
 
-template <typename T> bool operator == (Index<T> index, uint32 value) {
+template <typename T> bool operator == (Index<T> index, u32 value) {
     bool result = index.index == value;
 
     return result;
 }
 
-template <typename T> bool operator != (Index<T> index, uint32 value) {
+template <typename T> bool operator != (Index<T> index, u32 value) {
     bool result = !(index == value);
 
     return result;
 }
 
-template <typename T> bool operator < (Index<T> index, uint32 value) {
+template <typename T> bool operator < (Index<T> index, u32 value) {
     bool result = index.index < value;
 
     return result;
 }
 
-template <typename T> bool operator > (Index<T> index, uint32 value) {
+template <typename T> bool operator > (Index<T> index, u32 value) {
     bool result = index.index > value;
 
     return result;
