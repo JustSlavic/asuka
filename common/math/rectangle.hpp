@@ -3,19 +3,16 @@
 
 #include <math/vector2.hpp>
 
-
-namespace math {
-
 //
 // Axis aligned rectangle.
 //
-struct rectangle2 {
+struct Rectangle2 {
     v2 min;
     v2 max;
 
     IN_CLASS_FUNCTION
-    rectangle2 from_min_max(v2 min, v2 max) {
-        rectangle2 result;
+    Rectangle2 from_min_max(v2 min, v2 max) {
+        Rectangle2 result;
         result.min = min;
         result.max = max;
 
@@ -23,8 +20,8 @@ struct rectangle2 {
     }
 
     IN_CLASS_FUNCTION
-    rectangle2 from_center_half_dim(v2 center, v2 half_dimensions) {
-        rectangle2 result;
+    Rectangle2 from_center_half_dim(v2 center, v2 half_dimensions) {
+        Rectangle2 result;
         result.min = center - half_dimensions;
         result.max = center + half_dimensions;
 
@@ -32,44 +29,44 @@ struct rectangle2 {
     }
 
     IN_CLASS_FUNCTION
-    rectangle2 from_center_dim(v2 center, v2 dimensions) {
-        rectangle2 result = from_center_half_dim(center, 0.5f * dimensions);
+    Rectangle2 from_center_dim(v2 center, v2 dimensions) {
+        Rectangle2 result = from_center_half_dim(center, 0.5f * dimensions);
 
         return result;
     }
 };
 
 
-typedef rectangle2 rect2;
+typedef Rectangle2 rect2;
 
 
 INLINE
-f32 get_width(rectangle2 rect) {
+f32 get_width(Rectangle2 rect) {
     f32 result = rect.max.x - rect.min.x;
     return result;
 }
 
 INLINE
-f32 get_height(rectangle2 rect) {
+f32 get_height(Rectangle2 rect) {
     f32 result = rect.max.y - rect.min.y;
     return result;
 }
 
 INLINE
-v2 get_center(rectangle2 rect) {
+v2 get_center(Rectangle2 rect) {
     v2 result = 0.5f * (rect.min + rect.max);
     return result;
 }
 
 INLINE
-v2 get_dimensions(rectangle2 rect) {
+v2 get_dimensions(Rectangle2 rect) {
     v2 result = rect.max - rect.min;
 
     return result;
 }
 
 INLINE
-b32 in_rectangle(rectangle2 rect, v2 v) {
+b32 in_rectangle(Rectangle2 rect, v2 v) {
     b32 result = ((v.x >= rect.min.x) &&
                      (v.x <= rect.max.x) &&
                      (v.y >= rect.min.y) &&
@@ -77,9 +74,6 @@ b32 in_rectangle(rectangle2 rect, v2 v) {
 
     return result;
 }
-
-
-} // namespace math
 
 
 #endif // ASUKA_COMMON_MATH_RECTANGLE_HPP

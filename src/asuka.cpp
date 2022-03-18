@@ -695,7 +695,7 @@ void set_camera_position(GameState *game_state, WorldPosition new_camera_positio
     game_state->camera_position = new_camera_position;
 
     v2i   high_zone_in_chunks = V2I(4, 3);
-    math::rect2 high_zone_in_meters = math::rectangle2::from_center_dim(v2::zero(), world->chunk_side_in_meters * upcast_to_vector2(high_zone_in_chunks));
+    Rectangle2 high_zone_in_meters = Rectangle2::from_center_dim(v2::zero(), world->chunk_side_in_meters * upcast_to_vector2(high_zone_in_chunks));
 
     WorldPosition min_corner = map_into_world_space(world, new_camera_position, high_zone_in_meters.min);
     WorldPosition max_corner = map_into_world_space(world, new_camera_position, high_zone_in_meters.max);
@@ -1081,7 +1081,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     if (followed_entity.high != NULL) {
         v2 room_in_tiles  = V2(16, 9);
-        math::rectangle2 room_in_meters = math::rectangle2::from_center_dim(v2::zero(), world->tile_side_in_meters * room_in_tiles);
+        Rectangle2 room_in_meters = Rectangle2::from_center_dim(v2::zero(), world->tile_side_in_meters * room_in_tiles);
 
         WorldPosition new_camera_position = game_state->camera_position;
 
@@ -1226,7 +1226,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #if 0
     {
         v2i   high_zone_in_chunks = v2i { 2, 1 };
-        math::rectangle2 high_zone_in_meters = math::rectangle2::from_center_dim(v2::zero(), world->chunk_side_in_meters * math::upcast_to_vector2(high_zone_in_chunks));
+        Rectangle2 high_zone_in_meters = Rectangle2::from_center_dim(v2::zero(), world->chunk_side_in_meters * math::upcast_to_vector2(high_zone_in_chunks));
 
         v2 high_zone_center_in_meters = get_center(high_zone_in_meters);
 
