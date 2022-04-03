@@ -19,8 +19,6 @@ void initialize_arena(arena_allocator *arena, void* memory, usize size) {
     arena->memory = memory;
     arena->size = size;
     arena->used = 0;
-
-    memory::set(memory, 0, size);
 }
 
 
@@ -33,7 +31,8 @@ void initialize_arena(arena_allocator *arena, void* memory, usize size) {
 
 INLINE
 void* push_memory(arena_allocator *arena, usize size) {
-    ASSERT((arena->used + size) < arena->size);
+    ASSERT_MSG(arena->memory, "Arena allocator is not initialized!");
+    ASSERT_MSG((arena->used + size) < arena->size, "Not enough space left in arena allocator!");
 
     void* result = (u8*)arena->memory + arena->used;
     arena->used += size;
@@ -41,6 +40,13 @@ void* push_memory(arena_allocator *arena, usize size) {
     memory::set(result, 0, size);
 
     return result;
+}
+
+
+INLINE
+void clear_arena(arena_allocator *arena)
+{
+    arena->used = 0;
 }
 
 

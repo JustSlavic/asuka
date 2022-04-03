@@ -176,12 +176,18 @@ inline v2 lerp (v2 a, v2 b, f32 t) {
     return result;
 }
 
-inline v2i round_to_vector2i(v2 v) {
+inline v2i round_to_v2i(v2 v) {
     v2i result = v2i{ math::round_to_int32(v.x), math::round_to_int32(v.y) };
     return result;
 }
 
-inline v2 upcast_to_vector2(v2i v) {
+inline v2i truncate_to_v2i(v2 v)
+{
+    v2i result = v2i{ math::truncate_to_int32(v.x), math::truncate_to_int32(v.y) };
+    return result;
+}
+
+inline v2 upcast_to_v2(v2i v) {
     v2 result = v2{ (f32) v.x, (f32) v.y };
     return result;
 }

@@ -26,13 +26,7 @@ usize size_no0(const char *s) {
 }
 
 usize size_with0(const char *s) {
-    usize result = 0;
-    while (*s) {
-        result += 1;
-        s += 1;
-    }
-
-    result += 1;
+    usize result = size_no0(s) + 1;
     return result;
 }
 

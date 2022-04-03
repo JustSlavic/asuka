@@ -2,7 +2,7 @@
 
 #include <defines.hpp>
 #include <math.hpp>
-#include <entity.hpp>
+#include <asuka.hpp>
 #include "memory_arena.hpp"
 
 
@@ -28,15 +28,24 @@ enum Tile {
 };
 
 
+struct WorldPosition {
+    i32 chunk_x;
+    i32 chunk_y;
+    i32 chunk_z;
+
+    v2 offset;
+};
+
+
 struct EntityBlock {
     u32 entity_count;
-    LowEntityIndex entities[16];
+    u32 entities[16];
     EntityBlock *next_block;
 };
 
 
 struct Chunk {
-    // Coordinates of a Chunk inside World. Used in hash table.
+    // Coordinates of the Chunk inside World. Used in hash table.
     i32 chunk_x;
     i32 chunk_y;
     i32 chunk_z;
@@ -54,19 +63,25 @@ struct World {
 
     // @note: Size of the array should be power of two for now.
     Chunk chunks_hash_table[32];
+    Chunk void_chunk;
 
     EntityBlock *next_free_block;
 };
 
+struct StoredEntity;
 
 WorldPosition null_position();
+WorldPosition world_origin();
+WorldPosition world_position(World *world, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 offset = v2::zero());
 v2 position_difference(World *world, WorldPosition p1, WorldPosition p2);
-WorldPosition change_entity_location(World *world, LowEntityIndex index, WorldPosition old_position, WorldPosition new_position);
+void change_entity_location(World *world, u32 storage_index, StoredEntity *entity, WorldPosition *new_position, memory::arena_allocator *arena);
 b32 is_canonical(World *world, WorldPosition p);
+b32 is_equal(WorldPosition p1, WorldPosition p2);
+
 WorldPosition canonicalize_position(World *world, WorldPosition p);
-WorldPosition map_into_world_space(World *world, WorldPosition camera_position);
+WorldPosition map_into_world_space(World *world, WorldPosition camera_position, v2 offset);
 
 
-#if UNITY_BUILD
-#include "world.cpp"
-#endif // UNITY_BUILD
+// #if UNITY_BUILD
+// #include "world.cpp"
+// #endif // UNITY_BUILD

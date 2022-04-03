@@ -3,7 +3,10 @@
 
 template <typename T>
 struct Index {
-    u32 index;
+    u32 index = 0;
+
+    Index() : index(0) {}
+    Index(u32 value) : index(value) {}
 };
 
 

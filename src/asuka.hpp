@@ -9,8 +9,9 @@
 #include <string.hpp>
 #include <index.hpp>
 #include <world.hpp>
-#include "memory_arena.hpp"
-
+#include <memory_arena.hpp>
+#include "sim_region.hpp"
+#include "entity.hpp"
 
 struct ThreadContext {
 };
@@ -143,35 +144,55 @@ struct Game_Input {
 
 using InputIndex = Index<Game_ControllerInput>;
 
-INLINE
-Game_ControllerInput* GetControllerInput(Game_Input* Input, InputIndex ControllerIndex) {
+inline
+Game_ControllerInput* GetControllerInput(Game_Input* Input, InputIndex ControllerIndex)
+{
     ASSERT(ControllerIndex < ARRAY_COUNT(Input->ControllerInputs));
     return &Input->ControllerInputs[ControllerIndex.index];
 }
 
 
-INLINE
-Game_ControllerInput* GetGamepadInput(Game_Input *Input, i32 GamepadIndex) {
+inline
+Game_ControllerInput* GetGamepadInput(Game_Input *Input, i32 GamepadIndex)
+{
     ASSERT(GamepadIndex < ARRAY_COUNT(Input->GamepadInputs));
     return &Input->GamepadInputs[GamepadIndex];
 }
 
-INLINE
-u32 GetPressCount(Game_ButtonState button) {
+inline
+u32 GetPressCount(Game_ButtonState button)
+{
     u32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
     return result;
 }
 
-INLINE
-u32 GetHoldsCount(Game_ButtonState button) {
+inline
+u32 GetReleaseCount(Game_ButtonState button)
+{
+    u32 result = (button.HalfTransitionCount - (button.EndedDown > 0) + 1) / 2;
+    return result;
+}
+
+inline
+u32 GetHoldsCount(Game_ButtonState button)
+{
     u32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
     return result;
 }
 
 
+
+struct StoredEntity {
+    WorldPosition world_position;
+
+    // @todo: Compress this.
+    SimEntity sim;
+};
+
+
 struct Game_OffscreenBuffer {
     // Pixels are always 32-bits wide Little Endian, Memory Order BBGGRRxx
-    void* Memory;
+    void *Memory;
     i32 Width;
     i32 Height;
     i32 Pitch;
@@ -180,7 +201,7 @@ struct Game_OffscreenBuffer {
 
 
 struct Game_SoundOutputBuffer {
-    sound_sample_t* Samples;
+    sound_sample_t *Samples;
     i32 SampleCount;
     i32 SamplesPerSecond;
 };
@@ -188,10 +209,10 @@ struct Game_SoundOutputBuffer {
 
 struct Game_Memory {
     u64 PermanentStorageSize;
-    void*  PermanentStorage;
+    void *PermanentStorage;
 
     u64 TransientStorageSize;
-    void*  TransientStorage;
+    void *TransientStorage;
 
     b32 IsInitialized;
 };
@@ -219,19 +240,17 @@ struct GameState {
     WorldPosition camera_position;
 
     // @note: 0-th entity is invalid in both arrays (high entities and low entities) and should not be used (it indicates wrong index).
-    u32 low_entity_count;
-    LowEntity low_entities[10000];
+    u32 entity_count;
+    StoredEntity entities[10000];
 
-    u32 high_entity_count;
-    HighEntity high_entities[256];
-
-    LowEntityIndex player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
-    LowEntityIndex index_of_entity_for_camera_to_follow;
-    LowEntityIndex index_of_controller_for_camera_to_follow;
+    u32 player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
+    u32 index_of_entity_for_camera_to_follow;
+    u32 index_of_controller_for_camera_to_follow;
 
     World *world;
 
     memory::arena_allocator world_arena;
+    memory::arena_allocator sim_arena;
 
     wav_file_contents test_wav_file;
 
@@ -255,6 +274,19 @@ struct GameState {
 };
 
 
+inline
+StoredEntity *get_stored_entity(GameState *game_state, u32 index) {
+    ASSERT(index < ARRAY_COUNT(game_state->entities));
+
+    StoredEntity *result = NULL;
+    if ((index > 0) && (index < game_state->entity_count)) {
+        result = game_state->entities + index;
+    }
+
+    return result;
+}
+
+
 // IN:
 // 1. control input
 // 2. bitmap buffer to fill
@@ -267,6 +299,10 @@ typedef GAME_UPDATE_AND_RENDER(Game_UpdateAndRenderT);
 extern "C" {
 ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
 }
+
+
+#include "world.cpp"
+#include "sim_region.cpp"
 
 
 #if defined(UNITY_BUILD) && !defined(ASUKA_DLL_BUILD)

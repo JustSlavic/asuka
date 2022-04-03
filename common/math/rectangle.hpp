@@ -68,9 +68,9 @@ v2 get_dimensions(Rectangle2 rect) {
 INLINE
 b32 in_rectangle(Rectangle2 rect, v2 v) {
     b32 result = ((v.x >= rect.min.x) &&
-                     (v.x <= rect.max.x) &&
-                     (v.y >= rect.min.y) &&
-                     (v.y <= rect.max.y));
+                  (v.x <= rect.max.x) &&
+                  (v.y >= rect.min.y) &&
+                  (v.y <= rect.max.y));
 
     return result;
 }
