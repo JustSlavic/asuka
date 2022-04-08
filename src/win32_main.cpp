@@ -190,8 +190,9 @@ FILETIME Win32_GetFileTimestamp(const char* Filename) {
 
 
 INTERNAL_FUNCTION
-Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath, const char *LockFilename) {
-#if defined(ASUKA_DLL_BUILD)
+Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath, const char *LockFilename)
+{
+#if ASUKA_DLL_BUILD
     Win32_GameDLL Result {};
 
     DWORD dwAttrib = GetFileAttributes(LockFilename);

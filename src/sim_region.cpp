@@ -1,7 +1,3 @@
-#include "sim_region.hpp"
-#include <os/memory.hpp>
-
-
 SimEntity *get_sim_entity(SimRegion *sim_region, u32 index)
 {
     ASSERT(index < sim_region->entity_count);

@@ -1,7 +1,7 @@
-#include "entity.hpp"
 
 
 void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity, v3 acceleration, f32 dt);
+
 
 void update_familiar(GameState *game_state, SimRegion *sim_region, SimEntity *entity, f32 dt) {
     SimEntity *closest_entity = NULL;

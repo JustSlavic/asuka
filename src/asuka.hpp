@@ -1,17 +1,16 @@
 #pragma once
 
-#include <stdio.h>
 #include <defines.hpp>
 #include <math.hpp>
-#include <wav.hpp>
-#include <bmp.hpp>
-#include <png.hpp>
-#include <string.hpp>
 #include <index.hpp>
 #include <world.hpp>
-#include <memory_arena.hpp>
-#include "sim_region.hpp"
-#include "entity.hpp"
+#include <sim_region.hpp>
+#include <bitmap.hpp>
+#include <wav.hpp>
+#include <entity.hpp>
+
+#include <stdio.h>
+
 
 struct ThreadContext {
 };
@@ -300,11 +299,13 @@ extern "C" {
 ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
 }
 
+#if (ASUKA_DLL && ASUKA_DLL_BUILD) || (!ASUKA_DLL && !ASUKA_DLL_BUILD)
+#include <world.cpp>
+#include <sim_region.cpp>
+#include <entity.cpp>
+#endif
 
-#include "world.cpp"
-#include "sim_region.cpp"
-
-
-#if defined(UNITY_BUILD) && !defined(ASUKA_DLL_BUILD)
-#include "asuka.cpp"
+#if !ASUKA_DLL && !ASUKA_DLL_BUILD
+#include <asuka.cpp>
+#else
 #endif

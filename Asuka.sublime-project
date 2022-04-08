@@ -22,5 +22,12 @@
                 "working_dir": "$folder"
             },
         },
+        {
+            "name": "Run Asuka",
+            "windows": {
+                "shell_cmd": "call $folder\\build\\main.exe",
+                "working_dir": "$folder\\data",
+            },
+        },
     ],
 }

@@ -1,12 +1,6 @@
 #pragma once
 
 
-#include <math/vector3.hpp>
-#include <math/rectangle.hpp>
-#include <world.hpp>
-#include <memory_arena.hpp>
-
-
 struct HealthPoint {
     u32 fill; // In percent (max 100).
     b32 shielded;

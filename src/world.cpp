@@ -1,7 +1,3 @@
-#include "world.hpp"
-#include <os/memory.hpp>
-
-
 #define INVALID_CHUNK_POSITION INT32_MAX
 
 
@@ -327,7 +323,8 @@ WorldPosition canonicalize_position(World *world, WorldPosition p) {
 }
 
 
-WorldPosition map_into_world_space(World *world, WorldPosition base_position, v2 offset) {
+WorldPosition map_into_world_space(World *world, WorldPosition base_position, v2 offset)
+{
     WorldPosition result = base_position;
     result.offset += offset;
 

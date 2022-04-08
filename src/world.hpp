@@ -1,10 +1,6 @@
 #pragma once
 
-#include <defines.hpp>
-#include <math.hpp>
-#include <asuka.hpp>
-#include "memory_arena.hpp"
-
+#include <memory_arena.hpp>
 
 /*
 
@@ -80,8 +76,3 @@ b32 is_equal(WorldPosition p1, WorldPosition p2);
 
 WorldPosition canonicalize_position(World *world, WorldPosition p);
 WorldPosition map_into_world_space(World *world, WorldPosition camera_position, v2 offset);
-
-
-// #if UNITY_BUILD
-// #include "world.cpp"
-// #endif // UNITY_BUILD

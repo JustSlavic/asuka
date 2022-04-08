@@ -1,14 +1,7 @@
 #include "asuka.hpp"
-
-#include <math.hpp>
-#include <debug/casts.hpp>
-#include <sim_region.hpp>
-#include "entity.cpp"
+#include <png.hpp>
 
 #define ASUKA_DEBUG_FOLLOWING_CAMERA 1
-
-
-GLOBAL_VARIABLE v3 gravity = V3(0, 0, -9.8); // [m/s^2]
 
 
 INTERNAL_FUNCTION
@@ -491,6 +484,22 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
 #include <time.h>
 #include <stdlib.h>
 
+#define IN_CODE_TEXTURES 0
+
+#if IN_CODE_TEXTURES
+#include "../data/character_1.cpp"
+#include "../data/character_2.cpp"
+#include "../data/character_3.cpp"
+#include "../data/character_4.cpp"
+#include "../data/tree_60x100.cpp"
+#include "../data/shadow.cpp"
+#include "../data/monster_head.cpp"
+#include "../data/monster_left_arm.cpp"
+#include "../data/monster_right_arm.cpp"
+#include "../data/sword.cpp"
+#include "../data/familiar.cpp"
+#endif // IN_CODE_TEXTURES
+
 GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 {
     ASSERT(sizeof(GameState) <= Memory->PermanentStorageSize);
@@ -514,6 +523,21 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_state->test_wav_file = load_wav_file("piano2.wav");
         game_state->test_current_sound_cursor = 0;
 
+// @todo: make it load in the exe, not hot loaded dll
+#if IN_CODE_TEXTURES
+        game_state->tree_texture        = get_tree_60x100_png();
+        game_state->shadow_texture      = get_shadow_png();
+        game_state->monster_head        = get_monster_head_png();
+        game_state->monster_left_arm    = get_monster_left_arm_png();
+        game_state->monster_right_arm   = get_monster_right_arm_png();
+        game_state->sword_texture       = get_sword_png();
+        game_state->familiar_texture    = get_familiar_png();
+
+        game_state->player_textures[0]  = get_character_1_png();
+        game_state->player_textures[1]  = get_character_2_png();
+        game_state->player_textures[2]  = get_character_3_png();
+        game_state->player_textures[3]  = get_character_4_png();
+#else
         game_state->grass_texture       = load_png_file("grass_texture.png");
         game_state->tree_texture        = load_png_file("tree_60x100.png");
         game_state->heart_full_texture  = load_png_file("heart_full.png");
@@ -530,6 +554,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_state->player_textures[1]  = load_png_file("character_2.png");
         game_state->player_textures[2]  = load_png_file("character_3.png");
         game_state->player_textures[3]  = load_png_file("character_4.png");
+#endif // IN_CODE_TEXTURES
 
         memory::arena_allocator *arena  = &game_state->world_arena;
 
@@ -745,6 +770,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             v3 acceleration {};
             v3 friction_acceleration {};
 
+            v3 gravity = V3(0, 0, -9.8); // [m/s^2]
+
             // @note: accelerate the guy only if he's standing on the ground.
             // if (player.high->position.z < EPSILON)
             {
@@ -820,8 +847,36 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     }
                 }
             }
+
+            StoredEntity *followed_entity = get_stored_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
+
+            if (followed_entity)
+            {
+#if ASUKA_DEBUG_FOLLOWING_CAMERA
+                WorldPosition new_camera_position = map_into_world_space(world, sim_region->origin, player->position.xy);
+#else
+                if (followed_entity.high->position.x > room_in_meters.max.x) {
+                    new_camera_position.offset.x += get_width(room_in_meters);
+                }
+
+                if (followed_entity.high->position.x < room_in_meters.min.x) {
+                    new_camera_position.offset.x -= get_width(room_in_meters);
+                }
+
+                if (followed_entity.high->position.y > room_in_meters.max.y) {
+                    new_camera_position.offset.y += get_height(room_in_meters);
+                }
+
+                if (followed_entity.high->position.y < room_in_meters.min.y) {
+                    new_camera_position.offset.y -= get_height(room_in_meters);
+                }
+#endif
+
+                game_state->camera_position = new_camera_position;
+            }
         }
     }
+
 
     // Game_OutputSound(SoundBuffer, game_state);
 
@@ -931,37 +986,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 DrawRectangle(Buffer, center - half_dim, center + half_dim, asset->color.rgb);
             }
         }
-    }
-
-    // Change camera location and end the simulation
-    StoredEntity *followed_entity = get_stored_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
-    if (followed_entity) {
-        v2 room_in_tiles  = V2(16, 9);
-        Rectangle2 room_in_meters = Rectangle2::from_center_dim(v2::zero(), world->tile_side_in_meters * room_in_tiles);
-
-        WorldPosition new_camera_position = game_state->camera_position;
-
-#if ASUKA_DEBUG_FOLLOWING_CAMERA
-        new_camera_position = followed_entity->world_position;
-#else
-        if (followed_entity.high->position.x > room_in_meters.max.x) {
-            new_camera_position.offset.x += get_width(room_in_meters);
-        }
-
-        if (followed_entity.high->position.x < room_in_meters.min.x) {
-            new_camera_position.offset.x -= get_width(room_in_meters);
-        }
-
-        if (followed_entity.high->position.y > room_in_meters.max.y) {
-            new_camera_position.offset.y += get_height(room_in_meters);
-        }
-
-        if (followed_entity.high->position.y < room_in_meters.min.y) {
-            new_camera_position.offset.y -= get_height(room_in_meters);
-        }
-#endif
-
-        game_state->camera_position = new_camera_position;
     }
 
     end_simulation(game_state, sim_region);
