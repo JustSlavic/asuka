@@ -56,7 +56,7 @@ contexts:
     - match: '[\.::\(\),;]'
       scope: asuka.punctuation
 
-    - match: '([\w_][\w\d_]*|operator\s*[\-\+\*\/\%\<\>\!\=]{1,2})\s*(\()'
+    - match: '([\w_][\w\d_²]*|operator\s*[\-\+\*\/\%\<\>\!\=]{1,2})\s*(\()'
       captures:
         1: asuka.function.name meta.function.c++ entity.name.function.c++
         2: asuka.punctuation
@@ -95,7 +95,7 @@ contexts:
       scope: asuka.operator keyword.operator
     - match: '[\.::\(\),;\[\]]'
       scope: asuka.punctuation
-    - match: '([\w_][\w\d_]*)\s*(\()'
+    - match: '([\w_][\w\d_²]*)\s*(\()'
       captures:
         1: asuka.function.name meta.function
         2: asuka.punctuation punctuation
@@ -171,7 +171,7 @@ contexts:
       scope: asuka.operator
     - match: '[\.::\(\),;\[\]]'
       scope: asuka.punctuation
-    - match: '([\w_][\w\d_]*)(\()'
+    - match: '([\w_][\w\d_²]*)(\()'
       captures:
         1: asuka.function.name meta.function.c++
         2: asuka.punctuation punctuation
@@ -247,7 +247,7 @@ contexts:
       scope: asuka.operator
     - match: '[\.::\(\),;]'
       scope: asuka.punctuation
-    - match: '([\w_][\w\d_]*)\s*(\()'
+    - match: '([\w_][\w\d_²]*)\s*(\()'
       captures:
         1: asuka.function.name meta.function.c++ entity.name.function.c++
         2: asuka.punctuation

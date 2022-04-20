@@ -66,6 +66,7 @@ struct World {
 
 struct StoredEntity;
 
+void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_meters);
 WorldPosition null_position();
 WorldPosition world_origin();
 WorldPosition world_position(World *world, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 offset = v2::zero());

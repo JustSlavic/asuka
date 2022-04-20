@@ -5,10 +5,37 @@
 #include <math.h>
 
 
+struct F32 {
+    constexpr static
+    f32 pi() { return 3.14159265358979323846f; }
+
+    constexpr static
+    f32 inf() { return HUGE_VALF; }
+
+    constexpr static
+    f32 nan() { return NAN; }
+};
+
+
+
+[[nodiscard]] inline
+b32 is_zero(f32 x, f32 eps = EPSILON)
+{
+    b32 result = (-eps < x) && (x < eps);
+    return result;
+}
+
+[[nodiscard]] inline
+b32 is_equal(f32 x, f32 y, f32 eps = EPSILON)
+{
+    b32 result = is_zero(x - y, eps);
+    return result;
+}
+
+
+
 namespace math {
 
-extern f32 pi;
-extern f32 NaN;
 
 typedef union {
     struct {
@@ -59,7 +86,7 @@ inline f32 sign(f32 value) {
 
 inline f32 absolute(f32 x) {
     union {
-        u32  u;
+        u32 u;
         f32 f;
     };
     f = x;
@@ -69,7 +96,7 @@ inline f32 absolute(f32 x) {
 }
 
 inline i32 absolute(i32 x) {
-    if (x < 0) x = -x;
+    x = x & 0x7FFF'FFFF;;
     return x;
 }
 
@@ -172,9 +199,5 @@ inline f32 sin(f32 x) {
 
 
 } // namespace math
-
-#ifdef UNITY_BUILD
-#include "float.cpp"
-#endif // UNITY_BUILD
 
 #endif // ASUKA_COMMON_MATH_FLOAT_HPP

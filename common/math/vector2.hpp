@@ -56,7 +56,7 @@ struct v2 {
 
     IN_CLASS_FUNCTION
     constexpr v2 nan() {
-        v2 result { math::NaN, math::NaN };
+        v2 result { F32::nan(), F32::nan() };
         return result;
     }
 
@@ -86,58 +86,76 @@ struct v2 {
 };
 
 
-inline b32 is_valid(v2 a) {
+[[nodiscard]] inline
+b32 is_valid(v2 a)
+{
     b32 valid = math::is_valid(a.x) && math::is_valid(a.y);
     return valid;
 }
 
-inline v2 operator - (v2 a) {
+[[nodiscard]] inline
+b32 is_zero(v2 a)
+{
+    b32 result = is_zero(a.x) && is_zero(a.y);
+    return result;
+}
+
+[[nodiscard]] inline
+v2 operator - (v2 a) {
     v2 result = v2{ -a.x, -a.y };
     return result;
 }
 
-inline v2 operator + (v2 a, v2 b) {
+[[nodiscard]] inline
+v2 operator + (v2 a, v2 b) {
     v2 result = v2{ a.x + b.x, a.y + b.y };
     return result;
 }
 
-inline v2 operator - (v2 a, v2 b) {
+[[nodiscard]] inline
+v2 operator - (v2 a, v2 b) {
     v2 result = v2{ a.x - b.x, a.y - b.y };
     return result;
 }
 
-inline v2 operator * (v2 a, f32 c) {
+[[nodiscard]] inline
+v2 operator * (v2 a, f32 c) {
     v2 result = v2{ c * a.x, c * a.y };
     return result;
 }
 
-inline v2 operator * (f32 c, v2 a) {
+[[nodiscard]] inline
+v2 operator * (f32 c, v2 a) {
     v2 result = v2{ c * a.x, c * a.y };
     return result;
 }
 
-inline v2 operator / (v2 a, f32 c) {
+[[nodiscard]] inline
+v2 operator / (v2 a, f32 c) {
     v2 result = v2{ a.x / c, a.y / c };
     return result;
 }
 
-inline bool operator == (v2 a, v2 b) {
+[[nodiscard]] inline
+bool operator == (v2 a, v2 b) {
     bool result = (a.x == b.x) && (a.y == b.y);
     return result;
 }
 
-inline bool operator != (v2 a, v2 b) {
+[[nodiscard]] inline
+bool operator != (v2 a, v2 b) {
     bool result = !(a == b);
     return result;
 }
 
-inline f32 dot (v2 a, v2 b) {
+[[nodiscard]] inline
+f32 dot (v2 a, v2 b) {
     f32 result = a.x * b.x + a.y * b.y;
     return result;
 }
 
 [[nodiscard]] inline
-f32 length_squared(v2 a)
+f32 length²(v2 a)
 {
     f32 result = dot(a, a);
     return result;
@@ -146,7 +164,7 @@ f32 length_squared(v2 a)
 [[nodiscard]] inline
 f32 length(v2 a)
 {
-    f32 result = math::sqrt(length_squared(a));
+    f32 result = math::sqrt(length²(a));
     return result;
 }
 
@@ -160,34 +178,40 @@ void normalize(v2& a)
     }
 }
 
-inline v2 normalized(v2 a) {
+[[nodiscard]] inline
+v2 normalized(v2 a) {
     v2 result = a;
     normalize(result);
     return result;
 }
 
-inline v2 clamp(v2 a, f32 min, f32 max) {
+[[nodiscard]] inline
+v2 clamp(v2 a, f32 min, f32 max) {
     v2 result{ math::clamp(a.x, min, max), math::clamp(a.y, min, max) };
     return result;
 }
 
-inline v2 lerp (v2 a, v2 b, f32 t) {
+[[nodiscard]] inline
+v2 lerp (v2 a, v2 b, f32 t) {
     v2 result = v2{ math::lerp(a.x, b.x, t), math::lerp(a.y, b.y, t) };
     return result;
 }
 
-inline v2i round_to_v2i(v2 v) {
+[[nodiscard]] inline
+v2i round_to_v2i(v2 v) {
     v2i result = v2i{ math::round_to_int32(v.x), math::round_to_int32(v.y) };
     return result;
 }
 
-inline v2i truncate_to_v2i(v2 v)
+[[nodiscard]] inline
+v2i truncate_to_v2i(v2 v)
 {
     v2i result = v2i{ math::truncate_to_int32(v.x), math::truncate_to_int32(v.y) };
     return result;
 }
 
-inline v2 upcast_to_v2(v2i v) {
+[[nodiscard]] inline
+v2 upcast_to_v2(v2i v) {
     v2 result = v2{ (f32) v.x, (f32) v.y };
     return result;
 }
@@ -204,7 +228,7 @@ enum intersection_type {
 // Projects 'a' onto 'b'
 //
 inline v2 project(v2 a, v2 b) {
-    v2 result = b * dot(a, b) / length_squared(b);
+    v2 result = b * dot(a, b) / length²(b);
     return result;
 }
 
@@ -268,7 +292,7 @@ intersection_result segment_segment_intersection(v2 p0, v2 p1, v2 q0, v2 q1) {
 
     // t < 0 checks for  X<-p0-->p1 situation
     // t > 0 requires us to check whether it's p0-->p1->X situation
-    if ((t + EPSILON < 0) || (t > 0 && length_squared(intersection - p0) - EPSILON > length_squared(r))) {
+    if ((t + EPSILON < 0) || (t > 0 && length²(intersection - p0) - EPSILON > length²(r))) {
         result = { INTERSECTION_OUT_BOUNDS, intersection };
         return result;
     }
@@ -276,8 +300,8 @@ intersection_result segment_segment_intersection(v2 p0, v2 p1, v2 q0, v2 q1) {
     // dot(intersection - q0, q1 - q0) < 0           checks for X<-q0-->q1 situation
     f32 vector_alignment = dot(intersection - q0, q1 - q0);
     // (intersection - q0).length_2() > s.length_2() checks for q0-->q1->X situation
-    f32 vector_iq0_length = length_squared(intersection - q0);
-    f32 vector_s_length = length_squared(s);
+    f32 vector_iq0_length = length²(intersection - q0);
+    f32 vector_s_length = length²(s);
     if ((vector_alignment + EPSILON < 0) || (vector_iq0_length - EPSILON > vector_s_length)) {
         result = { INTERSECTION_OUT_BOUNDS, intersection };
         return result;

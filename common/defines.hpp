@@ -121,6 +121,7 @@ typedef signed long long   i64;
 #define IN_CLASS_FUNCTION static
 #define STATIC_VARIABLE   static
 #define GLOBAL_VARIABLE   static
+#define GLOBAL            static
 
 #define INLINE inline
 
@@ -131,7 +132,8 @@ typedef signed long long   i64;
 #define GIGABYTES(VALUE) (MEGABYTES((u64)(VALUE))*1024)
 #define TERABYTES(VALUE) (GIGABYTES((u64)(VALUE))*1024)
 
-#define EPSILON (1e-7f)
+#define EPSILON  (1e-5f)
+#define EPSILON² (EPSILON*EPSILON)
 
 #define INT8_MIN   (0x80)
 #define INT16_MIN  (0x8000)

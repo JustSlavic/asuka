@@ -1,7 +1,8 @@
 #define INVALID_CHUNK_POSITION INT32_MAX
 
 
-void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_meters) {
+void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_meters)
+{
     memory::set(world, 0, sizeof(World));
 
     world->tile_side_in_meters = tile_side_in_meters;
@@ -82,6 +83,7 @@ Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, memory::ar
         chunk->next_in_hashtable = 0;
     }
 
+    ASSERT(chunk);
     return chunk;
 }
 

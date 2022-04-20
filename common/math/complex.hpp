@@ -2,27 +2,45 @@
 #define ASUKA_COMMON_MATH_COMPLEX_HPP
 
 #include <defines.hpp>
+#include "vector2.hpp"
 
-
-namespace math {
 
 struct complex {
     union {
-        struct { float32 real, imaginary; };
-        struct { float32 re, im; };
+        struct { f32 x, y; };
+        struct { f32 real, imaginary; };
+        struct { f32 re, im; };
     };
 
-    IN_CLASS_FUNCTION INLINE_FUNCTION
-    complex from_v2(v2 v) {
-        complex result { v.x, v.y };
+    operator v2()
+    {
+        v2 result { re, im };
         return result;
     }
-
-    extern complex i;
+    static complex i;
 };
 
 
-} // namespace math
+[[nodiscard]] inline
+complex operator + (complex a, complex b)
+{
+    complex result { a.re + b.re, a.im + b.im };
+    return result;
+}
+
+[[nodiscard]] inline
+complex operator - (complex a, complex b)
+{
+    complex result { a.re - b.re, a.im - b.im };
+    return result;
+}
+
+[[nodiscard]] inline
+complex operator * (complex a, complex b)
+{
+    complex result { a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re };
+    return result;
+}
 
 
 #endif // ASUKA_COMMON_MATH_COMPLEX_HPP

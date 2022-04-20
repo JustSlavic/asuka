@@ -173,7 +173,7 @@ u32 GetReleaseCount(Game_ButtonState button)
 }
 
 inline
-u32 GetHoldsCount(Game_ButtonState button)
+u32 GetHoldCount(Game_ButtonState button)
 {
     u32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
     return result;
@@ -235,6 +235,27 @@ struct VisiblePieceGroup {
 };
 
 
+struct PlayerRequest {
+    u32 entity_index;
+    b32 player_jump;
+    f32 player_acceleration_strength;
+    v3  player_acceleration_direction;
+    v3  sword_velocity; // @note: should be unit length
+};
+
+
+struct MoveSpec {
+    v3 acceleration;
+};
+
+
+inline MoveSpec move_spec()
+{
+    MoveSpec spec = {};
+    return spec;
+}
+
+
 struct GameState {
     WorldPosition camera_position;
 
@@ -242,9 +263,8 @@ struct GameState {
     u32 entity_count;
     StoredEntity entities[10000];
 
-    u32 player_index_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
+    PlayerRequest player_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
     u32 index_of_entity_for_camera_to_follow;
-    u32 index_of_controller_for_camera_to_follow;
 
     World *world;
 
@@ -299,7 +319,7 @@ extern "C" {
 ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
 }
 
-#if (ASUKA_DLL && ASUKA_DLL_BUILD) || (!ASUKA_DLL && !ASUKA_DLL_BUILD)
+#if (ASUKA_DLL && ASUKA_DLL_BUILD) || (!ASUKA_DLL_BUILD)
 #include <world.cpp>
 #include <sim_region.cpp>
 #include <entity.cpp>

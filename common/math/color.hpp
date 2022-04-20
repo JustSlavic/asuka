@@ -2,6 +2,7 @@
 #define ASUKA_COMMON_MATH_COLOR_HPP
 
 #include <defines.hpp>
+#include "float.hpp"
 
 
 struct color24 {
@@ -16,7 +17,7 @@ struct color32 {
     union {
         struct { f32 r, g, b, a; };
         struct { color24 rgb; f32 pad_; };
-        f32 components[4];
+        f32 array_[4];
     };
 
     static color32 white;
@@ -26,6 +27,8 @@ struct color32 {
     static color32 green;
     static color32 blue;
 };
+
+typedef color32 Color32;
 
 
 inline u32 pack_to_uint32(color24 color) {

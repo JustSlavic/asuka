@@ -161,7 +161,8 @@ void DrawRectangle(
 
 #if ASUKA_PLAYBACK_LOOP
 INTERNAL_FUNCTION
-void DrawBorder(Game_OffscreenBuffer* Buffer, u32 Width, color24 Color) {
+void DrawBorder(Game_OffscreenBuffer* Buffer, u32 Width, color24 Color)
+{
     DrawRectangle(Buffer, V2(0, 0), V2(Buffer->Width, Width), Color);
     DrawRectangle(Buffer, V2(0, Width), V2(Width, Buffer->Height - Width), Color);
     DrawRectangle(Buffer, V2(Buffer->Width - Width, Width), V2(Buffer->Width, Buffer->Height - Width), Color);
@@ -171,15 +172,17 @@ void DrawBorder(Game_OffscreenBuffer* Buffer, u32 Width, color24 Color) {
 
 
 INTERNAL_FUNCTION
-void draw_empty_rectangle_in_meters(Game_OffscreenBuffer *buffer, Rectangle2 rect, u32 width, color24 color, f32 pixels_per_meter)
+void draw_empty_rectangle_in_meters(Game_OffscreenBuffer *buffer, Rectangle2 rect, u32 width, color24 color, v2 offset, f32 pixels_per_meter)
 {
     f32 rect_width = get_width(rect);
     f32 rect_height = get_height(rect);
 
     v2 screen_center_in_pixels = 0.5f * V2(buffer->Width, buffer->Height);
 
-    v2 min_corner_in_pixels = screen_center_in_pixels - (get_center(rect) - rect.min) * pixels_per_meter;
-    v2 max_corner_in_pixels = screen_center_in_pixels + (rect.max - get_center(rect)) * pixels_per_meter;
+    offset.y = -offset.y;
+
+    v2 min_corner_in_pixels = screen_center_in_pixels - (get_center(rect) - rect.min - offset) * pixels_per_meter;
+    v2 max_corner_in_pixels = screen_center_in_pixels + (rect.max - get_center(rect) + offset) * pixels_per_meter;
 
     DrawRectangle(buffer, min_corner_in_pixels, V2(max_corner_in_pixels.x, min_corner_in_pixels.y + width), color);
     DrawRectangle(buffer, V2(min_corner_in_pixels.x, min_corner_in_pixels.y + width), V2(min_corner_in_pixels.x + width, max_corner_in_pixels.y - width), color);
@@ -203,18 +206,24 @@ void push_piece(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters,
     asset->color = color;
 }
 
+
 INTERNAL_FUNCTION
-void push_rectangle(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, color32 color) {
+void push_rectangle(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, color32 color)
+{
     push_piece(group, offset_in_meters, dim_in_meters, NULL, color);
 }
 
+
 INTERNAL_FUNCTION
-void push_asset(VisiblePieceGroup *group, Bitmap *bitmap, v3 offset_in_meters, f32 alpha = 1.0f) {
+void push_asset(VisiblePieceGroup *group, Bitmap *bitmap, v3 offset_in_meters, f32 alpha = 1.0f)
+{
     push_piece(group, offset_in_meters, v2::zero(), bitmap, rgba(0, 0, 0, alpha));
 }
 
+
 INTERNAL_FUNCTION
-void draw_hitpoints(SimEntity *entity, VisiblePieceGroup *group) {
+void draw_hitpoints(SimEntity *entity, VisiblePieceGroup *group)
+{
     f32 health_width   = 0.1f; // meters
     f32 health_spacing = 1.5f * health_width; // pixels
 
@@ -243,7 +252,8 @@ struct EntityResult
 
 
 INTERNAL_FUNCTION
-EntityResult add_entity(GameState *game_state, WorldPosition position = null_position()) {
+EntityResult add_entity(GameState *game_state, WorldPosition position = null_position())
+{
     ASSERT(game_state->entity_count < ARRAY_COUNT(game_state->entities));
 
     EntityResult result {};
@@ -255,6 +265,7 @@ EntityResult add_entity(GameState *game_state, WorldPosition position = null_pos
     memory::set(result.entity, 0, sizeof(StoredEntity));
     result.entity->world_position = null_position();
     result.entity->sim.storage_index = result.index;
+    result.entity->sim.distance_limit = F32::inf();
 
     change_entity_location(game_state->world, result.index, result.entity, &position, &game_state->world_arena);
 
@@ -263,12 +274,14 @@ EntityResult add_entity(GameState *game_state, WorldPosition position = null_pos
 
 
 INTERNAL_FUNCTION
-void init_hitpoints(StoredEntity *entity, u32 health_max) {
+void init_hitpoints(StoredEntity *entity, u32 health_max)
+{
     ASSERT(health_max < ARRAY_COUNT(entity->sim.health));
 
     entity->sim.health_max = health_max;
     entity->sim.health_fill_max = ENTITY_HEALTH_STARTING_FILL_MAX;
-    for (i32 health_index = 0; health_index < entity->sim.health_max; health_index++) {
+    for (i32 health_index = 0; health_index < entity->sim.health_max; health_index++)
+    {
         entity->sim.health[health_index].fill = entity->sim.health_fill_max;
     }
 }
@@ -288,7 +301,8 @@ EntityResult add_sword(GameState *game_state)
 
 
 INTERNAL_FUNCTION
-EntityResult add_player(GameState *game_state) {
+EntityResult add_player(GameState *game_state)
+{
     EntityResult result = add_entity(game_state, world_origin());
 
     result.entity->sim.type = ENTITY_TYPE_PLAYER;
@@ -307,7 +321,8 @@ EntityResult add_player(GameState *game_state) {
 
 
 INTERNAL_FUNCTION
-EntityResult add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 p) {
+EntityResult add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 p)
+{
     WorldPosition position = world_position(game_state->world, chunk_x, chunk_y, chunk_z, p);
 
     EntityResult result = add_entity(game_state, position);
@@ -321,7 +336,8 @@ EntityResult add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 c
 
 
 INTERNAL_FUNCTION
-EntityResult add_monster(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 p) {
+EntityResult add_monster(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 p)
+{
     WorldPosition position = world_position(game_state->world, chunk_x, chunk_y, chunk_z, p);
 
     EntityResult result = add_entity(game_state, position);
@@ -351,99 +367,137 @@ EntityResult add_wall(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk
 }
 
 
-void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity, v3 acceleration, f32 dt)
+INTERNAL_FUNCTION
+b32 types_match(SimEntity **a, EntityType t, SimEntity **b, EntityType s)
+{
+    if (((*a)->type == s) && ((*b)->type == t))
+    {
+        SimEntity *tmp = *a;
+        *a = *b;
+        *b = tmp;
+    }
+
+    b32 result = (((*a)->type == t) && ((*b)->type == s));
+    return result;
+}
+
+
+INTERNAL_FUNCTION
+void handle_collision(SimEntity *a, SimEntity *b)
+{
+    if (types_match(&a, ENTITY_TYPE_SWORD, &b, ENTITY_TYPE_MONSTER))
+    {
+        if (b->health_max > 0)
+        {
+            b->health_max -= 1;
+        }
+        make_entity_nonspatial(a);
+        if (b->health_max == 0)
+        {
+            make_entity_nonspatial(b);
+        }
+    }
+}
+
+
+void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity, MoveSpec spec, f32 dt)
 {
     ASSERT(!is(entity, ENTITY_FLAG_NONSPATIAL));
+
     // p = p0 + v0 * t + a * t^2 / 2
 
     v3 position = entity->position;
-    v3 velocity = entity->velocity + acceleration * dt;
+    v3 velocity = entity->velocity + spec.acceleration * dt;
+    v3 destination = position + velocity * dt;
 
-    v3 new_position = position + velocity * dt;
-
-    // v3 position = entity->position;
-    // v3 velocity = entity->velocity;
-
-    // v3 new_velocity = velocity + acceleration * dt;
-    // v3 new_position = position + new_velocity * dt;
-    // v3 new_velocity = velocity + acceleration * dt;
-    // v3 new_position = position + velocity * dt + 0.5f * acceleration * math::square(dt);
-
-    if (new_position.z < 0) {
-        velocity.z = 0;
-        new_position.z = 0;
-    }
+    // @todo: include this into common collision logic
+    // if (destination.z < 0)
+    // {
+    //     destination.z = 0;
+    //     velocity.z = 0;
+    // }
 
     // ================= COLLISION DETECTION ====================== //
 
-    v2 current_position = position.xy;
-    v2 current_velocity = velocity.xy;
-    v2 current_destination = new_position.xy;
-    f32 time_spent_moving = 0.0f;
-
-    f32 original_move_distance = length(new_position - position);
+    f32 remaining_dt = dt;
 
     const int ASUKA_MAX_MOVE_TRIES = 5;
-    for (i32 move_try = 0; move_try < ASUKA_MAX_MOVE_TRIES; move_try++) {
-        v2 closest_destination = current_destination;
-        v2 velocity_at_closest_destination = current_velocity;
-
-        b32 hit_happened = false;
-        u32 hit_entity_index = 0;
-
-        if (is(entity, ENTITY_FLAG_COLLIDABLE) && !is(entity, ENTITY_FLAG_NONSPATIAL))
+    for (i32 move_try = 0; move_try < ASUKA_MAX_MOVE_TRIES; move_try++)
+    {
+        f32 distance_to_move = length(destination - position);
+        if (distance_to_move > entity->distance_limit)
         {
-            for (u32 test_index = 0; test_index < sim_region->entity_count; test_index++) {
-                SimEntity *test_entity = get_sim_entity(sim_region, test_index);
+            // Reduce remaining dt so that destination is at the limit distance off of position
+            remaining_dt *= entity->distance_limit / distance_to_move;
+            destination = position + velocity * remaining_dt;
 
-                if (test_entity->storage_index == entity->storage_index)
+            f32 new_distance_to_move = length(destination - position);
+            ASSERT(is_equal(new_distance_to_move, entity->distance_limit));
+            distance_to_move = entity->distance_limit;
+        }
+
+        v3 closest_destination = destination;
+        v3 velocity_at_closest_destination = velocity;
+        SimEntity *hit_entity = NULL;
+
+        for (u32 test_index = 0; test_index < sim_region->entity_count; test_index++)
+        {
+            SimEntity *test_entity = get_sim_entity(sim_region, test_index);
+
+            if ((test_entity->storage_index == entity->storage_index) ||
+                is(test_entity, ENTITY_FLAG_NONSPATIAL))
+            {
+                continue;
+            }
+
+            f32 minkowski_test_width  = 0.5f * (test_entity->hitbox.x + entity->hitbox.x);
+            f32 minkowski_test_height = 0.5f * (test_entity->hitbox.y + entity->hitbox.y);
+
+            v2 vertices[4] =
+            {
+                v2{ test_entity->position.x - minkowski_test_width, test_entity->position.y + minkowski_test_height },
+                v2{ test_entity->position.x + minkowski_test_width, test_entity->position.y + minkowski_test_height },
+                v2{ test_entity->position.x + minkowski_test_width, test_entity->position.y - minkowski_test_height },
+                v2{ test_entity->position.x - minkowski_test_width, test_entity->position.y - minkowski_test_height },
+            };
+
+            for (i32 vertex_idx = 0; vertex_idx < ARRAY_COUNT(vertices); vertex_idx++)
+            {
+                v2 w0 = vertices[vertex_idx];
+                v2 w1 = vertices[(vertex_idx + 1) % ARRAY_COUNT(vertices)];
+
+                v2 wall = w1 - w0;
+                v2 normal = normalized(V2(-wall.y, wall.x));
+
+                if (dot(velocity.xy, normal) < 0)
                 {
-                    continue;
-                }
+                    auto res = segment_segment_intersection(w0, w1, position.xy, destination.xy);
 
-                if (is(test_entity, ENTITY_FLAG_COLLIDABLE) && !is(test_entity, ENTITY_FLAG_NONSPATIAL))
-                {
-                    f32 minkowski_test_width  = 0.5f * (test_entity->hitbox.x + entity->hitbox.x);
-                    f32 minkowski_test_height = 0.5f * (test_entity->hitbox.y + entity->hitbox.y);
+                    if (res.found == INTERSECTION_COLLINEAR)
+                    {
+                        if ((length²(destination - position) < length²(closest_destination - position))
+                            && is(entity, ENTITY_FLAG_COLLIDABLE)
+                            && is(test_entity, ENTITY_FLAG_COLLIDABLE))
+                        {
+                            closest_destination = destination;
+                            velocity_at_closest_destination.xy = project(velocity.xy, wall);
+                        }
+                    }
 
-                    v2 vertices[4] = {
-                        v2{ test_entity->position.x - minkowski_test_width, test_entity->position.y + minkowski_test_height },
-                        v2{ test_entity->position.x + minkowski_test_width, test_entity->position.y + minkowski_test_height },
-                        v2{ test_entity->position.x + minkowski_test_width, test_entity->position.y - minkowski_test_height },
-                        v2{ test_entity->position.x - minkowski_test_width, test_entity->position.y - minkowski_test_height },
-                    };
+                    if (res.found == INTERSECTION_FOUND)
+                    {
+                        // @todo: What if we collide with several entities during move tries?
+                        hit_entity = test_entity;
 
-                    for (i32 vertex_idx = 0; vertex_idx < ARRAY_COUNT(vertices); vertex_idx++) {
-                        v2 w0 = vertices[vertex_idx];
-                        v2 w1 = vertices[(vertex_idx + 1) % ARRAY_COUNT(vertices)];
-
-                        v2 wall = w1 - w0;
-                        v2 normal = normalized(V2(-wall.y, wall.x));
-
-                        if (dot(current_velocity, normal) < 0) {
-                            auto res = segment_segment_intersection(w0, w1, current_position, current_destination);
-
-
-                            if (res.found == INTERSECTION_COLLINEAR) {
-                                if (length_squared(current_destination - current_position) < length_squared(closest_destination - current_position)) {
-                                    closest_destination = current_destination;
-                                    velocity_at_closest_destination = project(current_velocity, wall);
-                                }
-                            }
-
-                            if (res.found == INTERSECTION_FOUND) {
-                                // @todo: What if we collide with several entities during move tries?
-                                hit_entity_index = test_index;
-                                hit_happened = true;
-
-                                // @note: Update only closest point.
-                                if (length_squared(res.intersection - current_position) < length_squared(closest_destination - current_position)) {
-                                    // @todo: Make sliding better.
-                                    // @hack: Step out 3*eps from the wall to allow sliding along corners.
-                                    closest_destination = res.intersection + 4 * EPSILON * normal;
-                                    velocity_at_closest_destination = project(current_velocity, wall); // wall * math::dot(current_velocity, wall) / wall.length_2();
-                                }
-                            }
+                        // @note: Update only closest point.
+                        if ((length²(res.intersection - position.xy) < length²(closest_destination.xy - position.xy))
+                            && is(entity, ENTITY_FLAG_COLLIDABLE)
+                            && is(test_entity, ENTITY_FLAG_COLLIDABLE))
+                        {
+                            // @todo: Make sliding better.
+                            // @hack: Step out 3*eps from the wall to allow sliding along corners.
+                            closest_destination.xy = res.intersection + 4 * EPSILON * normal;
+                            velocity_at_closest_destination.xy = project(velocity.xy, wall); // wall * math::dot(velocity, wall) / wall.length_2();
                         }
                     }
                 }
@@ -451,40 +505,51 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
         }
 
         // @note: this have to be calculated before we change current position.
-        f32 move_distance = length(closest_destination - current_position);
+        f32 move_distance = length(closest_destination - position);
+        entity->distance_limit -= move_distance;
+        if (entity->distance_limit < 0)
+        {
+            entity->distance_limit = 0;
+        }
 
-        current_position = closest_destination;
-        if (hit_happened) {
-            if (move_distance > EPSILON) {
-                f32 dt_prime = move_distance / length(current_velocity);
-                time_spent_moving += dt_prime;
+        if (move_distance > EPSILON)
+        {
+            // [m] / [m/s] => [s]
+            if (is_zero(velocity))
+            {
+                remaining_dt = 0;
+            }
+            else
+            {
+                remaining_dt -= move_distance / length(velocity);
             }
 
-            current_velocity = velocity_at_closest_destination;
-            current_destination = current_position + current_velocity * (dt - time_spent_moving);
+            position = closest_destination;
+            velocity = velocity_at_closest_destination;
+            destination = position + velocity * remaining_dt;
 
-            SimEntity *hit_entity = get_sim_entity(sim_region, hit_entity_index);
-            // @todo: Do something with "hit_entity" and "entity", like, register hit or something.
-        } else {
+            if (hit_entity)
+            {
+                // @todo: Do something with "hit_entity" and "entity", like, register hit or something.
+                handle_collision(entity, hit_entity);
+            }
+        }
+
+        // How much we have left to move?
+        if (length²(destination - position) < EPSILON²)
+        {
             break;
         }
     }
 
-    entity->position.xy = current_position;
-    entity->velocity.xy = current_velocity;
-
-    // @temporary
-    // @todo: make it go through collision detection by making collision detection 3d ?
-    entity->position.z = new_position.z;
-    entity->velocity.z = velocity.z;
+    entity->position = position;
+    entity->velocity = velocity;
 }
 
 
 // Random
 #include <time.h>
 #include <stdlib.h>
-
-#define IN_CODE_TEXTURES 0
 
 #if IN_CODE_TEXTURES
 #include "../data/character_1.cpp"
@@ -613,8 +678,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             i32 max_tile_y = room_height_in_tiles / 2;
             i32 min_tile_y = -room_height_in_tiles / 2;
 
-            for (i32 tile_y = min_tile_y; tile_y <= max_tile_y; tile_y++) {
-                for (i32 tile_x = min_tile_x; tile_x <= max_tile_x; tile_x++) {
+            for (i32 tile_y = min_tile_y; tile_y <= max_tile_y; tile_y++)
+            {
+                for (i32 tile_x = min_tile_x; tile_x <= max_tile_x; tile_x++)
+                {
                     i32 x = screen_x * room_width_in_tiles  + tile_x;
                     i32 y = screen_y * room_height_in_tiles + tile_y;
                     i32 z = screen_z;
@@ -697,193 +764,71 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         Memory->IsInitialized = true;
     }
 
-
     World *world = game_state->world;
+
+    f32 pixels_per_meter = 60.f; // [pixels/m]
+    f32 character_speed = 2.5f; // [m/s]
+    f32 character_mass = 80.0f; // [kg]
+
+    for (InputIndex ControllerIndex { 0 }; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++)
+    {
+        Game_ControllerInput* ControllerInput = GetControllerInput(Input, ControllerIndex);
+        PlayerRequest *request = game_state->player_for_controller + ControllerIndex.index;
+
+        if (request->entity_index == 0)
+        {
+            if (GetPressCount(ControllerInput->Start))
+            {
+                EntityResult added_player = add_player(game_state);
+
+                ASSERT(request->entity_index == 0);
+
+                request->entity_index = added_player.index;
+                game_state->index_of_entity_for_camera_to_follow = added_player.index;
+            }
+        }
+        else
+        {
+            // ALL CONTROLLER PROCESSING FOR THIS PLAYER GOES HERE //
+            v2 sword_speed {};
+            if (GetPressCount(ControllerInput->X))
+            {
+                sword_speed += V2(-1, 0);
+            }
+            else if (GetPressCount(ControllerInput->Y))
+            {
+                sword_speed += V2(0, 1);
+            }
+            else if (GetPressCount(ControllerInput->A))
+            {
+                sword_speed += V2(0, -1);
+            }
+            else if (GetPressCount(ControllerInput->B))
+            {
+                sword_speed += V2(1, 0);
+            }
+
+            f32 input_strength  = math::clamp(length(ControllerInput->LeftStickEnded), 0, 1);
+            v2  input_direction = normalized(ControllerInput->LeftStickEnded);
+
+            request->player_acceleration_strength = input_strength;
+            request->player_acceleration_direction.xy = input_direction;
+            request->sword_velocity.xy = normalized(sword_speed);
+            request->player_jump = GetPressCount(ControllerInput->Start) > 0;
+        }
+    }
 
     Rectangle2 sim_bounds = Rectangle2::from_center_dim(V2(0, 0), V2(20, 12)); // in meters
 
     initialize_arena(&game_state->sim_arena, (u8 *) Memory->TransientStorage, Memory->TransientStorageSize);
     SimRegion *sim_region = begin_simulation(game_state, &game_state->sim_arena, game_state->camera_position, sim_bounds);
 
-    f32 pixels_per_meter = 60.f; // [pixels/m]
-
-    f32 character_speed = 2.5f; // [m/s]
-    f32 character_mass = 80.0f; // [kg]
-
-    f32 friction_coefficient = 1.5f;
-
-    for (InputIndex ControllerIndex { 0 }; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++)
-    {
-        Game_ControllerInput* ControllerInput = GetControllerInput(Input, ControllerIndex);
-
-        u32 entity_index = game_state->player_index_for_controller[ControllerIndex.index];
-        SimEntity *player = get_entity_by_storage_index(game_state, sim_region, entity_index);
-
-        if (player == NULL)
-        {
-            if (GetPressCount(ControllerInput->Start))
-            {
-                EntityResult added_player = add_player(game_state);
-                player = add_entity_to_sim_region(game_state, sim_region, added_player.entity, added_player.index, 0);
-                //player = find_or_add_stored_entity_to_sim_region(game_state, sim_region, added_player.index);
-
-                if (game_state->player_index_for_controller[ControllerIndex.index] == 0)
-                {
-                    game_state->player_index_for_controller[ControllerIndex.index] = added_player.index;
-                    game_state->index_of_entity_for_camera_to_follow = added_player.index;
-                    game_state->index_of_controller_for_camera_to_follow = ControllerIndex.index;
-                }
-            }
-
-            continue;
-        }
-
-        // if (GetPressCount(ControllerInput->Y)) {
-        //     game_state->index_of_controller_for_camera_to_follow += 1;
-        //     if (game_state->index_of_controller_for_camera_to_follow.index >= ARRAY_COUNT(Input->ControllerInputs)) {
-        //         game_state->index_of_controller_for_camera_to_follow = { 0 };
-        //     }
-        //     game_state->index_of_entity_for_camera_to_follow = game_state->player_index_for_controller[game_state->index_of_controller_for_camera_to_follow.index];
-        //     game_state->camera_position.chunk_z = game_state->low_entities[game_state->index_of_entity_for_camera_to_follow.index].world_position.chunk_z;
-        //     osOutputDebugString("Follow entity %d\n", game_state->index_of_entity_for_camera_to_follow.index);
-        // }
-
-        // if (GetPressCount(ControllerInput->X)) {
-        //     WorldPosition *pos = &player.low->world_position;
-        // }
-
-        // ================= MOVEMENT SIMULATION ====================== //
-
-        if (player)
-        {
-            // @todo: Handle multiple simulation regions for cooperative multiplayer.
-            // @todo: Network cooperative multiplayer?
-
-            v2 input_direction = normalized(ControllerInput->LeftStickEnded);
-            f32 input_strength = math::clamp(length(ControllerInput->LeftStickEnded), 0, 1);
-
-            f32 acceleration_coefficient = 100.0f; // [m/s^2]
-            // if (ControllerInput->B.EndedDown) {
-            //     acceleration_coefficient = 300.0f;
-            // }
-
-            v3 acceleration {};
-            v3 friction_acceleration {};
-
-            v3 gravity = V3(0, 0, -9.8); // [m/s^2]
-
-            // @note: accelerate the guy only if he's standing on the ground.
-            // if (player.high->position.z < EPSILON)
-            {
-                acceleration.xy = acceleration_coefficient * input_strength * input_direction;
-
-                // [m/s^2] = [m/s] * [units] * [m/s^2]
-                // @todo: why units do not add up?
-                // @note: N = nu * g []
-                friction_acceleration.xy = (player->velocity.xy) * friction_coefficient * gravity.z;
-            }
-
-            // @note: gravity works always, no matter where we are.
-            acceleration += gravity; // [m/s^2] of gravity
-
-            if (GetPressCount(ControllerInput->Start) > 0)
-            {
-                acceleration.z += 100.0f;
-            }
-
-            v3 sword_speed {};
-            if (GetPressCount(ControllerInput->X))
-            {
-                sword_speed = V3(-1, 0, 0);
-            }
-            else if (GetPressCount(ControllerInput->Y))
-            {
-                sword_speed = V3(0, 1, 0);
-            }
-            else if (GetPressCount(ControllerInput->A))
-            {
-                sword_speed = V3(0, -1, 0);
-            }
-            else if (GetPressCount(ControllerInput->B))
-            {
-                sword_speed = V3(1, 0, 0);
-            }
-
-            // @todo: Update player ?
-            move_entity(game_state, sim_region, player, acceleration + friction_acceleration, dt);
-
-            if (sword_speed != v3::zero())
-            {
-                SimEntity *sword = player->sword.ptr;
-                if (sword)
-                {
-                    make_entity_spatial(sword, player->position.xy, sword_speed.xy * 4.0f);
-                    sword->position.z = 0.5f;
-                    sword->sword_distance_remaining = 3.0f; // meters
-                }
-            }
-
-            if (length_squared(input_direction) > 0) { // @todo: Why bothering getting length when can ask for equallity to zero
-                if (math::absolute(input_direction.x) > math::absolute(input_direction.y))
-                {
-                    if (input_direction.x > 0)
-                    {
-                        player->face_direction = FACE_DIRECTION_RIGHT;
-                    }
-                    else
-                    {
-                        player->face_direction = FACE_DIRECTION_LEFT;
-                    }
-                }
-                else
-                {
-                    if (input_direction.y > 0)
-                    {
-                        player->face_direction = FACE_DIRECTION_UP;
-                    }
-                    else
-                    {
-                        player->face_direction = FACE_DIRECTION_DOWN;
-                    }
-                }
-            }
-
-            StoredEntity *followed_entity = get_stored_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
-
-            if (followed_entity)
-            {
-#if ASUKA_DEBUG_FOLLOWING_CAMERA
-                WorldPosition new_camera_position = map_into_world_space(world, sim_region->origin, player->position.xy);
-#else
-                if (followed_entity.high->position.x > room_in_meters.max.x) {
-                    new_camera_position.offset.x += get_width(room_in_meters);
-                }
-
-                if (followed_entity.high->position.x < room_in_meters.min.x) {
-                    new_camera_position.offset.x -= get_width(room_in_meters);
-                }
-
-                if (followed_entity.high->position.y > room_in_meters.max.y) {
-                    new_camera_position.offset.y += get_height(room_in_meters);
-                }
-
-                if (followed_entity.high->position.y < room_in_meters.min.y) {
-                    new_camera_position.offset.y -= get_height(room_in_meters);
-                }
-#endif
-
-                game_state->camera_position = new_camera_position;
-            }
-        }
-    }
-
-
     // Game_OutputSound(SoundBuffer, game_state);
 
     // ===================== RENDERING ===================== //
 
     // Render pink background to see pixels I didn't drew.
-    DrawRectangle(Buffer, V2(0, 0), V2(Buffer->Width, Buffer->Height), rgb(1.f, 0.f, 1.f));
+    // DrawRectangle(Buffer, V2(0, 0), V2(Buffer->Width, Buffer->Height), rgb(1.f, 0.f, 1.f));
     DrawRectangle(Buffer, V2(0, 0), V2(Buffer->Width, Buffer->Height), rgb(0.5, 0.5, 0.5));
 
     // Background grass
@@ -893,71 +838,188 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     VisiblePieceGroup group {};
     group.pixels_per_meter = pixels_per_meter;
 
-    for (u32 sim_entity_index = 0; sim_entity_index < sim_region->entity_count; sim_entity_index++) {
+    for (u32 sim_entity_index = 0; sim_entity_index < sim_region->entity_count; sim_entity_index++)
+    {
         SimEntity *entity = get_sim_entity(sim_region, sim_entity_index);
-
         group.count = 0;
 
-        if (entity->type == ENTITY_TYPE_PLAYER) {
-            auto *shadow_texture = &game_state->shadow_texture;
-            push_asset(&group, shadow_texture, V3(-0.5f, 0.85f, 0), 1.0f / (1.0f + entity->position.z));
+        MoveSpec spec = move_spec();
 
-            auto *player_texture = &game_state->player_textures[entity->face_direction];
-            push_asset(&group, player_texture, V3(-0.4f, 1.0f, entity->position.z));
-
-            draw_hitpoints(entity, &group);
-        }
-        else if (entity->type == ENTITY_TYPE_FAMILIAR)
+        switch (entity->type)
         {
-            update_familiar(game_state, sim_region, entity, dt);
+            case ENTITY_TYPE_PLAYER:
+            {
+                for (u32 ControllerIndex = 0; ControllerIndex < ARRAY_COUNT(game_state->player_for_controller); ControllerIndex++)
+                {
+                    PlayerRequest *request = game_state->player_for_controller + ControllerIndex;
+                    if (request->entity_index == entity->storage_index)
+                    {
+                        f32 acceleration_coefficient = 100.0f; // [m/s^2]
+                        v3 gravity = V3(0, 0, -9.8); // [m/s^2]
 
-            entity->tBob += dt;
-            if (entity->tBob > 2 * math::pi) {
-                entity->tBob -= 2 * math::pi;
+                        // @note: accelerate the guy only if he's standing on the ground.
+                        if (entity->position.z < EPSILON)
+                        {
+                            f32 friction_coefficient = 1.5f;
+
+                            // [m/s^2] = [m/s] * [units] * [m/s^2]
+                            // @todo: why units do not add up?
+                            // @note: N = nu * g []
+                            v2 friction_acceleration = -entity->velocity.xy * friction_coefficient * math::absolute(gravity.z);
+
+                            spec.acceleration = acceleration_coefficient * request->player_acceleration_strength * request->player_acceleration_direction;
+                            spec.acceleration += V3(friction_acceleration, 0);
+                        }
+
+                        if (request->player_jump)
+                        {
+                            spec.acceleration.z += 100.0f;
+                        }
+
+                        spec.acceleration += gravity;
+
+                        if (!is_zero(request->player_acceleration_direction)) {
+                            if (math::absolute(request->player_acceleration_direction.x) > math::absolute(request->player_acceleration_direction.y))
+                            {
+                                if (request->player_acceleration_direction.x > 0)
+                                {
+                                    entity->face_direction = FACE_DIRECTION_RIGHT;
+                                }
+                                else
+                                {
+                                    entity->face_direction = FACE_DIRECTION_LEFT;
+                                }
+                            }
+                            else
+                            {
+                                if (request->player_acceleration_direction.y > 0)
+                                {
+                                    entity->face_direction = FACE_DIRECTION_UP;
+                                }
+                                else
+                                {
+                                    entity->face_direction = FACE_DIRECTION_DOWN;
+                                }
+                            }
+                        }
+
+                        if (!is_zero(request->sword_velocity))
+                        {
+                            SimEntity *sword = entity->sword.ptr;
+                            if (sword)
+                            {
+                                make_entity_spatial(sword, entity->position.xy, entity->velocity.xy + request->sword_velocity.xy * 4.0f);
+                                sword->position.z = 0.5f;
+                                sword->distance_limit = 3.0f; // meters
+                            }
+                        }
+                    }
+                }
+
+                auto *shadow_texture = &game_state->shadow_texture;
+                push_asset(&group, shadow_texture, V3(-0.5f, 0.85f, 0), 1.0f / (1.0f + entity->position.z));
+
+                auto *player_texture = &game_state->player_textures[entity->face_direction];
+                push_asset(&group, player_texture, V3(-0.4f, 1.0f, entity->position.z));
+
+                draw_hitpoints(entity, &group);
+
             }
+            break;
 
-            f32 a = 2.0f;
-            f32 t = a * math::sin(3.0f * entity->tBob);
-            f32 h = 2.0f / (2.0f + a + t);
+            case ENTITY_TYPE_FAMILIAR:
+            {
+                SimEntity *closest_entity = NULL;
+                f32 closest_distance_squared = math::square(7.0f); // @note: maximum following distance
 
-            auto *shadow = &game_state->shadow_texture;
-            push_asset(&group, shadow, V3(-0.5f, 0.85f, 0), h);
+                for (u32 index = 0; index < sim_region->entity_count; index++) {
+                    SimEntity *test_entity = get_sim_entity(sim_region, index);
 
-            auto *texture = &game_state->familiar_texture;
-            push_asset(&group, texture, V3(-0.5f, 0.8f, 0.2f / h));
+                    if (test_entity->type == ENTITY_TYPE_PLAYER) {
+                        f32 distance_squared = length²(test_entity->position - entity->position);
+                        if (distance_squared < closest_distance_squared) {
+                            closest_distance_squared = distance_squared;
+                            closest_entity = test_entity;
+                        }
+                    }
+                }
+
+                if (closest_entity)
+                {
+                    if (closest_distance_squared > math::square(2.0f)) {
+                        f32 speed = 5;
+                        v3 direction = normalized(closest_entity->position - entity->position);
+                        spec.acceleration = speed * direction; // + gravity;
+                    }
+                }
+
+                v3 friction = -2.0f * entity->velocity;
+                spec.acceleration += friction;
+
+                entity->tBob += dt;
+                if (entity->tBob > 2 * F32::pi()) {
+                    entity->tBob -= 2 * F32::pi();
+                }
+
+                f32 a = 2.0f;
+                f32 t = a * math::sin(3.0f * entity->tBob);
+                f32 h = 2.0f / (2.0f + a + t);
+
+                auto *shadow = &game_state->shadow_texture;
+                push_asset(&group, shadow, V3(-0.5f, 0.85f, 0), h);
+
+                auto *texture = &game_state->familiar_texture;
+                push_asset(&group, texture, V3(-0.5f, 0.8f, 0.2f / h));
+            }
+            break;
+
+            case ENTITY_TYPE_MONSTER:
+            {
+                auto *head = &game_state->monster_head;
+                auto *left_arm  = &game_state->monster_left_arm;
+                auto *right_arm = &game_state->monster_right_arm;
+
+                push_asset(&group, head, V3(-2.5f, 2.5f, 0));
+                push_asset(&group, left_arm, V3(-2.0f, 2.5f, 0));
+                push_asset(&group, right_arm, V3(-3.0f, 2.5f, 0));
+
+                draw_hitpoints(entity, &group);
+            }
+            break;
+
+            case ENTITY_TYPE_WALL:
+            {
+                auto *texture = &game_state->tree_texture;
+                push_asset(&group, texture, V3(-0.5f, 1.6f, 0));
+            }
+            break;
+
+            case ENTITY_TYPE_SWORD:
+            {
+                // @note: swords fly linearly, with no acceleration
+                spec.acceleration = V3(0, 0, 0);
+
+                if (entity->distance_limit < EPSILON)
+                {
+                    make_entity_nonspatial(entity);
+                }
+
+                auto *texture = &game_state->sword_texture;
+                auto *shadow_texture = &game_state->shadow_texture;
+
+                // @todo: If I have to take into account position.z in here, therefore I should
+                push_asset(&group, shadow_texture, V3(-0.5, 0.85, 0), 1.0f / (1.0f + entity->position.z));
+                push_asset(&group, texture, V3(-0.4f, 0.2f, entity->position.z));
+            }
+            break;
+
+            default:
+                INVALID_CODE_PATH();
         }
-        else if (entity->type == ENTITY_TYPE_MONSTER)
-        {
-            update_monster(game_state, entity, dt);
 
-            auto *head = &game_state->monster_head;
-            auto *left_arm  = &game_state->monster_left_arm;
-            auto *right_arm = &game_state->monster_right_arm;
-
-            push_asset(&group, head, V3(-2.5f, 2.5f, 0));
-            push_asset(&group, left_arm, V3(-2.0f, 2.5f, 0));
-            push_asset(&group, right_arm, V3(-3.0f, 2.5f, 0));
-
-            draw_hitpoints(entity, &group);
-        }
-        else if (entity->type == ENTITY_TYPE_WALL)
+        if (!is(entity, ENTITY_FLAG_NONSPATIAL))
         {
-            auto *texture = &game_state->tree_texture;
-            push_asset(&group, texture, V3(-0.5f, 1.6f, 0));
-        }
-        else if (entity->type == ENTITY_TYPE_SWORD)
-        {
-            update_sword(game_state, sim_region, entity, dt);
-            auto *texture = &game_state->sword_texture;
-            auto *shadow_texture = &game_state->shadow_texture;
-
-            // @todo: If I have to take into account position.z in here, therefore I should
-            push_asset(&group, shadow_texture, V3(-0.5, 0.85, 0), 1.0f / (1.0f + entity->position.z));
-            push_asset(&group, texture, V3(-0.4f, 0.2f, entity->position.z));
-        }
-        else
-        {
-            INVALID_CODE_PATH();
+            move_entity(game_state, sim_region, entity, spec, dt);
         }
 
         v2 entity_position_in_pixels =
@@ -973,6 +1035,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         //     entity_position_in_pixels - 0.5f * entity->hitbox * pixels_per_meter,
         //     entity_position_in_pixels + 0.5f * entity->hitbox * pixels_per_meter,
         //     color24{ 1.f, 1.f, 0.f });
+        Rectangle2 hitbox_in_pixels = Rectangle2::from_min_max(
+            entity_position_in_pixels - 0.5f * entity->hitbox * pixels_per_meter,
+            entity_position_in_pixels + 0.5f * entity->hitbox * pixels_per_meter);
+
+        // @note: this draw hitboxes
+        // draw_empty_rectangle_in_meters(Buffer,
+        //     Rectangle2::from_center_dim(entity->position.xy, entity->hitbox),
+        //     2, rgb(1, 1, 0), entity->position.xy, pixels_per_meter);
 
         for (u32 asset_index = 0; asset_index < group.count; asset_index++) {
             auto *asset = &group.assets[asset_index];
@@ -990,12 +1060,19 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     end_simulation(game_state, sim_region);
 
+    StoredEntity *followed_entity = get_stored_entity(game_state, game_state->index_of_entity_for_camera_to_follow);
+    if (followed_entity)
+    {
+        game_state->camera_position = followed_entity->world_position;
+    }
+
 #if 1
     {
         // draw_empty_rectangle_in_meters(Buffer, sim_bounds, 2, rgb(1, 1, 0), pixels_per_meter);
 
-        Rectangle2 debug_rect_to_draw = Rectangle2::from_center_dim(V2(0, 0), V2(1, 1));
-        draw_empty_rectangle_in_meters(Buffer, debug_rect_to_draw, 2, rgb(0, 1, 0), pixels_per_meter);
+        // @note: debug draw one meter square in the center fo the screen
+        // Rectangle2 debug_rect_to_draw = Rectangle2::from_center_dim(V2(0, 0), V2(1, 1));
+        // draw_empty_rectangle_in_meters(Buffer, debug_rect_to_draw, 2, rgb(0, 1, 0), V2(0, 0), pixels_per_meter);
     }
 #endif
 

@@ -21,10 +21,10 @@ enum EntityType {
 
 
 enum FaceDirection {
-    FACE_DIRECTION_DOWN = 0,
-    FACE_DIRECTION_LEFT = 1,
+    FACE_DIRECTION_DOWN  = 0,
+    FACE_DIRECTION_LEFT  = 1,
     FACE_DIRECTION_RIGHT = 2,
-    FACE_DIRECTION_UP = 3,
+    FACE_DIRECTION_UP    = 3,
 };
 
 
@@ -39,8 +39,8 @@ union EntityReference
 
 enum SimEntityFlags
 {
-    ENTITY_FLAG_COLLIDABLE = (1 << 1),
-    ENTITY_FLAG_NONSPATIAL = (1 << 2),
+    ENTITY_FLAG_COLLIDABLE = (1 << 0),
+    ENTITY_FLAG_NONSPATIAL = (1 << 1),
 };
 
 struct SimEntity
@@ -59,15 +59,14 @@ struct SimEntity
     i32 chunk_z; // for moving up and down "stairs"
 
     v2 hitbox;
-
     u32 flags;
+    f32 distance_limit;
 
     i32 health_max;
     u32 health_fill_max;
     HealthPoint health[32];
 
     EntityReference sword;
-    f32 sword_distance_remaining;
 };
 
 
@@ -107,6 +106,30 @@ SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_
 void end_simulation(GameState *game_state, SimRegion *sim_region);
 
 
-// #if UNITY_BUILD
-// #include "sim_region.cpp"
-// #endif // UNITY_BUILD
+inline void set(SimEntity *entity, u32 flag)
+{
+    entity->flags = (entity->flags | flag);
+}
+
+inline void unset(SimEntity *entity, u32 flag)
+{
+    entity->flags &= (~flag);
+}
+
+inline b32 is(SimEntity *entity, u32 flag)
+{
+    b32 result = entity->flags & flag;
+    return result;
+}
+
+inline void make_entity_nonspatial(SimEntity *entity)
+{
+    set(entity, ENTITY_FLAG_NONSPATIAL);
+}
+
+inline void make_entity_spatial(SimEntity *entity, v2 p, v2 v)
+{
+    unset(entity, ENTITY_FLAG_NONSPATIAL);
+    entity->position.xy = p;
+    entity->velocity.xy = v;
+}

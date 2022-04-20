@@ -19,6 +19,10 @@
 // Just a partial list of stuff
 //
 
+// Standrad headers
+#include <stdio.h>
+
+// Project headers
 #include <defines.hpp>
 #include <asuka.hpp>
 #include <os/time.hpp>
@@ -32,7 +36,6 @@
 
 // Direct Sound
 #include <dsound.h>
-#include <stdio.h>
 
 
 #define DRAW_DEBUG_SOUND_CURSORS (0 && ASUKA_DEBUG)

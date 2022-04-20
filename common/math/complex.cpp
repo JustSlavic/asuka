@@ -1,4 +1,4 @@
 #include "complex.hpp"
 
 
-complex complex::i { 0, 1 };
+static complex complex::i { 0, 1 };
