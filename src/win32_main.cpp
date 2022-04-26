@@ -1,23 +1,24 @@
-// BIG TODO FOR PLATFORM LAYER:
-//
-// - Saved game locations
-// - Getting a handle to our own executable file
-// - Asset loading path
-// - Threading (launch a thread)
-// - Raw input (support for multiple keyboards)
-// - ClipCursor() (multimonitor support)
-// - Fullscreen support
-// - WM_SETCURSOR (control cursor visibility)
-// - QueryCancelAutoplay
-// - WM_ACTIVATEAPP (for when we are not the active application)
-// - Blit speed improvements (BitBlt)
-// - Hardware acceleration (OpenGL or Direct3D)
-// - GetKeyboardLayout (for French keyboards, international WASD support)
-//
-// - ChangeDisplaySettings ?
-//
-// Just a partial list of stuff
-//
+/*
+    Platform Layer:
+
+    - Saved game locations
+    - Getting a handle to our own executable file
+    - Asset loading path
+    - Threading (launch a thread)
+    - Raw input (support for multiple keyboards)
+    - ClipCursor() (multimonitor support)
+    - Fullscreen support
+    - WM_SETCURSOR (control cursor visibility)
+    - QueryCancelAutoplay
+    - WM_ACTIVATEAPP (for when we are not the active application)
+    - Blit speed improvements (BitBlt)
+    - Hardware acceleration (OpenGL or Direct3D)
+    - GetKeyboardLayout (for French keyboards, international WASD support)
+
+    - ChangeDisplaySettings ?
+
+    Just a partial list of stuff
+*/
 
 // Standrad headers
 #include <stdio.h>

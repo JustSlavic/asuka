@@ -7,7 +7,6 @@
 #include <sim_region.hpp>
 #include <bitmap.hpp>
 #include <wav.hpp>
-#include <entity.hpp>
 
 #include <stdio.h>
 
@@ -322,7 +321,6 @@ ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
 #if (ASUKA_DLL && ASUKA_DLL_BUILD) || (!ASUKA_DLL_BUILD)
 #include <world.cpp>
 #include <sim_region.cpp>
-#include <entity.cpp>
 #endif
 
 #if !ASUKA_DLL && !ASUKA_DLL_BUILD

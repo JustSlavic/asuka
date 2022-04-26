@@ -411,11 +411,11 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
     v3 destination = position + velocity * dt;
 
     // @todo: include this into common collision logic
-    // if (destination.z < 0)
-    // {
-    //     destination.z = 0;
-    //     velocity.z = 0;
-    // }
+    if (destination.z < 0)
+    {
+        destination.z = 0;
+        velocity.z = 0;
+    }
 
     // ================= COLLISION DETECTION ====================== //
 
