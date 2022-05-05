@@ -11,6 +11,48 @@
 #include <stdio.h>
 
 
+/*
+
+    Architecture:
+
+    - Metagame
+      - Saves
+      - Steam Store
+      - Achievements
+    - Multiple SimRegions per sim
+    - Collision detection
+      - Entry / Exit
+      - Shapes
+    - AI
+      - Behaviour trees
+      - Pathfinding
+    - 3D positioning
+      - Walk up and down the stairs
+    - World Generation
+    - Animation
+      - Skeletal animation
+      - Particle systems
+    - Asset streaming
+    - Audio
+      - Sound effect triggers
+      - Ambient sounds
+      - Music
+    - Debug code
+      - Logging
+      - Diagramming
+      - GUI
+        - Editor ImGui-like things
+        - Console
+    - GUI
+      - Cursor graphics
+      - Shapes
+      - Buttons
+      - Textfields
+      - Layout containers
+
+*/
+
+
 struct ThreadContext {
 };
 
@@ -142,36 +184,36 @@ struct Game_Input {
 
 using InputIndex = Index<Game_ControllerInput>;
 
-inline
-Game_ControllerInput* GetControllerInput(Game_Input* Input, InputIndex ControllerIndex)
+INLINE
+Game_ControllerInput *GetControllerInput(Game_Input *Input, InputIndex ControllerIndex)
 {
     ASSERT(ControllerIndex < ARRAY_COUNT(Input->ControllerInputs));
     return &Input->ControllerInputs[ControllerIndex.index];
 }
 
 
-inline
-Game_ControllerInput* GetGamepadInput(Game_Input *Input, i32 GamepadIndex)
+INLINE
+Game_ControllerInput *GetGamepadInput(Game_Input *Input, i32 GamepadIndex)
 {
     ASSERT(GamepadIndex < ARRAY_COUNT(Input->GamepadInputs));
     return &Input->GamepadInputs[GamepadIndex];
 }
 
-inline
+INLINE
 u32 GetPressCount(Game_ButtonState button)
 {
     u32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
     return result;
 }
 
-inline
+INLINE
 u32 GetReleaseCount(Game_ButtonState button)
 {
     u32 result = (button.HalfTransitionCount - (button.EndedDown > 0) + 1) / 2;
     return result;
 }
 
-inline
+INLINE
 u32 GetHoldCount(Game_ButtonState button)
 {
     u32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
@@ -248,7 +290,7 @@ struct MoveSpec {
 };
 
 
-inline MoveSpec move_spec()
+INLINE MoveSpec move_spec()
 {
     MoveSpec spec = {};
     return spec;
@@ -292,7 +334,7 @@ struct GameState {
 };
 
 
-inline
+INLINE
 StoredEntity *get_stored_entity(GameState *game_state, u32 index) {
     ASSERT(index < ARRAY_COUNT(game_state->entities));
 

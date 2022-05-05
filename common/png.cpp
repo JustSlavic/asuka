@@ -76,7 +76,7 @@ enum {
 
 namespace png {
 
-INTERNAL_FUNCTION
+INTERNAL
 u8 *consume_memory(u8 **data, u64 size) {
     u8 *result = *data;
     *data += size;
@@ -101,7 +101,7 @@ struct huffman_code {
 
 };
 
-INTERNAL_FUNCTION
+INTERNAL
 u32 get_bits(bit_fetcher* fetcher, u32 n) {
     ASSERT(n <= 32);
 
@@ -121,21 +121,21 @@ u32 get_bits(bit_fetcher* fetcher, u32 n) {
     return result;
 }
 
-INTERNAL_FUNCTION
+INTERNAL
 huffman_code generate_huffman() {
     huffman_code result {};
 
     return result;
 }
 
-INTERNAL_FUNCTION
+INTERNAL
 u32 decode_huffman(huffman_code *huffman) {
     u32 result {};
 
     return result;
 }
 
-INTERNAL_FUNCTION
+INTERNAL
 void decode_idat_chunk(u8 *data, usize size, Bitmap *result) {
     u8 CMF = *data;
     u8 CM  = 0x0F & CMF; // CompressionMethod

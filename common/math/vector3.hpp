@@ -6,54 +6,50 @@
 #include "vector2.hpp"
 
 
+struct v3i {
+    union {
+        struct { i32 x, y, z; };
+        struct { v2i xy; i32 dummy_z; };
+        i32 array_[3];
+    };
+};
+
+
+[[nodiscard]] INLINE
+bool operator == (v3i a, v3i b) {
+    bool result = (a.x == b.x) && (a.y == b.y) && (a.z == b.z);
+    return result;
+}
+
+[[nodiscard]] INLINE
+bool operator != (v3i a, v3i b) {
+    bool result = !(a == b);
+    return result;
+}
+
+
 struct v3 {
     union {
         struct { f32 x, y, z; };
         struct { v2 xy; f32 dummy_z; };
-        f32 coordinates[3];
+        f32 array_[3];
     };
 
-    IN_CLASS_FUNCTION v3 nan() {
-        v3 result { F32::nan(), F32::nan() };
-        return result;
-    }
-
-    IN_CLASS_FUNCTION v3 zero() {
-        v3 result { 0.0f, 0.0f, 0.0f };
-        return result;
-    }
-
-    IN_CLASS_FUNCTION v3 one() {
-        v3 result { 1.0f, 1.0f, 1.0f };
-    }
-
-    IN_CLASS_FUNCTION v3 ex() {
-        v3 result { 1.0f, 0.0f, 0.0f };
-    }
-
-    IN_CLASS_FUNCTION v3 ey() {
-        v3 result { 0.0f, 1.0f, 0.0f };
-    }
-
-    IN_CLASS_FUNCTION v3 ez() {
-        v3 result { 0.0f, 0.0f, 1.0f };
-    }
-
-    inline v3& operator += (v3 other) {
+    INLINE v3& operator += (v3 other) {
         x += other.x;
         y += other.y;
         z += other.z;
         return *this;
     }
 
-    inline v3& operator -= (v3 other) {
+    INLINE v3& operator -= (v3 other) {
         x -= other.x;
         y -= other.y;
         z -= other.z;
         return *this;
     }
 
-    inline v3& operator *= (f32 c) {
+    INLINE v3& operator *= (f32 c) {
         x *= c;
         y *= c;
         z *= c;
@@ -62,100 +58,120 @@ struct v3 {
 };
 
 
-[[nodiscard]] inline
+[[nodiscard]] INLINE
 b32 is_valid(v3 a) {
     b32 valid = math::is_valid(a.x) && math::is_valid(a.y) && math::is_valid(a.z);
     return valid;
 }
 
-[[nodiscard]] inline
+[[nodiscard]] INLINE
 b32 is_zero(v3 a)
 {
     b32 result = is_zero(a.x) && is_zero(a.y) && is_zero(a.z);
     return result;
 }
 
-[[nodiscard]] inline
+[[nodiscard]] INLINE
 b32 is_equal(v3 a, v3 b)
 {
     b32 result = is_equal(a.x, b.x) && is_equal(a.y, b.y) && is_equal(a.z, b.z);
     return result;
 }
 
-[[nodiscard]] inline
+[[nodiscard]] INLINE
 v3 operator - (v3 a) {
     v3 result = v3{ -a.x, -a.y, -a.z };
     return result;
 }
 
-[[nodiscard]] inline
+[[nodiscard]] INLINE
 v3 operator + (v3 a, v3 b) {
     v3 result = v3{ a.x + b.x, a.y + b.y, a.z + b.z };
     return result;
 }
 
-[[nodiscard]] inline
+[[nodiscard]] INLINE
 v3 operator - (v3 a, v3 b) {
     v3 result = v3{ a.x - b.x, a.y - b.y, a.z - b.z };
     return result;
 }
 
-[[nodiscard]] inline
+[[nodiscard]] INLINE
 v3 operator * (v3 a, f32 c) {
     v3 result = v3{ c * a.x, c * a.y, c * a.z };
     return result;
 }
 
-[[nodiscard]] inline
+[[nodiscard]] INLINE
 v3 operator * (f32 c, v3 a) {
     v3 result = v3{ c * a.x, c * a.y, c * a.z };
     return result;
 }
 
-[[nodiscard]] inline
-v3 operator / (v3 a, f32 c) {
+[[nodiscard]] INLINE
+v3 operator / (v3 a, f32 c)
+{
     v3 result = v3{ a.x / c, a.y / c, a.z / c };
     return result;
 }
 
-[[nodiscard]] inline
-bool operator == (v3 a, v3 b) {
+[[nodiscard]] INLINE
+bool operator == (v3 a, v3 b)
+{
     bool result = (a.x == b.x) && (a.y == b.y) && (a.z == b.z);
     return result;
 }
 
-[[nodiscard]] inline
-bool operator != (v3 a, v3 b) {
+[[nodiscard]] INLINE
+bool operator != (v3 a, v3 b)
+{
     bool result = !(a == b);
     return result;
 }
 
-[[nodiscard]] inline
-f32 dot (v3 a, v3 b) {
+[[nodiscard]] INLINE
+f32 dot (v3 a, v3 b)
+{
     f32 result = a.x * b.x + a.y * b.y + a.z * b.z;
     return result;
 }
 
-[[nodiscard]] inline
-v3 clamp(v3 a, f32 min, f32 max) {
+[[nodiscard]] INLINE
+v3 operator * (v3 a, v3 b)
+{
+    v3 result { a.x * b.x, a.y * b.y, a.z * b.z };
+    return result;
+}
+
+[[nodiscard]] INLINE
+v3 operator / (v3 a, v3 b)
+{
+    v3 result { a.x / b.x, a.y / b.y, a.z / b.z };
+    return result;
+}
+
+[[nodiscard]] INLINE
+v3 clamp(v3 a, f32 min, f32 max)
+{
     v3 result{ math::clamp(a.x, min, max), math::clamp(a.y, min, max), math::clamp(a.z, min, max) };
     return result;
 }
 
-[[nodiscard]] inline
-v3 lerp (v3 a, v3 b, f32 t) {
+[[nodiscard]] INLINE
+v3 lerp (v3 a, v3 b, f32 t)
+{
     v3 result = v3{ math::lerp(a.x, b.x, t), math::lerp(a.y, b.y, t), math::lerp(a.z, b.z, t) };
     return result;
 }
 
-[[nodiscard]] inline
+[[nodiscard]] INLINE
 f32 length²(v3 a)
 {
     f32 result = dot(a, a);
     return result;
 }
 
-[[nodiscard]] inline
+[[nodiscard]] INLINE
 f32 length(v3 a)
 {
     f32 result = math::sqrt(length²(a));
@@ -180,6 +196,16 @@ v3 normalized(v3 a)
     normalize(result);
     return result;
 }
+
+
+template <>
+[[nodiscard]] INLINE
+v3 cast<v3, v3i>(v3i v)
+{
+    v3 result = v3{ (f32) v.x, (f32) v.y, (f32) v.z };
+    return result;
+}
+
 
 template <typename T>
 v3 V3(T value)

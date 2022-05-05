@@ -3,22 +3,55 @@
 
 
 namespace os {
-namespace windows {
+namespace internal {
 
 u64 get_processor_cycles();
-i64 get_wall_clock_frequency();
+f64 get_seconds_per_clock();
 i64 get_wall_clock();
 
-} // windows
+} // internal
 
-u64 get_processor_cycles() { return windows::get_processor_cycles(); }
-i64 get_wall_clock_frequency() { return windows::get_wall_clock_frequency(); }
-i64 get_wall_clock() { return windows::get_wall_clock(); }
+
+INLINE
+u64 get_processor_cycles()
+{
+    return internal::get_processor_cycles();
+}
+
+
+INLINE
+f64 get_seconds_per_clock()
+{
+    return internal::get_seconds_per_clock();
+}
+
+
+INLINE
+f32 get_seconds(duration d)
+{
+    f32 result = f32(d.us * get_seconds_per_clock());
+    return result;
+}
+
+
+INLINE
+timepoint get_wall_clock()
+{
+    timepoint result {};
+
+    i64 t = internal::get_wall_clock();
+    if (t > 0) {
+        result.us = u64(t);
+    }
+
+    return result;
+}
+
 
 } // os
 
 
-#ifdef UNITY_BUILD
+#if UNITY_BUILD
 #include "time.cpp"
 #endif // UNITY_BUILD
 

@@ -36,7 +36,7 @@ enum {
 };
 
 
-INTERNAL_FUNCTION
+INTERNAL
 u8 *consume_memory(u8 **data, u64 size) {
     u8 *result = *data;
 

@@ -1,6 +1,7 @@
 #ifndef ASUKA_COMMON_MATH_RECTANGLE_HPP
 #define ASUKA_COMMON_MATH_RECTANGLE_HPP
 
+#include <defines.hpp>
 #include <math/vector2.hpp>
 
 //
@@ -10,7 +11,7 @@ struct Rectangle2 {
     v2 min;
     v2 max;
 
-    IN_CLASS_FUNCTION
+    STATIC
     Rectangle2 from_min_max(v2 min, v2 max) {
         Rectangle2 result;
         result.min = min;
@@ -19,7 +20,7 @@ struct Rectangle2 {
         return result;
     }
 
-    IN_CLASS_FUNCTION
+    STATIC
     Rectangle2 from_center_half_dim(v2 center, v2 half_dimensions) {
         Rectangle2 result;
         result.min = center - half_dimensions;
@@ -28,7 +29,7 @@ struct Rectangle2 {
         return result;
     }
 
-    IN_CLASS_FUNCTION
+    STATIC
     Rectangle2 from_center_dim(v2 center, v2 dimensions) {
         Rectangle2 result = from_center_half_dim(center, 0.5f * dimensions);
 

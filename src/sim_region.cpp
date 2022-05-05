@@ -1,3 +1,4 @@
+
 SimEntity *get_sim_entity(SimRegion *sim_region, u32 index)
 {
     ASSERT(index < sim_region->entity_count);
@@ -7,16 +8,16 @@ SimEntity *get_sim_entity(SimRegion *sim_region, u32 index)
 }
 
 
-INTERNAL_FUNCTION
-v2 map_to_sim_space_coordinates(SimRegion *sim_region, StoredEntity *entity) {
+INTERNAL
+v3 map_to_sim_space_coordinates(SimRegion *sim_region, StoredEntity *entity) {
     // @todo: Do we want to set resulted position to signaling NaN in debug mode,
     // so that is anyone tries to use this value, it would throw exception right away.
-    v2 result = position_difference(sim_region->world, entity->world_position, sim_region->origin);
+    v3 result = position_difference(sim_region->world, entity->world_position, sim_region->origin);
     return result;
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 SimEntity *add_entity_to_sim_region(SimRegion *sim_region)
 {
     ASSERT(sim_region->entity_count < sim_region->entity_capacity);
@@ -28,7 +29,7 @@ SimEntity *add_entity_to_sim_region(SimRegion *sim_region)
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 SimEntityHashEntry *get_hash_entry(SimRegion *sim_region, u32 storage_index)
 {
     SimEntityHashEntry *result = NULL;
@@ -46,10 +47,10 @@ SimEntityHashEntry *get_hash_entry(SimRegion *sim_region, u32 storage_index)
     return result;
 }
 
-INTERNAL_FUNCTION
+INTERNAL
 SimEntity *add_entity_to_sim_region(GameState *game_state, SimRegion *sim_region, StoredEntity *stored, u32 storage_index, v2 *sim_position);
 
-INTERNAL_FUNCTION
+INTERNAL
 void load_entity_reference(GameState *game_state, SimRegion *sim_region, EntityReference *ref)
 {
     if (ref->index)
@@ -66,7 +67,7 @@ void load_entity_reference(GameState *game_state, SimRegion *sim_region, EntityR
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 SimEntity *add_entity_to_sim_region(GameState *game_state, SimRegion *sim_region, StoredEntity *stored, u32 storage_index, v2 *sim_position)
 {
     ASSERT(storage_index > 0);
@@ -92,7 +93,7 @@ SimEntity *add_entity_to_sim_region(GameState *game_state, SimRegion *sim_region
                 if (sim_position) {
                     entity->position.xy = *sim_position;
                 } else {
-                    entity->position.xy = map_to_sim_space_coordinates(sim_region, stored);
+                    entity->position = map_to_sim_space_coordinates(sim_region, stored);
                 }
 
                 load_entity_reference(game_state, sim_region, &entity->sword);
@@ -140,9 +141,9 @@ SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_
     WorldPosition min_corner = map_into_world_space(game_state->world, sim_origin, sim_bounds.min);
     WorldPosition max_corner = map_into_world_space(game_state->world, sim_origin, sim_bounds.max);
 
-    for (i32 chunk_y = min_corner.chunk_y; chunk_y <= max_corner.chunk_y; chunk_y++){
-        for (i32 chunk_x = min_corner.chunk_x; chunk_x <= max_corner.chunk_x; chunk_x++) {
-            Chunk *chunk = get_chunk(game_state->world, chunk_x, chunk_y, sim_origin.chunk_z, &game_state->world_arena);
+    for (i32 chunk_y = min_corner.chunk.y; chunk_y <= max_corner.chunk.y; chunk_y++){
+        for (i32 chunk_x = min_corner.chunk.x; chunk_x <= max_corner.chunk.x; chunk_x++) {
+            Chunk *chunk = get_chunk(game_state->world, chunk_x, chunk_y, sim_origin.chunk.z, &game_state->world_arena);
             if (chunk) {
                 for (EntityBlock *block = chunk->entities; block != NULL; block = block->next_block) {
                     for (u32 i = 0; i < block->entity_count; i++) {
@@ -151,9 +152,9 @@ SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_
 
                         if (!is(&entity->sim, ENTITY_FLAG_NONSPATIAL))
                         {
-                            v2 sim_space_coordinates = map_to_sim_space_coordinates(sim_region, entity);
-                            if (in_rectangle(sim_bounds, sim_space_coordinates)) {
-                                add_entity_to_sim_region(game_state, sim_region, entity, storage_index, &sim_space_coordinates);
+                            v3 sim_space_coordinates = map_to_sim_space_coordinates(sim_region, entity);
+                            if (in_rectangle(sim_bounds, sim_space_coordinates.xy)) {
+                                add_entity_to_sim_region(game_state, sim_region, entity, storage_index, &sim_space_coordinates.xy);
                             }
                         }
                     }

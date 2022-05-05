@@ -15,7 +15,7 @@ struct array {
     T *data;
     usize size;
 
-    IN_CLASS_FUNCTION
+    STATIC
     array<T> from_cstr(const char *s) {
         static_assert(type::is_same<T, char>::value);
 

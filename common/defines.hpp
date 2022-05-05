@@ -127,13 +127,11 @@ typedef signed long long   i64;
 
 #define OFFSET_OF(STRUCT, MEMBER) ((size_t)&(((STRUCT *)0)->MEMBER(STRUCT, MEMBER)))
 
-#define INTERNAL_FUNCTION static
-#define IN_CLASS_FUNCTION static
-#define STATIC_VARIABLE   static
-#define GLOBAL_VARIABLE   static
+#define STATIC            static
+#define INTERNAL          static
+#define PERSIST           static
 #define GLOBAL            static
-
-#define INLINE inline
+#define INLINE            inline
 
 #define ARRAY_COUNT(ARRAY) (sizeof(ARRAY) / sizeof((ARRAY)[0]))
 
@@ -188,7 +186,14 @@ struct Defer {
     Defer(Callback const& f) :cb(f) {}
     ~Defer() { cb(); }
 };
-
 #define defer Defer CONCAT2(defer__, __LINE__) = [&]()
+
+template <typename ResultType, typename ArgumentType>
+[[nodiscard]] constexpr
+ResultType cast(ArgumentType argument)
+{
+    ResultType result = (ResultType) argument;
+    return result;
+}
 
 #endif // ASUKA_COMMON_DEFINES_HPP

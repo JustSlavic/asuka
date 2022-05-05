@@ -110,17 +110,17 @@ struct Win32_DebugInputRecording {
     Debug_PlaybackLoopState PlaybackLoopState;
 };
 
-GLOBAL_VARIABLE Win32_DebugInputRecording Global_DebugInputRecording;
+GLOBAL Win32_DebugInputRecording Global_DebugInputRecording;
 #endif // ASUKA_PLAYBACK_LOOP
 
 
-GLOBAL_VARIABLE bool Running;
-GLOBAL_VARIABLE Win32_OffscreenBuffer Global_BackBuffer;
-GLOBAL_VARIABLE LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
-GLOBAL_VARIABLE bool Global_CursorIsVisible;
-GLOBAL_VARIABLE WINDOWPLACEMENT Global_WindowPosition = { sizeof(Global_WindowPosition) };
-GLOBAL_VARIABLE bool Global_IsFullscreen;
-GLOBAL_VARIABLE v2i Global_ResolutionPresets[12] = {
+GLOBAL bool Running;
+GLOBAL Win32_OffscreenBuffer Global_BackBuffer;
+GLOBAL LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
+GLOBAL bool Global_CursorIsVisible;
+GLOBAL WINDOWPLACEMENT Global_WindowPosition = { sizeof(Global_WindowPosition) };
+GLOBAL bool Global_IsFullscreen;
+GLOBAL v2i Global_ResolutionPresets[12] = {
     { 800, 600 },
     { 960, 540 }, // Test Resolution
     { 1024, 768 },
@@ -141,7 +141,7 @@ typedef X_INPUT_GET_STATE(Win32_XInputGetStateT);
 X_INPUT_GET_STATE(Win32_XInputGetStateStub) {
     return ERROR_DEVICE_NOT_CONNECTED;
 }
-GLOBAL_VARIABLE Win32_XInputGetStateT* XInputGetState_ = Win32_XInputGetStateStub;
+GLOBAL Win32_XInputGetStateT* XInputGetState_ = Win32_XInputGetStateStub;
 #define XInputGetState XInputGetState_
 
 
@@ -150,7 +150,7 @@ typedef X_INPUT_SET_STATE(Win32_XInputSetStateT);
 X_INPUT_SET_STATE(Win32_XInputSetStateStub) {
     return ERROR_DEVICE_NOT_CONNECTED;
 }
-GLOBAL_VARIABLE Win32_XInputSetStateT* XInputSetState_ = Win32_XInputSetStateStub;
+GLOBAL Win32_XInputSetStateT* XInputSetState_ = Win32_XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
 
@@ -158,7 +158,7 @@ GLOBAL_VARIABLE Win32_XInputSetStateT* XInputSetState_ = Win32_XInputSetStateStu
 typedef DIRECT_SOUND_CREATE(Win32_DirectSoundCreateT);
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_LoadXInputFunctions() {
     HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
 
@@ -181,7 +181,7 @@ void Win32_LoadXInputFunctions() {
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 FILETIME Win32_GetFileTimestamp(const char* Filename) {
     FILETIME Result {};
 
@@ -193,7 +193,7 @@ FILETIME Win32_GetFileTimestamp(const char* Filename) {
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath, const char *LockFilename)
 {
 #if ASUKA_DLL_BUILD
@@ -225,7 +225,7 @@ Win32_GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath, co
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_UnloadGameDLL(Win32_GameDLL* GameCode) {
 #if defined(ASUKA_DLL_BUILD)
     if (GameCode->GameDLL) {
@@ -239,7 +239,7 @@ void Win32_UnloadGameDLL(Win32_GameDLL* GameCode) {
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_ProcessKeyboardEvent(Game_ButtonState* NewState, b32 IsDown) {
     if (NewState->EndedDown != IsDown) {
         NewState->EndedDown = IsDown;
@@ -248,7 +248,7 @@ void Win32_ProcessKeyboardEvent(Game_ButtonState* NewState, b32 IsDown) {
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_ProcessXInputButton(
     Game_ButtonState* OldState,
     Game_ButtonState* NewState,
@@ -260,7 +260,7 @@ void Win32_ProcessXInputButton(
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 f32 Win32_ProcessXInputStick(i16 value, i16 deadzone) {
     if (value < -deadzone) {
         return (f32)(value + deadzone) / (f32)(32768 - deadzone);
@@ -272,7 +272,7 @@ f32 Win32_ProcessXInputStick(i16 value, i16 deadzone) {
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 f32 Win32_ProcessXInputTrigger(u8 value, u8 deadzone) {
     if (value < deadzone) {
         return (f32)(value + deadzone) / (f32)(255 - deadzone);
@@ -282,7 +282,7 @@ f32 Win32_ProcessXInputTrigger(u8 value, u8 deadzone) {
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_InitDirectSound(HWND Window, i32 SamplesPerSecond, i32 BufferSize) {
     // Load the library
     HMODULE DirectSoundLibrary = LoadLibraryA("dsound.dll");
@@ -344,7 +344,7 @@ void Win32_InitDirectSound(HWND Window, i32 SamplesPerSecond, i32 BufferSize) {
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 Win32_Window_Dimensions Win32_GetWindowDimention(HWND Window) {
     Win32_Window_Dimensions Result;
 
@@ -358,7 +358,7 @@ Win32_Window_Dimensions Win32_GetWindowDimention(HWND Window) {
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_ResizeDIBSection(Win32_OffscreenBuffer* Buffer, LONG Width, LONG Height) {
     if (Buffer->Memory) {
         VirtualFree(Buffer->Memory, 0, MEM_RELEASE);
@@ -383,7 +383,7 @@ void Win32_ResizeDIBSection(Win32_OffscreenBuffer* Buffer, LONG Width, LONG Heig
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_CopyBufferToWindow(Win32_OffscreenBuffer *Buffer, HDC device_context, int WindowWidth, int WindowHeight) {
     if (Global_IsFullscreen) {
         StretchDIBits(
@@ -414,7 +414,7 @@ void Win32_CopyBufferToWindow(Win32_OffscreenBuffer *Buffer, HDC device_context,
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_ClearSoundBuffer(Win32_SoundOutput* SoundOutput) {
     VOID* Region1;
     DWORD Region1_Size;
@@ -442,7 +442,7 @@ void Win32_ClearSoundBuffer(Win32_SoundOutput* SoundOutput) {
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_FillSoundBuffer(
     Win32_SoundOutput* SoundOutput, DWORD BytesToLock, DWORD BytesToWrite,
     Game_SoundOutputBuffer* SourceBuffer)
@@ -491,7 +491,7 @@ void Win32_FillSoundBuffer(
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_ToggleFullscreen(HWND Window) {
     /*
         Reference: https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
@@ -708,7 +708,7 @@ void Win32_ProcessPendingMessages(Game_ControllerInput* KeyboardController, Game
 
 
 #if DRAW_DEBUG_SOUND_CURSORS
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_DebugDrawVerticalMark(
     Win32_OffscreenBuffer* ScreenBuffer,
     int X,
@@ -742,7 +742,7 @@ void Win32_DebugDrawVerticalMark(
     }
 }
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_DebugSoundDisplay(
     Win32_OffscreenBuffer* ScreenBuffer,
     Win32_SoundOutput* SoundOutput,
@@ -791,7 +791,7 @@ void Win32_DebugSoundDisplay(
 #endif // DRAW_DEBUG_SOUND_CURSORS
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Win32_DebugCatStrings(
     char* Source1, DWORD Source1Size,
     char* Source2, DWORD Source2Size,
@@ -807,12 +807,36 @@ void Win32_DebugCatStrings(
 }
 
 
+f32 my_sin(f32 x)
+{
+    f32 result = x - x * x * x / 6 + x * x * x * x * x / 120 - x * x * x * x * x * x * x / 5040;
+    return result;
+}
+
+
 int WINAPI WinMain(
     HINSTANCE hInstance,
     HINSTANCE hPrevInstance,
     LPSTR lpCmdLine,
     int nCmdShow)
 {
+#if 0
+    u32 dct = GetDoubleClickTime();
+    printf("dct=%u\n", dct);
+#endif
+
+#if 0
+    for (f32 x = -1000.0f; x < 1050.0f; x += 10)
+    {
+        f32 std_result = sinf(x);
+        f32  my_result = my_sin(x);
+
+        osOutputDebugString("x=%f; sin=%f; my_sin=%f; err=%f\n", x, std_result, my_result, math::absolute(std_result-my_result));
+    }
+
+    return 0;
+#endif
+
     UINT DesiredSchedulerGranularityMS = 1; // ms
     MMRESULT TimeBeginPeriodResult = timeBeginPeriod(DesiredSchedulerGranularityMS); // Set this so that sleep granularity
     b32 SleepIsGranular = TimeBeginPeriodResult == TIMERR_NOERROR;
@@ -847,7 +871,7 @@ int WINAPI WinMain(
     // HICON     hIcon;
     WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
 
-    i64 WallClockFrequency = os::get_wall_clock_frequency();
+    // os::timepoint WallClockFrequency = os::get_wall_clock_frequency();
 
     ATOM ClassAtomResult = RegisterClassA(&WindowClass);
     if (!ClassAtomResult) {
@@ -978,7 +1002,7 @@ int WINAPI WinMain(
 
     Win32_GameDLL Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath, LockFilepath);
 
-    i64 LastClockTimepoint = os::get_wall_clock();
+    os::timepoint LastClockTimepoint = os::get_wall_clock();
     while (Running) {
         FrameCounter += 1;
 
@@ -1183,13 +1207,13 @@ int WINAPI WinMain(
 
         Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
 
-        i64 WorkCounter = os::get_wall_clock();
-        f32 SecondsElapsedForWork = (f32)(WorkCounter - LastClockTimepoint) / WallClockFrequency;
+        os::timepoint WorkCounter = os::get_wall_clock();
+        f32 SecondsElapsedForWork = get_seconds(WorkCounter - LastClockTimepoint);
 
         f32 SecondsElapsedForFrame = SecondsElapsedForWork;
         if (SecondsElapsedForFrame < TargetSecondsPerFrame) {
             if (SleepIsGranular) {
-                DWORD SleepMS = truncate_cast_to_uint32(1000.f * (TargetSecondsPerFrame - SecondsElapsedForFrame));
+                DWORD SleepMS = truncate_cast_to_uint32(1000 * (TargetSecondsPerFrame - SecondsElapsedForFrame));
                 if (SleepMS > 0) {
                     // @todo
                     // Sleep(SleepMS);
@@ -1197,7 +1221,7 @@ int WINAPI WinMain(
             }
 
             while (SecondsElapsedForFrame < TargetSecondsPerFrame) {
-                SecondsElapsedForFrame = (f32)(os::get_wall_clock() - LastClockTimepoint) / (f32)WallClockFrequency;
+                SecondsElapsedForFrame = os::get_seconds(os::get_wall_clock() - LastClockTimepoint);
             }
 
             if (SecondsElapsedForFrame < TargetSecondsPerFrame) {

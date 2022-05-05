@@ -100,7 +100,7 @@ inline i32 absolute(i32 x) {
     return x;
 }
 
-inline i32 round_to_int32(f32 x) {
+inline i32 round_to_i32(f32 x) {
     f32 result = x + 0.5f * sign(x);
     return (i32) result;
 }
@@ -110,7 +110,7 @@ inline u32 round_to_u32(f32 x) {
     return (u32) result;
 }
 
-inline i32 truncate_to_int32(f32 x) {
+inline i32 truncate_to_i32(f32 x) {
     i32 result = (i32) x;
     return result;
 }

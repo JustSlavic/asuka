@@ -4,7 +4,7 @@
 #define ASUKA_DEBUG_FOLLOWING_CAMERA 1
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, GameState* game_state) {
     sound_sample_t* SampleOut = SoundBuffer->Samples;
 
@@ -23,7 +23,7 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, GameState* game_state
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void DrawBitmap(
     Game_OffscreenBuffer* buffer,
     f32 left, f32 top,
@@ -123,7 +123,7 @@ void DrawBitmap(
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void DrawRectangle(
     Game_OffscreenBuffer* buffer,
     v2 top_left, v2 bottom_right,
@@ -160,7 +160,7 @@ void DrawRectangle(
 
 
 #if ASUKA_PLAYBACK_LOOP
-INTERNAL_FUNCTION
+INTERNAL
 void DrawBorder(Game_OffscreenBuffer* Buffer, u32 Width, color24 Color)
 {
     DrawRectangle(Buffer, V2(0, 0), V2(Buffer->Width, Width), Color);
@@ -171,7 +171,7 @@ void DrawBorder(Game_OffscreenBuffer* Buffer, u32 Width, color24 Color)
 #endif
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void draw_empty_rectangle_in_meters(Game_OffscreenBuffer *buffer, Rectangle2 rect, u32 width, color24 color, v2 offset, f32 pixels_per_meter)
 {
     f32 rect_width = get_width(rect);
@@ -191,7 +191,7 @@ void draw_empty_rectangle_in_meters(Game_OffscreenBuffer *buffer, Rectangle2 rec
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void push_piece(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, Bitmap *bitmap, color32 color)
 {
     // @note offset and dimensions are in world space (in meters, bottom-up coordinate space)
@@ -207,21 +207,21 @@ void push_piece(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters,
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void push_rectangle(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, color32 color)
 {
     push_piece(group, offset_in_meters, dim_in_meters, NULL, color);
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void push_asset(VisiblePieceGroup *group, Bitmap *bitmap, v3 offset_in_meters, f32 alpha = 1.0f)
 {
-    push_piece(group, offset_in_meters, v2::zero(), bitmap, rgba(0, 0, 0, alpha));
+    push_piece(group, offset_in_meters, V2(0, 0), bitmap, rgba(0, 0, 0, alpha));
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void draw_hitpoints(SimEntity *entity, VisiblePieceGroup *group)
 {
     f32 health_width   = 0.1f; // meters
@@ -251,7 +251,7 @@ struct EntityResult
 };
 
 
-INTERNAL_FUNCTION
+INTERNAL
 EntityResult add_entity(GameState *game_state, WorldPosition position = null_position())
 {
     ASSERT(game_state->entity_count < ARRAY_COUNT(game_state->entities));
@@ -273,7 +273,7 @@ EntityResult add_entity(GameState *game_state, WorldPosition position = null_pos
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void init_hitpoints(StoredEntity *entity, u32 health_max)
 {
     ASSERT(health_max < ARRAY_COUNT(entity->sim.health));
@@ -287,7 +287,7 @@ void init_hitpoints(StoredEntity *entity, u32 health_max)
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 EntityResult add_sword(GameState *game_state)
 {
     EntityResult result = add_entity(game_state);
@@ -300,7 +300,7 @@ EntityResult add_sword(GameState *game_state)
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 EntityResult add_player(GameState *game_state)
 {
     EntityResult result = add_entity(game_state, world_origin());
@@ -320,7 +320,7 @@ EntityResult add_player(GameState *game_state)
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 EntityResult add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 p)
 {
     WorldPosition position = world_position(game_state->world, chunk_x, chunk_y, chunk_z, p);
@@ -335,7 +335,7 @@ EntityResult add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 c
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 EntityResult add_monster(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 p)
 {
     WorldPosition position = world_position(game_state->world, chunk_x, chunk_y, chunk_z, p);
@@ -352,7 +352,7 @@ EntityResult add_monster(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 ch
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 EntityResult add_wall(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 p)
 {
     WorldPosition position = world_position(game_state->world, chunk_x, chunk_y, chunk_z, p);
@@ -367,7 +367,7 @@ EntityResult add_wall(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 b32 types_match(SimEntity **a, EntityType t, SimEntity **b, EntityType s)
 {
     if (((*a)->type == s) && ((*b)->type == t))
@@ -382,7 +382,7 @@ b32 types_match(SimEntity **a, EntityType t, SimEntity **b, EntityType s)
 }
 
 
-INTERNAL_FUNCTION
+INTERNAL
 void handle_collision(SimEntity *a, SimEntity *b)
 {
     if (types_match(&a, ENTITY_TYPE_SWORD, &b, ENTITY_TYPE_MONSTER))
@@ -627,7 +627,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         f32 tile_side_in_meters = 1.0f;
         f32 chunk_side_in_meters = 5.0f;
-        i32 chunk_side_in_tiles = math::truncate_to_int32(chunk_side_in_meters / tile_side_in_meters);
+        i32 chunk_side_in_tiles = math::truncate_to_i32(chunk_side_in_meters / tile_side_in_meters);
 
         World *world = push_struct(arena, World);
         initialize_world(world, tile_side_in_meters, chunk_side_in_meters);
@@ -641,8 +641,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         i32 screen_y = 0;
         i32 screen_z = 0;
 
-        i32 room_width_in_meters  = math::truncate_to_int32(room_width_in_tiles  * world->tile_side_in_meters);
-        i32 room_height_in_meters = math::truncate_to_int32(room_height_in_tiles * world->tile_side_in_meters);
+        i32 room_width_in_meters  = math::truncate_to_i32(room_width_in_tiles  * world->tile_side_in_meters);
+        i32 room_height_in_meters = math::truncate_to_i32(room_height_in_tiles * world->tile_side_in_meters);
 
         enum gen_direction {
             GEN_NONE,
