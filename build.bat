@@ -30,6 +30,21 @@ cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DLL=1 /Feasuka ../src/asuka.cpp /
 del lock.tmp
 cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /Femain /Fmwin32_main.map ../src/win32_main.cpp /link %COMMON_LINKER_FLAGS% %COMMON_LIBS%
 
+
+REM OpenGL
+rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /I../common /Feopengl_demo ../opengl/opengl.cpp /link /PDB:opengl.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% opengl32.lib
+
+rem REM D3D11
+rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /I../common /Fed3d11_demo ../d3d11/d3d11.cpp /link /PDB:d3d11.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% D3D11.lib D3DCompiler.lib
+
+rem REM D3D12
+rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /DUNITY_BUILD=1 /DASUKA_OS_WINDOWS=1 /I../common /Fed3d12_demo ../d3d12/d3d12.cpp /link /PDB:d3d12.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% D3D12.lib DXGI.lib
+
+
+REM NOCRT TEST BUILD
+cl /Zi /nologo /Gm- /GR- /EHa- /O2 /GS- /Gs9999999 /I../common ../nocrt/win32_nocrt.cpp /Fenocrt /Fmnocrt.map /link /subsystem:windows /nodefaultlib kernel32.lib User32.lib
+
+REM COMPILER THINGS
 rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /DUNITY_BUILD=1 /DASUKA_OS_WINDOWS=1 /DLITTLE_ENDIAN=1 /D_CRT_SECURE_NO_WARNINGS /I../common /Ferei ../rei/main.cpp          /link
 
 REM CLIENT-SERVER THINGS

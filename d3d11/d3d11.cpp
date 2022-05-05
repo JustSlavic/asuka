@@ -10,10 +10,6 @@
 #include <d3dcompiler.h>
 // #include <d3dx11.h>
 
-#pragma comment(lib, "d3d11.lib")
-// #pragma comment(lib, "d3dx11.lib")
-// #pragma comment(lib, "d3dx10.lib")
-
 
 
 struct Vertex
@@ -35,76 +31,6 @@ GLOBAL IDXGISwapChain *D3D11_SwapChain;
 GLOBAL ID3D11Device *D3D11_Device;
 GLOBAL ID3D11DeviceContext *D3D11_DeviceContext;
 GLOBAL ID3D11RenderTargetView *D3D11_BackBuffer;
-
-
-INTERNAL_FUNCTION
-void Win32_InitDirect3D11(HWND Window, i32 Width, i32 Height) {
-    DXGI_SWAP_CHAIN_DESC SwapChainDescription;
-    ZeroMemory(&SwapChainDescription, sizeof(SwapChainDescription));
-    SwapChainDescription.BufferCount = 1;
-    SwapChainDescription.BufferDesc.Width = Width;
-    SwapChainDescription.BufferDesc.Height = Height;
-    SwapChainDescription.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    // SwapChainDescription.BufferDesc.RefreshRate.Numerator = 60;
-    // SwapChainDescription.BufferDesc.RefreshRate.Denominator = 1;
-    SwapChainDescription.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    SwapChainDescription.OutputWindow = Window;
-    SwapChainDescription.SampleDesc.Count = 1;
-    // SwapChainDescription.SampleDesc.Quality = 0;
-    SwapChainDescription.Windowed = TRUE;
-    // SwapChainDescription.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // Allow full-screen switching
-
-
-    D3D_FEATURE_LEVEL FeatureLevels = D3D_FEATURE_LEVEL_11_0;
-    if(FAILED(D3D11CreateDeviceAndSwapChain(
-        NULL,
-        D3D_DRIVER_TYPE_HARDWARE, // D3D_DRIVER_TYPE_REFERENCE,
-        NULL,
-        NULL, // 0,
-        NULL, // &FeatureLevels,
-        NULL, // 1,
-        D3D11_SDK_VERSION,
-        &SwapChainDescription,
-        &D3D11_SwapChain,
-        &D3D11_Device,
-        NULL, // &FeatureLevel,
-        &D3D11_DeviceContext)))
-    {
-        return;
-    }
-
-    // Render Target
-
-    ID3D11Texture2D *pBackBuffer;
-    D3D11_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-
-    D3D11_Device->CreateRenderTargetView(pBackBuffer, NULL, &D3D11_BackBuffer);
-    pBackBuffer->Release();
-
-    D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBuffer, NULL);
-
-    // Viewport
-
-    D3D11_VIEWPORT Viewport {};
-
-    Viewport.TopLeftX = 0;
-    Viewport.TopLeftY = 0;
-    Viewport.Width = (f32) Width;
-    Viewport.Height = (f32) Height;
-
-    D3D11_DeviceContext->RSSetViewports(1, &Viewport);
-}
-
-
-INTERNAL_FUNCTION
-void Win32_CleanDirect3D11() {
-    D3D11_SwapChain->SetFullscreenState(FALSE, NULL);    // switch to windowed mode
-
-    D3D11_SwapChain->Release();
-    D3D11_BackBuffer->Release();
-    D3D11_Device->Release();
-    D3D11_DeviceContext->Release();
-}
 
 
 LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -167,6 +93,20 @@ void Win32_ProcessPendingMessages() {
 }
 
 
+i32 Width(RECT Rect)
+{
+    i32 Result = Rect.right - Rect.left;
+    return Result;
+}
+
+
+i32 Height(RECT Rect)
+{
+    i32 Result = Rect.bottom - Rect.top;
+    return Result;
+}
+
+
 int WINAPI WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
@@ -189,33 +129,96 @@ int WINAPI WinMain(
 
     i32 ClientWidth = 800;
     i32 ClientHeight = 600;
-    // RECT ClientRectangle { 0, 0, ClientWidth, ClientHeight };
-    // if (!AdjustWindowRect(&ClientRectangle, WS_OVERLAPPEDWINDOW, false)) {
-    //     // @error: handle not correct window size ?
-    //     return 1;
-    // }
+    RECT WindowRectangle { 0, 0, ClientWidth, ClientHeight };
+    if (!AdjustWindowRect(&WindowRectangle, WS_OVERLAPPEDWINDOW, false)) {
+        // @error: handle not correct window size ?
+        return 1;
+    }
 
     HWND Window = CreateWindowExA(
-        0,
-        WindowClass.lpszClassName,
-        "D3D11 Window",
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-        // WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE,
-        CW_USEDEFAULT, // int X,
-        CW_USEDEFAULT, // int Y,
-        ClientWidth, // CW_USEDEFAULT, // int nWidth,
-        ClientHeight, // CW_USEDEFAULT, // int nHeight,
-        0, 0, Instance, 0);
+        0,                //
+        WindowClass.lpszClassName, //
+        "D3D11 Window",   //
+        WS_OVERLAPPEDWINDOW | WS_VISIBLE, //
+        CW_USEDEFAULT,    // X,
+        CW_USEDEFAULT,    // Y,
+        Width(WindowRectangle),
+        Height(WindowRectangle),
+        0,                //
+        0,                //
+        Instance,         //
+        0                 //
+    );
 
     if (!Window) {
         // Handle error
         return 1;
     }
 
-    Win32_InitDirect3D11(Window, ClientWidth, ClientHeight);
+    DXGI_SWAP_CHAIN_DESC SwapChainDescription;
+    ZeroMemory(&SwapChainDescription, sizeof(SwapChainDescription));
 
-    ID3D11VertexShader *VertexShader;    // the vertex shader
-    ID3D11PixelShader  *PixelShader;     // the pixel shader
+    SwapChainDescription.BufferDesc.Width = ClientWidth;
+    SwapChainDescription.BufferDesc.Height = ClientHeight;
+    SwapChainDescription.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    SwapChainDescription.BufferDesc.RefreshRate.Numerator = 60;
+    SwapChainDescription.BufferDesc.RefreshRate.Denominator = 1;
+
+    SwapChainDescription.SampleDesc.Count = 4;
+    SwapChainDescription.SampleDesc.Quality = 0;
+
+    SwapChainDescription.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    SwapChainDescription.BufferCount = 2;
+    SwapChainDescription.OutputWindow = Window;
+    SwapChainDescription.Windowed = TRUE;
+    // SwapChainDescription.SwapEffect =  //?
+    // SwapChainDescription.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // Allow full-screen switching
+
+    D3D_FEATURE_LEVEL FeatureLevel = D3D_FEATURE_LEVEL_11_0;
+    if(FAILED(D3D11CreateDeviceAndSwapChain(
+        NULL,
+        D3D_DRIVER_TYPE_HARDWARE, // D3D_DRIVER_TYPE_REFERENCE,
+        NULL,
+        NULL, // 0,
+        NULL, // &FeatureLevel,
+        NULL, // 1,
+        D3D11_SDK_VERSION,
+        &SwapChainDescription,
+        &D3D11_SwapChain,
+        &D3D11_Device,
+        NULL, // &FeatureLevel,
+        &D3D11_DeviceContext)))
+    {
+        return 1;
+    }
+
+    defer { D3D11_Device->Release(); };
+    defer { D3D11_DeviceContext->Release(); };
+    defer { D3D11_SwapChain->Release(); };
+
+    // Render Target
+
+    ID3D11Texture2D *pBackBuffer;
+    D3D11_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+
+    D3D11_Device->CreateRenderTargetView(pBackBuffer, NULL, &D3D11_BackBuffer);
+    pBackBuffer->Release();
+
+    D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBuffer, NULL);
+
+    defer { D3D11_BackBuffer->Release(); };
+
+    // Viewport
+
+    D3D11_VIEWPORT Viewport {};
+
+    Viewport.TopLeftX = 0;
+    Viewport.TopLeftY = 0;
+    Viewport.Width = (f32) ClientWidth;
+    Viewport.Height = (f32) ClientHeight;
+
+    D3D11_DeviceContext->RSSetViewports(1, &Viewport);
+
 
     ID3DBlob *VS = NULL;
     ID3DBlob *PS = NULL;
@@ -251,8 +254,13 @@ int WINAPI WinMain(
         return 1;
     }
 
+    ID3D11VertexShader *VertexShader = NULL;
     D3D11_Device->CreateVertexShader(VS->GetBufferPointer(), VS->GetBufferSize(), NULL, &VertexShader);
+    defer { VertexShader->Release(); };
+
+    ID3D11PixelShader  *PixelShader = NULL;
     D3D11_Device->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &PixelShader);
+    defer { PixelShader->Release(); };
 
     D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
     D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
@@ -303,11 +311,6 @@ int WINAPI WinMain(
         // Switch the back buffer and the front buffer
         D3D11_SwapChain->Present(0, 0);
     }
-
-    VertexShader->Release();
-    PixelShader->Release();
-
-    Win32_CleanDirect3D11();
 
     return 0;
 }
