@@ -9,7 +9,7 @@
 struct v3i {
     union {
         struct { i32 x, y, z; };
-        struct { v2i xy; i32 dummy_z; };
+        struct { Vec2I xy; i32 dummy_z; };
         i32 array_[3];
     };
 };

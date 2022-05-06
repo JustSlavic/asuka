@@ -16,7 +16,6 @@ REM cl %COMMON_CL_FLAGS% %COMMIN_MY_FLAGS% ../src/win32_main.cpp /link %COMMON_L
 
 
 REM ASUKA
-
 DEL *.pdb 2>NUL
 
 SET HOUR=%time:~0,2%

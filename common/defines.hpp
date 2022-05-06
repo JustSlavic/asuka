@@ -46,6 +46,9 @@ typedef unsigned __int16 UInt16;
 typedef unsigned __int32 UInt32;
 typedef unsigned __int64 UInt64;
 
+typedef float  Float32;
+typedef double Float64;
+
 #define ASUKA_DEBUG_BREAK __debugbreak
 #define FORCE_INLINE __forceinline
 

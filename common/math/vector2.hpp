@@ -5,77 +5,241 @@
 #include "float.hpp"
 
 
-struct v2i {
-    union {
-        struct { i32  x, y; };
-        i32 coordinates[2];
-    };
-
-    INLINE
-    i32 operator[] (i32 idx) {
-        i32 result = coordinates[idx];
-        return result;
-    }
-
-    INLINE
-    v2i &operator += (v2i a)
-    {
-        x += a.x;
-        y += a.y;
-        return *this;
-    }
-};
+// @note: Template implementation
 
 
-INLINE
-v2i operator - (v2i a, v2i b)
-{
-    v2i result = v2i{ a.x - b.x, a.y - b.y };
-    return result;
-}
-
-
-INLINE
-v2i operator + (v2i a, v2i b)
-{
-    v2i result = v2i{ a.x + b.x, a.y + b.y};
-    return result;
-}
-
-
-struct v2
+template <typename T>
+struct Vector2
 {
     union
     {
-        struct { f32  x,  y; };
-        struct { f32  u,  v; };
-        f32 data[2];
+        struct { T x, y; };
+        T data[2];
     };
 
     INLINE
-    v2 &operator += (v2 other)
+    T operator [] (Int32 index)
     {
-        x += other.x;
-        y += other.y;
-        return *this;
-    }
+        ASSERT(index < 2);
 
-    INLINE
-    v2 &operator -= (v2 other)
-    {
-        x -= other.x;
-        y -= other.y;
-        return *this;
-    }
-
-    INLINE
-    v2 &operator *= (f32 c)
-    {
-        x *= c;
-        y *= c;
-        return *this;
+        T result = data[index];
+        return result;
     }
 };
+
+using Vec2F = Vector2<Float32>;
+using Vec2I = Vector2<Int32>;
+using Vec2U = Vector2<UInt32>;
+
+// using V2 = Vec2F;
+// using V2I = Vec2I;
+// using V2U = Vec2U;
+
+
+template <typename T> INLINE
+Vector2<T> &operator += (Vector2<T> &a, Vector2<T> b)
+{
+    a.x += b.x;
+    a.y += b.y;
+    return a;
+}
+
+template <typename T> INLINE
+Vector2<T> &operator -= (Vector2<T> &a, Vector2<T> b)
+{
+    a.x -= b.x;
+    a.y -= b.y;
+    return a;
+}
+
+template <typename T> INLINE
+Vector2<T> &operator *= (Vector2<T> &a, T c)
+{
+    a.x *= c;
+    a.y *= c;
+    return a;
+}
+
+template <typename T> INLINE
+Vector2<T> operator - (Vector2<T> a) {
+    Vector2<T> result = { -a.x, -a.y };
+    return result;
+}
+
+template <typename T> INLINE
+Vector2<T> operator + (Vector2<T> a, Vector2<T> b) {
+    Vector2<T> result = { a.x + b.x, a.y + b.y };
+    return result;
+}
+
+template <typename T> INLINE
+Vector2<T> operator - (Vector2<T> a, Vector2<T> b) {
+    Vector2<T> result = { a.x - b.x, a.y - b.y };
+    return result;
+}
+
+template <typename T> INLINE
+Vector2<T> operator * (Vector2<T> a, f32 c) {
+    Vector2<T> result = { c * a.x, c * a.y };
+    return result;
+}
+
+template <typename T> INLINE
+Vector2<T> operator * (f32 c, Vector2<T> a) {
+    Vector2<T> result = { c * a.x, c * a.y };
+    return result;
+}
+
+template <typename T> INLINE
+Vector2<T> operator / (Vector2<T> a, f32 c) {
+    Vector2<T> result = { a.x / c, a.y / c };
+    return result;
+}
+
+template <typename T> INLINE
+bool operator == (Vector2<T> a, Vector2<T> b) {
+    bool result = (a.x == b.x) && (a.y == b.y);
+    return result;
+}
+
+template <typename T> INLINE
+bool operator != (Vector2<T> a, Vector2<T> b) {
+    bool result = !(a == b);
+    return result;
+}
+
+template <typename T> INLINE
+f32 dot (Vector2<T> a, Vector2<T> b) {
+    f32 result = a.x * b.x + a.y * b.y;
+    return result;
+}
+
+
+template <typename T> INLINE
+f32 length²(Vector2<T> a)
+{
+    f32 result = dot(a, a);
+    return result;
+}
+
+template <typename T> INLINE
+f32 length(Vector2<T> a)
+{
+    f32 result = math::sqrt(length²(a));
+    return result;
+}
+
+
+// @note: Hadamard product
+template <typename T> INLINE
+Vector2<T> operator * (Vector2<T> a, Vector2<T> b)
+{
+    Vector2<T> result = { a.x * b.x, a.y * b.y };
+    return result;
+}
+
+// @note: Hadamard division
+template <typename T> INLINE
+Vector2<T> operator / (Vector2<T> a, Vector2<T> b)
+{
+    Vector2<T> result = { a.x / b.x, a.y / b.y };
+    return result;
+}
+
+template <typename T> INLINE
+void normalize(Vector2<T>& a)
+{
+    f32 n = length(a);
+    if (n > 0) {
+        a.x /= n;
+        a.y /= n;
+    }
+}
+
+
+template <typename T> INLINE
+Vector2<T> normalized(Vector2<T> a) {
+    Vector2<T> result = a;
+    normalize(result);
+    return result;
+}
+
+template <typename T> INLINE
+Vector2<T> clamp(Vector2<T> a, f32 min, f32 max) {
+    Vector2<T> result{ math::clamp(a.x, min, max), math::clamp(a.y, min, max) };
+    return result;
+}
+
+template <typename T> INLINE
+Vector2<T> lerp (Vector2<T> a, Vector2<T> b, f32 t) {
+    Vector2<T> result = Vector2<T>{ math::lerp(a.x, b.x, t), math::lerp(a.y, b.y, t) };
+    return result;
+}
+
+template <typename T> INLINE
+Vec2I round_to_v2i(Vector2<T> v) {
+    Vec2I result = Vec2I{ math::round_to_i32(v.x), math::round_to_i32(v.y) };
+    return result;
+}
+
+template <typename T> INLINE
+Vec2I truncate_to_v2i(Vector2<T> v)
+{
+    Vec2I result = Vec2I{ math::truncate_to_i32(v.x), math::truncate_to_i32(v.y) };
+    return result;
+}
+
+
+template <> INLINE
+Vec2F cast<Vec2F, Vec2I>(Vec2I v)
+{
+    Vec2F result = { (Float32) v.x, (Float32) v.y };
+    return result;
+}
+
+
+
+// @note: Vector2
+
+
+union v2
+{
+    struct { f32  x,  y; };
+    struct { f32  u,  v; };
+    f32 data[2];
+
+    INLINE
+    f32 operator[] (i32 idx)
+    {
+        f32 result = data[idx];
+        return result;
+    }
+};
+
+
+INLINE
+v2 &operator += (v2 &a, v2 b)
+{
+    a.x += b.x;
+    a.y += b.y;
+    return a;
+}
+
+INLINE
+v2 &operator -= (v2 &a, v2 b)
+{
+    a.x -= b.x;
+    a.y -= b.y;
+    return a;
+}
+
+INLINE
+v2 &operator *= (v2 &a, f32 c)
+{
+    a.x *= c;
+    a.y *= c;
+    return a;
+}
 
 
 [[nodiscard]] INLINE
@@ -206,21 +370,21 @@ v2 lerp (v2 a, v2 b, f32 t) {
 }
 
 [[nodiscard]] INLINE
-v2i round_to_v2i(v2 v) {
-    v2i result = v2i{ math::round_to_i32(v.x), math::round_to_i32(v.y) };
+Vec2I round_to_v2i(v2 v) {
+    Vec2I result = Vec2I{ math::round_to_i32(v.x), math::round_to_i32(v.y) };
     return result;
 }
 
 [[nodiscard]] INLINE
-v2i truncate_to_v2i(v2 v)
+Vec2I truncate_to_v2i(v2 v)
 {
-    v2i result = v2i{ math::truncate_to_i32(v.x), math::truncate_to_i32(v.y) };
+    Vec2I result = Vec2I{ math::truncate_to_i32(v.x), math::truncate_to_i32(v.y) };
     return result;
 }
 
 
 [[nodiscard]] INLINE
-v2 upcast_to_v2(v2i v) {
+v2 upcast_to_v2(Vec2I v) {
     v2 result = v2{ (f32) v.x, (f32) v.y };
     return result;
 }
@@ -228,7 +392,7 @@ v2 upcast_to_v2(v2i v) {
 
 template <>
 [[nodiscard]] INLINE
-v2 cast<v2, v2i>(v2i v)
+v2 cast<v2, Vec2I>(Vec2I v)
 {
     v2 result = v2{ (f32) v.x, (f32) v.y };
     return result;
@@ -345,9 +509,9 @@ v2 V2(X x, Y y)
     return result;
 }
 
-v2i V2I(i32 x, i32 y)
+Vec2I V2I(i32 x, i32 y)
 {
-    v2i result { x, y };
+    Vec2I result { x, y };
     return result;
 }
 

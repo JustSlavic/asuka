@@ -31,11 +31,11 @@ void DrawBitmap(
     f32 c_alpha = 1.0f)
 {
     // @note: Top-down coordinate system.
-    v2i tl = round_to_v2i(V2(left, top));
-    v2i br = tl + round_to_v2i(V2(image->width, image->height));
+    Vec2I tl = round_to_v2i(V2(left, top));
+    Vec2I br = tl + round_to_v2i(V2(image->width, image->height));
 
-    v2i image_tl = V2I(0, 0);
-    v2i image_br = V2I(image->width, image->height);
+    Vec2I image_tl = V2I(0, 0);
+    Vec2I image_br = V2I(image->width, image->height);
 
     if (tl.x < 0) {
         image_tl.x = -tl.x;
@@ -52,10 +52,10 @@ void DrawBitmap(
         br.y = buffer->Height;
     }
 
-    v2i dimensions = br - tl;
-    v2i image_dims = image_br - image_tl;
+    Vec2I dimensions = br - tl;
+    Vec2I image_dims = image_br - image_tl;
 
-    v2i dims {
+    Vec2I dims {
         (dimensions.x < image_dims.x) ? dimensions.x : image_dims.x,
         (dimensions.y < image_dims.y) ? dimensions.y : image_dims.y,
     };
@@ -130,15 +130,15 @@ void DrawRectangle(
     color24 color,
     b32 stroke = false)
 {
-    v2i tl = round_to_v2i(top_left);
-    v2i br = round_to_v2i(bottom_right);
+    Vec2I tl = round_to_v2i(top_left);
+    Vec2I br = round_to_v2i(bottom_right);
 
     if (tl.x < 0) tl.x = 0;
     if (tl.y < 0) tl.y = 0;
     if (br.x > buffer->Width)  br.x = buffer->Width;
     if (br.y > buffer->Height) br.y = buffer->Height;
 
-    v2i dimensions = br - tl;
+    Vec2I dimensions = br - tl;
 
     u8* Row = (u8*)buffer->Memory + tl.y*buffer->Pitch + tl.x*buffer->BytesPerPixel;
 

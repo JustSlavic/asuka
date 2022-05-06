@@ -120,7 +120,7 @@ GLOBAL LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
 GLOBAL bool Global_CursorIsVisible;
 GLOBAL WINDOWPLACEMENT Global_WindowPosition = { sizeof(Global_WindowPosition) };
 GLOBAL bool Global_IsFullscreen;
-GLOBAL v2i Global_ResolutionPresets[12] = {
+GLOBAL Vec2I Global_ResolutionPresets[12] = {
     { 800, 600 },
     { 960, 540 }, // Test Resolution
     { 1024, 768 },
@@ -854,7 +854,7 @@ int WINAPI WinMain(
 
     const i32 ResolutionIndex = 1;
     STATIC_ASSERT_MSG(ResolutionIndex < ARRAY_COUNT(Global_ResolutionPresets), "Resolution Index is too high");
-    v2i Resolution = Global_ResolutionPresets[ResolutionIndex];
+    Vec2I Resolution = Global_ResolutionPresets[ResolutionIndex];
 
     Win32_LoadXInputFunctions();
     Win32_ResizeDIBSection(&Global_BackBuffer, Resolution[0], Resolution[1]);

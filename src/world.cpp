@@ -302,7 +302,7 @@ b32 is_canonical(World *world, WorldPosition p) {
 WorldPosition canonicalize_position(World *world, WorldPosition p) {
     WorldPosition result = p;
 
-    v2i chunk_offset = round_to_v2i(p.offset / world->chunk_dim.xy);
+    Vec2I chunk_offset = round_to_v2i(p.offset / world->chunk_dim.xy);
 
     result.chunk.xy += chunk_offset;
     result.offset -= upcast_to_v2(chunk_offset) * world->chunk_dim.xy;
