@@ -44,5 +44,12 @@ void copy(void *destination, void *source, usize size) {
     }
 }
 
+template <typename T>
+void fill_buffer(T *buffer, T value, usize size) {
+    for (usize i = 0; i < size; i++) {
+        buffer[i] = value;
+    }
+}
+
 
 } // namespace memory

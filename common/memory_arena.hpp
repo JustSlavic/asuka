@@ -22,23 +22,28 @@ void initialize_arena(arena_allocator *arena, void* memory, usize size) {
 }
 
 
-#define allocate_struct(ARENA, TYPE) (TYPE*)push_memory(ARENA, sizeof(TYPE))
-#define allocate_array(ARENA, TYPE, SIZE) (TYPE*)push_memory(ARENA, sizeof(TYPE)*SIZE)
-
-#define push_struct(ARENA, TYPE) allocate_struct(ARENA, TYPE)
-#define push_array(ARENA, TYPE, SIZE) allocate_array(ARENA, TYPE, SIZE)
-
+#define allocate_struct_(ARENA, TYPE) (TYPE*)push_memory_(ARENA, sizeof(TYPE))
+#define allocate_array_(ARENA, TYPE, SIZE) (TYPE*)push_memory_(ARENA, sizeof(TYPE)*SIZE)
 
 INLINE
-void* push_memory(arena_allocator *arena, usize size) {
+void* push_memory_(arena_allocator *arena, usize size) {
     ASSERT_MSG(arena->memory, "Arena allocator is not initialized!");
     ASSERT_MSG((arena->used + size) < arena->size, "Not enough space left in arena allocator!");
 
     void* result = (u8*)arena->memory + arena->used;
     arena->used += size;
 
-    memory::set(result, 0, size);
+    return result;
+}
 
+
+#define allocate_struct(ARENA, TYPE) (TYPE*)push_memory(ARENA, sizeof(TYPE))
+#define allocate_array(ARENA, TYPE, SIZE) (TYPE*)push_memory(ARENA, sizeof(TYPE)*SIZE)
+
+INLINE
+void* push_memory(arena_allocator *arena, usize size) {
+    void *result = push_memory_(arena, size);
+    memory::set(result, 0, size);
     return result;
 }
 

@@ -46,6 +46,10 @@ REM COMPILER THINGS
 rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /DUNITY_BUILD=1 /DASUKA_OS_WINDOWS=1 /DLITTLE_ENDIAN=1 /D_CRT_SECURE_NO_WARNINGS /I../common /Ferei ../rei/main.cpp          /link
 
 
+REM NEURAL NETWORKS
+cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DEBUG=1 /I../common /Feneural ../neural/neural.cpp /link /PDB:neural.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS%
+
+
 REM CLIENT-SERVER THINGS
 rem cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /Feclient  ../web/client.cpp          /link Ws2_32.lib
 rem cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /Feserver  ../web/server.cpp          /link Ws2_32.lib

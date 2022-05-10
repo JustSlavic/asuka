@@ -4,28 +4,60 @@
 #include <defines.hpp>
 #include <math.h>
 
+#define EPSILON  (1e-5f)
+#define EPSILON² (EPSILON*EPSILON)
+#define PI 3.14159265358979323846f
+#define INF HUGE_VALF
 
-struct F32 {
-    constexpr static
-    f32 pi() { return 3.14159265358979323846f; }
 
-    constexpr static
-    f32 inf() { return HUGE_VALF; }
-
-    constexpr static
-    f32 nan() { return NAN; }
+#if LITTLE_ENDIAN
+union IEEE754_32bit {
+    struct {
+        u32 mantissa : 23;
+        u32 exponent : 8;
+        u32 sign : 1;
+    };
+    u32 u = 0;
+    f32 f;
 };
+#endif
 
 
+constexpr
+f32 quiet_nan()
+{
+    u32 u = 0x7F80'0001;
+    f32 f = *(f32 *) &u;
+    return f;
+}
 
-[[nodiscard]] inline
+constexpr
+f32 signaling_nan()
+{
+    u32 u = 0x7FC0'0001;
+    f32 f = *(f32 *) &u;
+    return f;
+}
+
+#define qNaN quiet_nan()
+#define sNaN signaling_nan()
+
+// @todo: Figure out why it does not throw exceptions!
+#if ASUKA_DEBUG
+#define NaN sNaN
+#else // ASUKA_DEBUG
+#define NaN qNaN
+#endif // ASUKA_DEBUG
+
+
+INLINE
 b32 is_zero(f32 x, f32 eps = EPSILON)
 {
     b32 result = (-eps < x) && (x < eps);
     return result;
 }
 
-[[nodiscard]] inline
+INLINE
 b32 is_equal(f32 x, f32 y, f32 eps = EPSILON)
 {
     b32 result = is_zero(x - y, eps);
@@ -37,15 +69,7 @@ b32 is_equal(f32 x, f32 y, f32 eps = EPSILON)
 namespace math {
 
 
-typedef union {
-    struct {
-        u32 mantissa : 23;
-        u32 exponent : 8;
-        u32 sign : 1;
-    };
-    u32 u;
-    f32 f;
-} IEEE754_f32_repr;
+
 
 inline b32 is_nan(f32 x) {
     union {
