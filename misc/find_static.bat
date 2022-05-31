@@ -2,12 +2,20 @@
 
 pushd ..
 
-echo ========================== FINDING "static" ===========================
+echo.
+echo ======================= FIND KEYWORD "static" ===========================
+echo.
 findstr /d:common;src /n /l "static" *
-echo ======================= FINDING STATIC_VARIABLE =======================
-findstr /d:common;src /n /l "STATIC_VARIABLE" *
-echo ======================= FINDING GLOBAL_VARIABLE =======================
-findstr /d:common;src /n /l "GLOBAL_VARIABLE" *
-echo =======================================================================
+echo.
+echo ======================= FIND PERSIST VARIABLES ==========================
+echo.
+findstr /d:common;src /n /l "PERSIST" *
+echo.
+echo ======================= FIND GLOBAL VARIABLES ===========================
+echo.
+findstr /d:common;src /n /l "GLOBAL" *
+echo.
+echo =========================================================================
+echo.
 
 popd

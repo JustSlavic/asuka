@@ -49,6 +49,19 @@ typedef unsigned __int64 UInt64;
 typedef float  Float32;
 typedef double Float64;
 
+typedef __int8  int8;
+typedef __int16 int16;
+typedef __int32 int32;
+typedef __int64 int64;
+
+typedef unsigned __int8  uint8;
+typedef unsigned __int16 uint16;
+typedef unsigned __int32 uint32;
+typedef unsigned __int64 uint64;
+
+typedef float  float32;
+typedef double float64;
+
 #define ASUKA_DEBUG_BREAK __debugbreak
 #define FORCE_INLINE __forceinline
 
@@ -88,17 +101,17 @@ typedef signed long long   i64;
 #endif // ASUKA_COMPILER_GNU
 
 #ifdef ASUKA_DEBUG
-#define ASSERT(COND)  if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
+#define ASSERT(COND)           if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
 #define ASSERT_MSG(COND, MSG)  if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
 #else // ASUKA_DEBUG
-#define ASSERT(COND)  void(0)
+#define ASSERT(COND)           void(0)
 #define ASSERT_MSG(COND, MSG)  void(0)
 #endif // ASUKA_DEBUG
 
-#define ASSERT_FAIL(MSG)  ASSERT_MSG(NULL, MSG)
+#define ASSERT_FAIL(MSG)        ASSERT_MSG(NULL, MSG)
 #define INVALID_CODE_PATH(...)  ASSERT_FAIL("Invalid code path")
 
-#define STATIC_ASSERT(COND)  static_assert(COND, "")
+#define STATIC_ASSERT(COND)           static_assert(COND, "")
 #define STATIC_ASSERT_MSG(COND, MSG)  static_assert(COND, MSG)
 
 #define ASUKA_PLAYBACK_LOOP ASUKA_DEBUG
@@ -120,12 +133,12 @@ typedef signed long long   i64;
 #ifdef ASUKA_OS_MACOS
 #endif // ASUKA_OS_MACOS
 
-#define STRINGIFY2(X) #X
-#define STRINGIFY(X) STRINGIFY2(X)
+#define STRINGIFY2(X)    #X
+#define STRINGIFY(X)     STRINGIFY2(X)
 
-#define CONCAT_(A, B) A##B
-#define CONCAT(A, B) CONCAT_(A, B)
-#define CONCAT2(A, B) CONCAT(A, B)
+#define CONCAT_(A, B)    A##B
+#define CONCAT(A, B)     CONCAT_(A, B)
+#define CONCAT2(A, B)    CONCAT(A, B)
 #define CONCAT3(A, B, C) CONCAT2(CONCAT2(A, B), C)
 
 #define OFFSET_OF(STRUCT, MEMBER) ((size_t)&(((STRUCT *)0)->MEMBER(STRUCT, MEMBER)))

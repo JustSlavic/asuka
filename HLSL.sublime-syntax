@@ -1,0 +1,134 @@
+%YAML 1.2
+---
+name: HLSL
+file_extensions:
+  - hlsl
+  - shader
+scope: hlsl source.hlsl
+contexts:
+  main:
+    # Comments begin with a '//' and finish at the end of the line
+    - match: '//'
+      scope: asuka.comment
+      push: line_comment
+
+    - match: '\/\*'
+      scope: asuka.comment
+      push: multiline_comment
+
+    - match: '\b(if|else|while|for|break|switch|case|return)\b'
+      scope: asuka.keyword
+
+    - match: '\b(0x[0-9ABCDEF\'']+|0b[01\'']+|[+\-]?\d+e[+\-]\d+f?|[+\-]?\d+\.\d+f?|[+\-]?\.\d+f?|[+\-]?\d+)\b'
+      scope: asuka.constant.numeric
+
+    # - match: '#\w+'
+    #   scope: asuka.preprocessor.head
+    #   push: preprocessor
+
+    - match: '\bstruct\b'
+      scope: asuka.keyword.struct
+      push: struct
+
+    - match: '[\-=+<&!\|\*>%/]'
+      scope: asuka.operator
+    - match: '[\.::\(\),\{\};]'
+      scope: asuka.punctuation
+
+    - match: '([\w_][\w\d_²]*|operator\s*[\-\+\*\/\%\<\>\!\=]{1,2})\s*(\()'
+      captures:
+        1: asuka.function.name meta.function.c++ entity.name.function.c++
+        2: asuka.punctuation
+
+  struct:
+    - meta_scope: asuka.struct
+    - match: '\b\w*\b'
+      scope: asuka.struct.name source.c++ meta.struct.c++ entity.name.struct.c++
+    - match: '\{'
+      scope: asuka.punctuation
+      push: struct_body
+
+    - match: '\;'
+      scope: asuka.punctuation
+      pop: true
+
+    - match: '//'
+      scope: asuka.comment
+      push: line_comment
+
+    - match: '\/\*'
+      scope: asuka.comment
+      push: multiline_comment
+
+  struct_body:
+    - meta_scope: asuka.struct.body
+    - match: '\b(\.\d+f?|\d+\.(\d+)?f?|\d+(e[+-]\d+)?)\b'
+      scope: asuka.constant.numeric
+    - match: '//'
+      push: line_comment
+    - match: '/\*'
+      push: multiline_comment
+    - match: '[\-=+<&!\|\*>%/]'
+      scope: asuka.operator
+    - match: '[\.::\(\),;\[\]]'
+      scope: asuka.punctuation
+    - match: '([\w_][\w\d_²]*)(\()'
+      captures:
+        1: asuka.function.name meta.function.c++
+        2: asuka.punctuation punctuation
+    - match: '#\w+'
+      scope: asuka.preprocessor.head
+      push: preprocessor
+    - match: '\}'
+      scope: asuka.punctuation
+      pop: true
+
+  line_comment:
+    - meta_scope: asuka.comment.line
+    - match: '@todo:?'
+      scope: asuka.todo
+    - match: '@note:?'
+      scope: asuka.note
+    - match: '@nocommit\b'
+      scope: asuka.nocommit
+    - match: '@\w+:?'
+      scope: asuka.at
+    - match: $
+      pop: true
+
+  multiline_comment:
+    - meta_scope: asuka.comment.multiline
+    - match: '@todo:?'
+      scope: asuka.todo
+    - match: '@note:?'
+      scope: asuka.note
+    - match: '@nocommit\b'
+      scope: asuka.nocommit
+    - match: '\*\/'
+      pop: true
+
+  preprocessor:
+    - meta_scope: asuka.preprocessor.body
+    - match: '//'
+      scope: asuka.comment
+      push: line_comment
+    - match: '\/\*'
+      scope: asuka.comment
+      push: multiline_comment
+    - match: '\b(if|else|while|for|break|switch|case|return|typedef)\b'
+      scope: asuka.keyword
+    - match: '\b(-)?[0-9.]+f?\b'
+      scope: asuka.constant.numeric
+    - match: 'NULL'
+      scope: asuka.constant
+    - match: '[\-=+<&!\|\*>%/]'
+      scope: asuka.operator
+    - match: '[\.::\(\),;]'
+      scope: asuka.punctuation
+    - match: '([\w_][\w\d_²]*)\s*(\()'
+      captures:
+        1: asuka.function.name meta.function.c++ entity.name.function.c++
+        2: asuka.punctuation
+
+    - match: '$'
+      pop: true

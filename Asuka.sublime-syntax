@@ -1,265 +1,350 @@
 %YAML 1.2
 ---
 name: Asuka
+scope: source.c++
+
 file_extensions:
   - cpp
   - hpp
-scope: asuka source.c++
+
+variables:
+  bin_digit: '[01'']'
+  oct_digit: '[0-7'']'
+  dec_digit: '[\d'']'
+  hex_digit: '[\h'']'
+
+  dec_digits: '(?:\d(?:{{dec_digit}}*\d)?)'
+
+  # number exponents
+  dec_exponent: '(?:[eE][-+]?{{dec_digit}}*)'
+  hex_exponent: '(?:[pP][-+]?{{dec_digit}}*)'
+
+  # number suffixes
+  # note: nearly everything can be defined as suffix
+  # a) see user literals
+  #    https://en.cppreference.com/w/cpp/language/user_literal
+  # b) see complex `operator` keyword
+  #    https://en.cppreference.com/w/cpp/numeric/complex/operator%22%22i
+  bin_suffix: '[2-9a-zA-Z_][[:alnum:]_]*'
+  oct_suffix: '[8-9g-zG-Z_][[:alnum:]_]*'
+  dec_suffix: '[a-zA-Z_][[:alnum:]_]*'
+  hex_suffix: '[g-zG-Z_][[:alnum:]_]*'
+  float_suffix: '[fF]'
+  integer_suffix: '[lL]{1,2}[uU]?|[uU][lL]{0,2}'
+  double_suffix: '[fFlL]'
+
+  identifier: '\b[[:alpha:]_][[:alnum:]_]*\b' # upper and lowercase
+  operator_keywords: 'and|and_eq|bitand|bitor|compl|not|not_eq|or|or_eq|xor|xor_eq|noexcept'
+  control_keywords: 'break|case|catch|continue|default|do|else|for|goto|if|_Pragma|switch|throw|try|while|{{coroutine_keywords}}'
+  coroutine_keywords: 'co_(?:await|return|yield)'
+  non_func_keywords: 'if|for|switch|while|decltype|sizeof|__declspec|__attribute__|typeid|alignof|alignas|static_assert'
+
+  asuka_types: 'b32|i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|v2|v3|v4|color24|color32|rect2|rect3'
+
 contexts:
   main:
-    # Strings begin and end with quotes, and use backslashes as an escape
-    # character
-    - match: '"'
-      scope: asuka.string.begin
-      push: string
+    - include: things
 
-    # Comments begin with a '//' and finish at the end of the line
-    - match: '//'
-      scope: asuka.comment
-      push: line_comment
+  unique-keywords:
+    - match: \bbreak\b
+      scope: keyword.control.flow.break.c++
+    - match: \bcontinue\b
+      scope: keyword.control.flow.continue.c++
+    - match: \bgoto\b
+      scope: keyword.control.flow.goto.c++
+    - match: \breturn\b
+      scope: keyword.control.flow.return.c++
+    - match: \bthrow\b
+      scope: keyword.control.flow.throw.c++
+    - match: \b({{control_keywords}})\b
+      scope: keyword.control.c++
+    - match: '\bdelete\b(\s*\[\])?|\bnew\b(?!])'
+      scope: keyword.control.c++
+    - match: \b({{operator_keywords}})\b
+      scope: keyword.operator.word.c++
 
-    - match: '\/\*'
-      scope: asuka.comment
-      push: multiline_comment
-
-    - match: '\b(if|else|while|for|break|switch|case|return|typedef)\b'
-      scope: asuka.keyword
-
-    - match: '\b(0x[0-9ABCDEF\'']+|0b[01\'']+|[+\-]?\d+e[+\-]\d+f?|[+\-]?\d+\.\d+f?|[+\-]?\.\d+f?|[+\-]?\d+)\b'
-      scope: asuka.constant.numeric
-
-    - match: 'NULL'
-      scope: asuka.constant
-
-    - match: '#\w+'
-      scope: asuka.preprocessor.head
-      push: preprocessor
-
-    - match: '\bstruct\b'
-      scope: asuka.keyword.struct
-      push: struct
-
-    - match: '\benum\b'
-      scope: asuka.keyword.enum
-      push: enum
-
-    - match: '\bnamespace\b'
-      scope: asuka.keyword.namespace
-      push: namespace
-
-    - match: '<'
-      scope: asuka.template.parameters.begin
-      push: template_parameters
-
-    - match: '[\-=+<&!\|\*>%/]'
-      scope: asuka.operator
-    - match: '[\.::\(\),;]'
-      scope: asuka.punctuation
-
-    - match: '([\w_][\w\d_²]*|operator\s*[\-\+\*\/\%\<\>\!\=]{1,2})\s*(\()'
+  strings:
+    - match: '(L|u|U)?(")'
       captures:
-        1: asuka.function.name meta.function.c++ entity.name.function.c++
-        2: asuka.punctuation
+        1: storage.type.string.c
+        2: punctuation.definition.string.begin.c
+      push:
+        - meta_scope: string.quoted.double.c
+        - include: string-escape-char
+        - match: '"'
+          scope: punctuation.definition.string.end.c
+          pop: true
 
+  char:
+    - match: '('')'
+      scope: punctuation.definition.string.begin.c
+      push:
+        - meta_scope: string.quoted.single.c
+        - include: string-escape-char
+        - match: '('')'
+          scope: punctuation.definition.string.end.c
+          pop: true
 
-    - match: '\{'
-      scope: asuka.punctuation
-      push: block
+  string-escape-char:
+    - match: '(\\)$\n'
+      captures:
+        1: punctuation.separator.continuation.c
+    - match: \\(?:\\|[abefnrtv\'"?]|[0-3][0-9]{0,2}|[4-7][0-9]?|x[a-fA-F0-9]+|u[a-fA-F0-9]{4}|U[a-fA-F0-9]{8})
+      scope: constant.character.escape.c
+    - match: \\.
+      scope: invalid.illegal.unknown-escape.c
+
+  comments:
+    - match: '/\*'
+      scope: punctuation.definition.comment.c
+      push:
+        - meta_scope: comment.block.c
+        - match: \*/
+          scope: punctuation.definition.comment.c
+          pop: true
+        - include: comment-notes
+    - match: \*/(?!\*)
+      scope: invalid.illegal.stray-comment-end.c
+    - match: //
+      scope: punctuation.definition.comment.c
+      push:
+        - meta_scope: comment.line.double-slash.c
+        - match: '(\\)$\n'
+          captures:
+            1: punctuation.separator.continuation.c
+        - match: \n
+          pop: true
+        - include: comment-notes
+
+  comment-notes:
+    - match: '@todo:?'
+      scope: comment.todo
+    - match: '@note:?'
+      scope: comment.note
+    - match: '@nocommit\b'
+      scope: comment.nocommit
+    - match: '@\w+:?'
+      scope: comment.at
+
+  operators:
+    - match: (?:\+\+|--)
+      scope: keyword.operator.arithmetic.c
+    - match: '->'
+      scope: punctuation.accessor.c
+    - match: \+\=|-\=|\*\=|/\=|%\=|&\=|\|\=|\^\=|>>\=|<<\=
+      scope: keyword.operator.assignment.augmented.c
+    - match: <<|>>|&&|\|\|
+      scope: keyword.operator.arithmetic.c
+    - match: <\=|>\=|\=\=|<|>|\!\=
+      scope: keyword.operator.comparison.c
+    - match: \+|\-|/|%|\||\^|~|!
+      scope: keyword.operator.arithmetic.c
+    # These two operator can be both arithmetic and pointer/address related
+    - match: \*|&
+      scope: keyword.operator.c
+    - match: \=
+      scope: keyword.operator.assignment.c
+    # Negative lookahead prevents match :: when included in C++
+    # - match: '\?|:(?!:)'
+    #   scope: keyword.operator.ternary.c
+    - match: '\.\.\.'
+      scope: keyword.operator.variadic.c
+
+  punctuation:
+    - match: '[\.::\(\),;\[\]]'
+      scope: punctuation
 
   block:
-    - meta_scope: asuka.block meta.block.c++
-    - match: '\b(0x[0-9ABCDEF\'']+|0b[01\'']+|[+\-]?\d+e[+\-]\d+f?|[+\-]?\d+\.\d+f?|[+\-]?\.\d+f?|[+\-]?\d+)\b'
-      scope: asuka.constant.numeric
-    - match: '\b(NULL|TRUE|FALSE|true|false)\b'
-      scope: asuka.constant
-    - match: '\b(if|else|while|for|break|switch|case|return|typedef)\b'
-      scope: asuka.keyword
-    - match: '"'
-      scope: asuka.string.begin
-      push: string
-    - match: ''''
-      scope: asuka.string.begin
-      push: character
     - match: '\{'
-      scope: asuka.punctuation
-      push: block
-    - match: '//'
-      push: line_comment
-    - match: '/\*'
-      push: multiline_comment
-    - match: '(<=|>=|==|!=|<|>)'
-      scope: keyword.operator.comparison.c
-    - match: '(::)'
-      scope: punctuation.accessor.double-colon.c++
-    - match: '[\-=+<&!\|\*>%/]'
-      scope: asuka.operator keyword.operator
-    - match: '[\.::\(\),;\[\]]'
-      scope: asuka.punctuation
-    - match: '([\w_][\w\d_²]*)\s*(\()'
+      scope: punctuation.section.block.begin.c
+      push:
+        - meta_scope: meta.block.c
+        - include: block
+        # - match: (?=^\s*#\s*(elif|else|endif)\b)
+        #   pop: true
+        - match: '\}'
+          scope: punctuation.section.block.end.c
+          pop: true
+        - include: things
+
+  function-call:
+    - match: '(?:[[:alpha:]_][[:alnum:]_²]*)\s*(?=\()'
+      scope: meta.function-call.c++
+
+  numbers:
+    # Decimal floats
+    - match: |-
+        (?x:
+          \b({{dec_digits}})
+          (?:
+            ( (\.)
+              (?:
+                # 1.1, 1.1e1, 1.1e-1, 1.1f, 1.1e1f, 1.1e-1f, 1.1L, 1.1e1L, 1.1e-1L
+                {{dec_digit}}+ {{dec_exponent}}?
+                # 1.e1, 1.e-1, 1.e1f, 1.e-1f, 1.e1L, 1.e-1L
+                | {{dec_exponent}}
+                # 1., 1.f, 1.L # but not `..`
+                | (?!\.)
+              )
+              # 1e1 1e1f 1e1L
+              | {{dec_exponent}}
+            ) ({{double_suffix}})?
+            # 1f
+            | ({{float_suffix}})
+          ) ({{dec_suffix}})?
+          # .1, .1e1, .1e-1, .1f, .1e1f, .1e-1f, .1L, .1e1L, .1e-1L
+          | ( (\.) {{dec_digit}}+ {{dec_exponent}}? ) (?: ({{double_suffix}}) | ({{dec_suffix}}) )?
+        )
+      scope: meta.number.float.decimal.c
       captures:
-        1: asuka.function.name meta.function
-        2: asuka.punctuation punctuation
-    - match: '#\w+'
-      scope: asuka.preprocessor.head
-      push: preprocessor
-    - match: '\}'
-      scope: asuka.punctuation
-      pop: true
+        1: constant.numeric.value.c
+        2: constant.numeric.value.c
+        3: punctuation.separator.decimal.c
+        4: constant.numeric.suffix.c
+        5: constant.numeric.suffix.c
+        6: invalid.illegal.numeric.suffix.c
+        7: constant.numeric.value.c
+        8: punctuation.separator.decimal.c
+        9: constant.numeric.suffix.c
+        10: invalid.illegal.numeric.suffix.c
 
-  struct:
-    - meta_scope: asuka.struct
-    - match: '\b\w*\b'
-      scope: asuka.struct.name source.c++ meta.struct.c++ entity.name.struct.c++
-    - match: '\{'
-      scope: asuka.punctuation
-      push: struct_body
-
-    - match: '\;'
-      scope: asuka.punctuation
-      pop: true
-
-    - match: '//'
-      scope: asuka.comment
-      push: line_comment
-
-    - match: '\/\*'
-      scope: asuka.comment
-      push: multiline_comment
-
-  enum:
-    - meta_scope: asuka.enum
-    - match: '\b\w+\b'
-      scope: asuka.enum.name entity.name.enum.c++
-    - match: '\{'
-      push: struct_body
-    - match: '\;'
-      pop: true
-
-    - match: '//'
-      scope: asuka.comment
-      push: line_comment
-
-    - match: '\/\*'
-      scope: asuka.comment
-      push: multiline_comment
-
-  namespace:
-    - meta_scope: asuka.namespace
-    - match: '\b\w+\b'
-      scope: asuka.namespace.name entity.name.namespace.c++
-    - match: '\{'
-      pop: true
-
-  struct_body:
-    - meta_scope: asuka.struct.body
-    - match: '\b(\.\d+f?|\d+\.(\d+)?f?|\d+(e[+-]\d+)?)\b'
-      scope: asuka.constant.numeric
-    - match: '"'
-      scope: asuka.string.begin
-      push: string
-    - match: ''''
-      scope: asuka.string.begin
-      push: character
-    - match: '\{'
-      scope: asuka.punctuation
-      push: block
-    - match: '//'
-      push: line_comment
-    - match: '/\*'
-      push: multiline_comment
-    - match: '[\-=+<&!\|\*>%/]'
-      scope: asuka.operator
-    - match: '[\.::\(\),;\[\]]'
-      scope: asuka.punctuation
-    - match: '([\w_][\w\d_²]*)(\()'
+    # Hexadecimal float (C99)
+    - match: \b(0[xX])({{hex_digit}}*(\.){{hex_digit}}*{{hex_exponent}})(?:([fFlL]\b)|({{dec_suffix}}))?
+      scope: meta.number.float.hexadecimal.c
       captures:
-        1: asuka.function.name meta.function.c++
-        2: asuka.punctuation punctuation
-    - match: '#\w+'
-      scope: asuka.preprocessor.head
-      push: preprocessor
-    - match: '\}'
-      scope: asuka.punctuation
+        1: constant.numeric.base.c
+        2: constant.numeric.value.c
+        3: punctuation.separator.decimal.c
+        4: constant.numeric.suffix.c
+        5: invalid.illegal.numeric.suffix.c
+
+    # Binary integer
+    - match: \b(0[bB])({{bin_digit}}*)(?:({{integer_suffix}})|({{bin_suffix}}))?
+      scope: meta.number.integer.binary.c
+      captures:
+        1: constant.numeric.base.c
+        2: constant.numeric.value.c
+        3: constant.numeric.suffix.c
+        4: invalid.illegal.numeric.suffix.c
+
+    # Hexadecimal integer
+    - match: '\b(0[xX])({{hex_digit}}*)(?:({{integer_suffix}})|({{hex_suffix}}))?'
+      scope: meta.number.integer.hexadecimal
+      captures:
+        1: constant.numeric.base.c
+        2: constant.numeric.value.c
+        3: constant.numeric.suffix.c
+        4: invalid.illegal.numeric.suffix.c
+
+    # Decimal integer
+    - match: '\b({{dec_digits}})(?:({{integer_suffix}})|({{dec_suffix}}))?'
+      scope: meta.number.integer.decimal.c
+      captures:
+        1: constant.numeric.value.c
+        2: constant.numeric.suffix.c
+        3: invalid.illegal.numeric.suffix.c
+
+  constants:
+    - match: \b(__func__|NULL|true|false|TRUE|FALSE)\b
+      scope: constant.language.c
+    - match: \b(__FILE__|__FUNCTION__|__LINE__)\b
+      scope: support.constant.c
+
+  asuka-types:
+    - match: '\b(?:const\s+)?(?:(void|{{asuka_types}})\b)(?:(?:\s+const(?:\s*[\*\&]))?)*'
+      scope: storage.type
+
+  using-alias:
+    - match: '\b(using)\s+({{identifier}})'
+      captures:
+        1: keyword.control.c++
+        2: entity.name.type.using.c++
+      push:
+        # - meta_scope: using-alias-body
+        - match: ';'
+          scope: punctuation.terminator.c++
+          pop: true
+        - include: punctuation
+        - include: operators
+
+  using-namespace:
+    - match: '\b(using)\s+(namespace)\b'
+      captures:
+        1: keyword.control.c++
+        2: keyword.control.c++
+      push:
+        - include: identifiers
+        - match: ';'
+          scope: punctuation.terminator.c++
+          pop: true
+
+  identifiers:
+    - match: '(?:(::)\s*)?({{identifier}})\s*(::)\s*'
+      captures:
+        1: punctuation.accessor.double-colon.c++
+        2: entity.name.namespace.c++
+        3: punctuation.accessor.double-colon.c++
+    - match: '(?:(::)\s*)?({{identifier}})'
+      captures:
+        1: punctuation.accessor.double-colon.c++
+        2: entity.name.namespace.c++
+
+  data-structures:
+    - match: '\bclass\b'
+      scope: keyword.declaration.class.c++
+      push: data-structure-body
+    - match: '\bstruct\b'
+      scope: keyword.declaration.struct.type.c++
+      push: data-structure-body
+    - match: '\benum(\s+(class|struct))?\b'
+      scope: keyword.declaration.enum.type.c++
+      push: data-structure-body
+    - match: '\bunion\b'
+      scope: keyword.declaration.union.type.c++
+      push: data-structure-body
+
+  data-structure-body:
+    - match: '{{identifier}}'
+      scope: entity.name.struct.c++
       pop: true
-
-  string:
-    - meta_scope: asuka.string
-    - match: '\\.'
-      scope: asuka.constant.character.escape
-    - match: '"'
-      scope: asuka.string.end
-      pop: true
-
-  character:
-    - meta_scope: asuka.string
-    - match: '\\.'
-      scope: asuka.constant.character.escape
-    - match: ''''
-      scope: asuka.string.end
-      pop: true
-
-
-  line_comment:
-    - meta_scope: asuka.comment.line
-    - match: '@todo:?'
-      scope: asuka.todo
-    - match: '@note:?'
-      scope: asuka.note
-    - match: '@nocommit\b'
-      scope: asuka.nocommit
-    - match: '@\w+:?'
-      scope: asuka.at
-    - match: $
-      pop: true
-
-  multiline_comment:
-    - meta_scope: asuka.comment.multiline
-    - match: '@todo:?'
-      scope: asuka.todo
-    - match: '@note:?'
-      scope: asuka.note
-    - match: '@nocommit\b'
-      scope: asuka.nocommit
-    - match: '\*\/'
+    - match: '(?=\S)'
       pop: true
 
   preprocessor:
-    - meta_scope: asuka.preprocessor.body
-    - match: '//'
-      scope: asuka.comment
-      push: line_comment
-    - match: '\/\*'
-      scope: asuka.comment
-      push: multiline_comment
-    - match: '\b(if|else|while|for|break|switch|case|return|typedef)\b'
-      scope: asuka.keyword
-    - match: '\b(-)?[0-9.]+f?\b'
-      scope: asuka.constant.numeric
-    - match: 'NULL'
-      scope: asuka.constant
-    - match: '\bstruct\b'
-      scope: asuka.keyword.struct
-      push: struct
-    - match: '\benum\b'
-      scope: asuka.keyword.enum
-      push: enum
-    - match: '[\-=+<&!\|\*>%/]'
-      scope: asuka.operator
-    - match: '[\.::\(\),;]'
-      scope: asuka.punctuation
-    - match: '([\w_][\w\d_²]*)\s*(\()'
+    - match: '(#\w+)'
       captures:
-        1: asuka.function.name meta.function.c++ entity.name.function.c++
-        2: asuka.punctuation
-    - match: '\{'
-      scope: asuka.punctuation
-      push: block
+        1: meta.preprocessor.c++
+      push:
+        - meta_scope: bhal
+        - include: things
 
-    - match: '$'
+  preprocessor-line-continuation:
+    - match: '(\\)$\n'
+      captures:
+        1: punctuation.separator.continuation.c
+    - match: '\\(\s+?)$'
+      captures:
+        1: invalid.illegal.space-after-continuation.c
+
+  preprocessor-line-ending:
+    - match: '$\n'
       pop: true
 
-  template_parameters:
-    - meta_scope: asuka.template.parameters
-    - match: '>'
-      scope: asuka.template.parameters.end
-      pop: true
+  things:
+    - include: preprocessor-line-continuation
+    - include: preprocessor-line-ending
+    - include: strings
+    - include: char
+    - include: comments
+    - include: numbers
+    - include: unique-keywords
+    - include: operators
+    - include: punctuation
+    - include: block
+    - include: function-call
+    - include: asuka-types
+    - include: constants
+    - include: data-structures
+    - include: using-namespace
+    - include: using-alias
+    - include: preprocessor
