@@ -99,20 +99,20 @@ contexts:
       scope: punctuation.definition.comment.c
       push:
         - meta_scope: comment.block.c
-        - match: \*/
+        - match: '\*/'
           scope: punctuation.definition.comment.c
           pop: true
         - include: comment-notes
-    - match: \*/(?!\*)
+    - match: '\*/(?!\*)'
       scope: invalid.illegal.stray-comment-end.c
-    - match: //
+    - match: '//'
       scope: punctuation.definition.comment.c
       push:
         - meta_scope: comment.line.double-slash.c
-        - match: '(\\)$\n'
+        - match: '(\\)$'
           captures:
             1: punctuation.separator.continuation.c
-        - match: \n
+        - match: '$'
           pop: true
         - include: comment-notes
 
@@ -159,16 +159,18 @@ contexts:
       scope: punctuation.section.block.begin.c
       push:
         - meta_scope: meta.block.c
-        - include: block
-        # - match: (?=^\s*#\s*(elif|else|endif)\b)
-        #   pop: true
         - match: '\}'
           scope: punctuation.section.block.end.c
           pop: true
+        # - match: (?=^\s*#\s*(elif|else|endif)\b)
+        #   pop: true
+        - include: block
         - include: things
 
   function-call:
     - match: '(?:[[:alpha:]_][[:alnum:]_²]*)\s*(?=\()'
+      scope: meta.function-call.c++
+    - match: '\b(operator\s+(:?\+|\-|\*|\/|\=\=|\!\=|\+\=|\-\=|\*\=|\/\=|\[\]))\s*(?=\()'
       scope: meta.function-call.c++
 
   numbers:
@@ -311,28 +313,30 @@ contexts:
       pop: true
 
   preprocessor:
-    - match: '(#\w+)'
+    - match: '(^#\w+)'
       captures:
         1: meta.preprocessor.c++
       push:
-        - meta_scope: bhal
+        - meta_scope: debug-preprocessor-body
+        - include: line-continuation
+        - include: preprocessor-line-ending
         - include: things
 
-  preprocessor-line-continuation:
-    - match: '(\\)$\n'
+  line-continuation:
+    - match: '(\\)$'
       captures:
         1: punctuation.separator.continuation.c
-    - match: '\\(\s+?)$'
+    - match: '\\(\s+)?$'
       captures:
         1: invalid.illegal.space-after-continuation.c
 
   preprocessor-line-ending:
-    - match: '$\n'
+    # @todo: That rule makes multiline preprocessor instructions loose its context,
+    # instead it becomes just a regulare code.
+    - match: '$'
       pop: true
 
   things:
-    - include: preprocessor-line-continuation
-    - include: preprocessor-line-ending
     - include: strings
     - include: char
     - include: comments
@@ -348,3 +352,4 @@ contexts:
     - include: using-namespace
     - include: using-alias
     - include: preprocessor
+    - include: line-continuation
