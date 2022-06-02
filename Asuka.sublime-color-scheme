@@ -67,7 +67,7 @@
         },
         {
             "name":       "String",
-            "scope":      "string.quoted",
+            "scope":      "string, build-result.path",
             "foreground": "var(string-green)"
         },
         {
@@ -82,7 +82,7 @@
         },
         // {
         //     "name":       "Keyword",
-        //     "scope":      "asuka.keyword",
+        //     "scope":      "keyword.control",
         //     "foreground": "var(orange)"
         // },
         {
@@ -101,14 +101,14 @@
             "foreground": "var(orange)"
         },
         {
-            "name":       "Namespace name",
-            "scope":      "asuka.namespace.name",
-            "foreground": "var(orange)"
-        },
-        {
             "name":       "Function name",
             "scope":      "variable.function, meta.function-call",
             "foreground": "#719DD7"
+        },
+        {
+            "name": "Variables",
+            "scope": "variable",
+            "foreground": "var(fg)"
         },
         {
             "name":       "Operator",
@@ -117,14 +117,14 @@
         },
         {
             "name":       "Type",
-            "scope":      "asuka.type, storage",
-            "foreground": "var(fg)"
+            "scope":      "storage",
+            "foreground": "var(blue)"
         },
-        {
-            "name":       "Asm",
-            "scope":      "asuka.asm",
-            "foreground": "#A5A5A5"
-        },
+        // {
+        //     "name":       "Asm",
+        //     "scope":      "asuka.asm",
+        //     "foreground": "#A5A5A5"
+        // },
         {
             "name":       "Note",
             "scope":      "comment.note",
@@ -137,7 +137,7 @@
         },
         {
             "name":       "Nocommit",
-            "scope":      "comment.nocommit",
+            "scope":      "comment.nocommit, comment.error",
             "foreground": "#cf1f1f"
         },
         {
