@@ -5,343 +5,152 @@
 #include "float.hpp"
 
 
-// @note: Template implementation
+namespace Asuka {
 
 
 template <typename T>
-struct Vector2
+struct Vector2_Base
 {
     union
     {
         struct { T x, y; };
-        T data[2];
+        T e[2];
     };
 
     INLINE
     T operator [] (Int32 index)
     {
-        ASSERT(index < 2);
+        ASSERT(index < ARRAY_COUNT(e));
 
-        T result = data[index];
+        T result = e[index];
         return result;
     }
 };
 
-using Vec2F = Vector2<Float32>;
-using Vec2I = Vector2<Int32>;
-using Vec2U = Vector2<UInt32>;
+using Vector2 = Vector2_Base<Float32>;
+using Vec2F = Vector2_Base<Float32>;
+using Vec2I = Vector2_Base<Int32>;
+using Vec2U = Vector2_Base<UInt32>;
 
 // using V2 = Vec2F;
 // using V2I = Vec2I;
 // using V2U = Vec2U;
 
+using v2 = Vec2F;
+using v2i = Vec2I;
 
-template <typename T> INLINE
-Vector2<T> &operator += (Vector2<T> &a, Vector2<T> b)
+template <typename T>
+Vector2_Base<T> &operator += (Vector2_Base<T> &a, Vector2_Base<T> b)
 {
     a.x += b.x;
     a.y += b.y;
     return a;
 }
 
-template <typename T> INLINE
-Vector2<T> &operator -= (Vector2<T> &a, Vector2<T> b)
+template <typename T>
+Vector2_Base<T> &operator -= (Vector2_Base<T> &a, Vector2_Base<T> b)
 {
     a.x -= b.x;
     a.y -= b.y;
     return a;
 }
 
-template <typename T> INLINE
-Vector2<T> &operator *= (Vector2<T> &a, T c)
+template <typename T>
+Vector2_Base<T> &operator *= (Vector2_Base<T> &a, T c)
 {
     a.x *= c;
     a.y *= c;
     return a;
 }
 
-template <typename T> INLINE
-Vector2<T> operator - (Vector2<T> a) {
-    Vector2<T> result = { -a.x, -a.y };
+template <typename T>
+Vector2_Base<T> operator - (Vector2_Base<T> a) {
+    Vector2_Base<T> result = { -a.x, -a.y };
     return result;
 }
 
-template <typename T> INLINE
-Vector2<T> operator + (Vector2<T> a, Vector2<T> b) {
-    Vector2<T> result = { a.x + b.x, a.y + b.y };
+template <typename T>
+Vector2_Base<T> operator + (Vector2_Base<T> a, Vector2_Base<T> b) {
+    Vector2_Base<T> result = { a.x + b.x, a.y + b.y };
     return result;
 }
 
-template <typename T> INLINE
-Vector2<T> operator - (Vector2<T> a, Vector2<T> b) {
-    Vector2<T> result = { a.x - b.x, a.y - b.y };
+template <typename T>
+Vector2_Base<T> operator - (Vector2_Base<T> a, Vector2_Base<T> b) {
+    Vector2_Base<T> result = { a.x - b.x, a.y - b.y };
     return result;
 }
 
-template <typename T> INLINE
-Vector2<T> operator * (Vector2<T> a, f32 c) {
-    Vector2<T> result = { c * a.x, c * a.y };
+template <typename T>
+Vector2_Base<T> operator * (Vector2_Base<T> a, f32 c) {
+    Vector2_Base<T> result = { c * a.x, c * a.y };
     return result;
 }
 
-template <typename T> INLINE
-Vector2<T> operator * (f32 c, Vector2<T> a) {
-    Vector2<T> result = { c * a.x, c * a.y };
+template <typename T>
+Vector2_Base<T> operator * (f32 c, Vector2_Base<T> a) {
+    Vector2_Base<T> result = { c * a.x, c * a.y };
     return result;
 }
 
-template <typename T> INLINE
-Vector2<T> operator / (Vector2<T> a, f32 c) {
-    Vector2<T> result = { a.x / c, a.y / c };
+template <typename T>
+Vector2_Base<T> operator / (Vector2_Base<T> a, f32 c) {
+    Vector2_Base<T> result = { a.x / c, a.y / c };
     return result;
 }
 
-template <typename T> INLINE
-bool operator == (Vector2<T> a, Vector2<T> b) {
+template <typename T>
+bool operator == (Vector2_Base<T> a, Vector2_Base<T> b) {
     bool result = (a.x == b.x) && (a.y == b.y);
     return result;
 }
 
-template <typename T> INLINE
-bool operator != (Vector2<T> a, Vector2<T> b) {
+template <typename T>
+bool operator != (Vector2_Base<T> a, Vector2_Base<T> b) {
     bool result = !(a == b);
     return result;
 }
 
-template <typename T> INLINE
-f32 dot (Vector2<T> a, Vector2<T> b) {
+template <typename T>
+f32 dot (Vector2_Base<T> a, Vector2_Base<T> b) {
     f32 result = a.x * b.x + a.y * b.y;
     return result;
 }
 
 
-template <typename T> INLINE
-f32 length²(Vector2<T> a)
+template <typename T>
+f32 length²(Vector2_Base<T> a)
 {
     f32 result = dot(a, a);
     return result;
 }
 
-template <typename T> INLINE
-f32 length(Vector2<T> a)
+template <typename T>
+f32 length(Vector2_Base<T> a)
 {
-    f32 result = math::sqrt(length²(a));
+    f32 result = sqrt(length²(a));
     return result;
 }
 
 
 // @note: Hadamard product
-template <typename T> INLINE
-Vector2<T> operator * (Vector2<T> a, Vector2<T> b)
+template <typename T>
+Vector2_Base<T> hadamard (Vector2_Base<T> a, Vector2_Base<T> b)
 {
-    Vector2<T> result = { a.x * b.x, a.y * b.y };
+    Vector2_Base<T> result = { a.x * b.x, a.y * b.y };
     return result;
 }
 
 // @note: Hadamard division
-template <typename T> INLINE
-Vector2<T> operator / (Vector2<T> a, Vector2<T> b)
+template <typename T>
+Vector2_Base<T> hadamard_div (Vector2_Base<T> a, Vector2_Base<T> b)
 {
-    Vector2<T> result = { a.x / b.x, a.y / b.y };
+    Vector2_Base<T> result = { a.x / b.x, a.y / b.y };
     return result;
 }
 
-template <typename T> INLINE
-void normalize(Vector2<T>& a)
-{
-    f32 n = length(a);
-    if (n > 0) {
-        a.x /= n;
-        a.y /= n;
-    }
-}
-
-
-template <typename T> INLINE
-Vector2<T> normalized(Vector2<T> a) {
-    Vector2<T> result = a;
-    normalize(result);
-    return result;
-}
-
-template <typename T> INLINE
-Vector2<T> clamp(Vector2<T> a, f32 min, f32 max) {
-    Vector2<T> result{ math::clamp(a.x, min, max), math::clamp(a.y, min, max) };
-    return result;
-}
-
-template <typename T> INLINE
-Vector2<T> lerp (Vector2<T> a, Vector2<T> b, f32 t) {
-    Vector2<T> result = Vector2<T>{ math::lerp(a.x, b.x, t), math::lerp(a.y, b.y, t) };
-    return result;
-}
-
-template <typename T> INLINE
-Vec2I round_to_v2i(Vector2<T> v) {
-    Vec2I result = Vec2I{ math::round_to_i32(v.x), math::round_to_i32(v.y) };
-    return result;
-}
-
-template <typename T> INLINE
-Vec2I truncate_to_v2i(Vector2<T> v)
-{
-    Vec2I result = Vec2I{ math::truncate_to_i32(v.x), math::truncate_to_i32(v.y) };
-    return result;
-}
-
-
-template <> INLINE
-Vec2F cast<Vec2F, Vec2I>(Vec2I v)
-{
-    Vec2F result = { (Float32) v.x, (Float32) v.y };
-    return result;
-}
-
-
-
-// @note: Vector2
-
-
-union v2
-{
-    struct { f32  x,  y; };
-    struct { f32  u,  v; };
-    f32 data[2];
-
-    INLINE
-    f32 operator[] (i32 idx)
-    {
-        f32 result = data[idx];
-        return result;
-    }
-};
-
-
-INLINE
-v2 &operator += (v2 &a, v2 b)
-{
-    a.x += b.x;
-    a.y += b.y;
-    return a;
-}
-
-INLINE
-v2 &operator -= (v2 &a, v2 b)
-{
-    a.x -= b.x;
-    a.y -= b.y;
-    return a;
-}
-
-INLINE
-v2 &operator *= (v2 &a, f32 c)
-{
-    a.x *= c;
-    a.y *= c;
-    return a;
-}
-
-
-[[nodiscard]] INLINE
-b32 is_valid(v2 a)
-{
-    b32 valid = math::is_valid(a.x) && math::is_valid(a.y);
-    return valid;
-}
-
-[[nodiscard]] INLINE
-b32 is_zero(v2 a)
-{
-    b32 result = is_zero(a.x) && is_zero(a.y);
-    return result;
-}
-
-[[nodiscard]] INLINE
-v2 operator - (v2 a) {
-    v2 result = v2{ -a.x, -a.y };
-    return result;
-}
-
-[[nodiscard]] INLINE
-v2 operator + (v2 a, v2 b) {
-    v2 result = v2{ a.x + b.x, a.y + b.y };
-    return result;
-}
-
-[[nodiscard]] INLINE
-v2 operator - (v2 a, v2 b) {
-    v2 result = v2{ a.x - b.x, a.y - b.y };
-    return result;
-}
-
-[[nodiscard]] INLINE
-v2 operator * (v2 a, f32 c) {
-    v2 result = v2{ c * a.x, c * a.y };
-    return result;
-}
-
-[[nodiscard]] INLINE
-v2 operator * (f32 c, v2 a) {
-    v2 result = v2{ c * a.x, c * a.y };
-    return result;
-}
-
-[[nodiscard]] INLINE
-v2 operator / (v2 a, f32 c) {
-    v2 result = v2{ a.x / c, a.y / c };
-    return result;
-}
-
-[[nodiscard]] INLINE
-bool operator == (v2 a, v2 b) {
-    bool result = (a.x == b.x) && (a.y == b.y);
-    return result;
-}
-
-[[nodiscard]] INLINE
-bool operator != (v2 a, v2 b) {
-    bool result = !(a == b);
-    return result;
-}
-
-[[nodiscard]] INLINE
-f32 dot (v2 a, v2 b) {
-    f32 result = a.x * b.x + a.y * b.y;
-    return result;
-}
-
-
-[[nodiscard]] INLINE
-f32 length²(v2 a)
-{
-    f32 result = dot(a, a);
-    return result;
-}
-
-[[nodiscard]] INLINE
-f32 length(v2 a)
-{
-    f32 result = math::sqrt(length²(a));
-    return result;
-}
-
-[[nodiscard]] INLINE
-v2 operator * (v2 a, v2 b)
-{
-    v2 result { a.x * b.x, a.y * b.y };
-    return result;
-}
-
-[[nodiscard]] INLINE
-v2 operator / (v2 a, v2 b)
-{
-    v2 result { a.x / b.x, a.y / b.y };
-    return result;
-}
-
-
-INLINE
-void normalize(v2& a)
+template <typename T>
+void normalize(Vector2_Base<T>& a)
 {
     f32 n = length(a);
     if (n > 0) {
@@ -350,54 +159,25 @@ void normalize(v2& a)
     }
 }
 
-[[nodiscard]] INLINE
-v2 normalized(v2 a) {
-    v2 result = a;
+
+template <typename T>
+Vector2_Base<T> normalized(Vector2_Base<T> a) {
+    Vector2_Base<T> result = a;
     normalize(result);
     return result;
 }
 
-[[nodiscard]] INLINE
-v2 clamp(v2 a, f32 min, f32 max) {
-    v2 result{ math::clamp(a.x, min, max), math::clamp(a.y, min, max) };
+template <typename T>
+Vector2_Base<T> clamp(Vector2_Base<T> a, f32 min, f32 max) {
+    Vector2_Base<T> result{ clamp(a.x, min, max), clamp(a.y, min, max) };
     return result;
 }
 
-[[nodiscard]] INLINE
-v2 lerp (v2 a, v2 b, f32 t) {
-    v2 result = v2{ math::lerp(a.x, b.x, t), math::lerp(a.y, b.y, t) };
+template <typename T>
+Vector2_Base<T> lerp (Vector2_Base<T> a, Vector2_Base<T> b, f32 t) {
+    Vector2_Base<T> result = Vector2_Base<T>{ lerp(a.x, b.x, t), lerp(a.y, b.y, t) };
     return result;
 }
-
-[[nodiscard]] INLINE
-Vec2I round_to_v2i(v2 v) {
-    Vec2I result = Vec2I{ math::round_to_i32(v.x), math::round_to_i32(v.y) };
-    return result;
-}
-
-[[nodiscard]] INLINE
-Vec2I truncate_to_v2i(v2 v)
-{
-    Vec2I result = Vec2I{ math::truncate_to_i32(v.x), math::truncate_to_i32(v.y) };
-    return result;
-}
-
-
-[[nodiscard]] INLINE
-v2 upcast_to_v2(Vec2I v) {
-    v2 result = v2{ (f32) v.x, (f32) v.y };
-    return result;
-}
-
-
-template <>
-[[nodiscard]] INLINE
-v2 cast<v2, Vec2I>(Vec2I v)
-{
-    v2 result = v2{ (f32) v.x, (f32) v.y };
-    return result;
-}
-
 
 enum intersection_type {
     INTERSECTION_FOUND,      //
@@ -410,36 +190,41 @@ enum intersection_type {
 //
 // Projects 'a' onto 'b'
 //
-INLINE v2 project(v2 a, v2 b) {
-    v2 result = b * dot(a, b) / length²(b);
+INLINE
+Vec2F project(Vec2F a, Vec2F b)
+{
+    Vec2F result = b * dot(a, b) / length²(b);
     return result;
 }
 
 //
 // Projects 'a' onto line with normal 'norm'
 //
-INLINE v2 project_normal(v2 a, v2 norm) {
-    v2 result = a - dot(a, norm) * norm;
+INLINE
+Vec2F project_normal(Vec2F a, Vec2F norm)
+{
+    Vec2F result = a - dot(a, norm) * norm;
     return result;
 }
 
 
-INLINE f32 projection(v2 a, v2 b) {
-    f32 result = dot(a, b) / length(b);
+INLINE
+Float32 projection(Vec2F a, Vec2F b) {
+    Float32 result = dot(a, b) / length(b);
     return result;
 }
 
 struct intersection_result {
     intersection_type found;
-    v2 intersection;
+    Vec2F intersection;
 };
 
 INLINE
-v2 line_line_intersection(v2 r0, v2 r1, v2 s0, v2 s1) {
-    v2 result;
+Vec2F line_line_intersection(Vec2F r0, Vec2F r1, Vec2F s0, Vec2F s1) {
+    Vec2F result;
 
-    v2 r = r1 - r0;
-    v2 s = s1 - s0;
+    Vec2F r = r1 - r0;
+    Vec2F s = s1 - s0;
 
     f32 denom = r.x * s.y - r.y * s.x;
     f32 nom = ((s0.x - r0.x) * s.y - (s0.y - r0.y) * s.x);
@@ -451,22 +236,22 @@ v2 line_line_intersection(v2 r0, v2 r1, v2 s0, v2 s1) {
 }
 
 INLINE
-intersection_result segment_segment_intersection(v2 p0, v2 p1, v2 q0, v2 q1) {
+intersection_result segment_segment_intersection(Vec2F p0, Vec2F p1, Vec2F q0, Vec2F q1) {
     intersection_result result {};
 
-    v2 r = p1 - p0;
-    v2 s = q1 - q0;
+    Vec2F r = p1 - p0;
+    Vec2F s = q1 - q0;
 
     f32 denom = r.x * s.y - r.y * s.x;
     f32 nom = ((q0.x - p0.x) * s.y - (q0.y - p0.y) * s.x);
 
-    if (math::absolute(denom) < EPSILON && math::absolute(nom) < EPSILON) {
-        result = { INTERSECTION_COLLINEAR, v2{ NAN, NAN } };
+    if (absolute(denom) < EPSILON && absolute(nom) < EPSILON) {
+        result = { INTERSECTION_COLLINEAR, Vec2F{ NAN, NAN } };
         return result;
     }
 
-    if (math::absolute(denom) < EPSILON && math::absolute(nom) > EPSILON) {
-        result = { INTERSECTION_PARALLEL, v2{ NAN, NAN } };
+    if (absolute(denom) < EPSILON && absolute(nom) > EPSILON) {
+        result = { INTERSECTION_PARALLEL, Vec2F{ NAN, NAN } };
         return result;
     }
 
@@ -509,11 +294,34 @@ v2 V2(X x, Y y)
     return result;
 }
 
+
+Vec2F V2(Vec2I v)
+{
+    Vec2F result = { (Float32) v.x, (Float32) v.y };
+    return result;
+}
+
 Vec2I V2I(i32 x, i32 y)
 {
     Vec2I result { x, y };
     return result;
 }
+
+template <typename T> INLINE
+Vec2I round_to_v2i(Vector2_Base<T> v) {
+    Vec2I result = Vec2I{ round_to_i32(v.x), round_to_i32(v.y) };
+    return result;
+}
+
+template <typename T> INLINE
+Vec2I truncate_to_v2i(Vector2_Base<T> v)
+{
+    Vec2I result = Vec2I{ truncate_to_i32(v.x), truncate_to_i32(v.y) };
+    return result;
+}
+
+
+} // namespace Asuka
 
 
 #endif // ASUKA_COMMON_MATH_VECTOR2_HPP

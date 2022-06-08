@@ -4,10 +4,12 @@
 #include <defines.hpp>
 #include <bitmap.hpp>
 
+namespace Asuka {
 
 Bitmap load_png_file_myself(const char *filename);
 Bitmap load_png_file(const char* filename);
 
+} // namespace Asuka
 
 #ifdef UNITY_BUILD
 #include "png.cpp"

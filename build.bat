@@ -28,6 +28,10 @@ del lock.tmp
 cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /Femain /Fmwin32_main.map ../src/win32_main.cpp /link %COMMON_LINKER_FLAGS% %COMMON_LIBS%
 
 
+REM XAudio2
+rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /I../common /Fexaudio2_demo ../xaudio2/xaudio2_main.cpp /link /PDB:xaudio2.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% Xaudio2.lib
+
+
 REM OpenGL
 rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /I../common /Feopengl_demo ../opengl/opengl.cpp /link /PDB:opengl.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% opengl32.lib
 
@@ -47,7 +51,11 @@ rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /DUNITY_BUILD=1 /DASUKA_OS_WINDOWS=1 /D
 
 
 REM NEURAL NETWORKS
-cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DEBUG=1 /I../common /Feneural ../neural/neural.cpp /link /PDB:neural.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS%
+rem cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DEBUG=1 /I../common /Feneural ../neural/neural.cpp /link /PDB:neural.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS%
+
+
+REM EDITOR
+rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /I../common /Feeditor ../editor/editor.cpp /link /PDB:d3d11.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS%
 
 
 REM CLIENT-SERVER THINGS

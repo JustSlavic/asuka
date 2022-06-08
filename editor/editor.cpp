@@ -1,15 +1,9 @@
-// Special include for elliminating CRT
-#include "nocrt.hpp"
-
-// Project headers
 #include <defines.hpp>
 
-// Windows
 #include <windows.h>
 
 
 GLOBAL b32 Running;
-
 
 LRESULT CALLBACK MainWindowCallback(HWND Window, UINT Message, WPARAM wParam, LPARAM lParam)
 {
@@ -110,6 +104,12 @@ Int32 Height(RECT Rect)
 }
 
 
+struct ButtonDeclaration
+{
+    LPSTR ClassName;
+};
+
+
 Int32 WinMain(HINSTANCE Instance,
               HINSTANCE PrevInstance,
               LPSTR CommandLine,
@@ -137,7 +137,7 @@ Int32 WinMain(HINSTANCE Instance,
     if (!AdjustWindowRect(&WindowRectangle, WS_OVERLAPPEDWINDOW, false))
     {
         MessageBeep(MB_ICONERROR);
-        MessageBoxA(0, "System error! AdjustWindowRect failed.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+        MessageBoxA(0, "System error! AdjustWindowRect failed.", "Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
         return 1;
     }
 
@@ -155,10 +155,50 @@ Int32 WinMain(HINSTANCE Instance,
         Instance,                         // Instance
         NULL);                            // Param
 
-    if (!Window)
+    if (Window == NULL)
     {
         MessageBeep(MB_ICONERROR);
-        MessageBoxA(0, "System error! Could not create a window.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+        MessageBoxA(0, "System error! Could not create a window.", "Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+        return 1;
+    }
+
+    WNDCLASSA ButtonClass = {};
+    ButtonClass.style = CS_HREDRAW | CS_VREDRAW; // UINT
+    ButtonClass.lpfnWndProc = NULL;              // WNDPROC
+    ButtonClass.cbClsExtra = 0;                  // int
+    ButtonClass.cbWndExtra = 0;                  // int
+    ButtonClass.hInstance = Instance;            // HINSTANCE
+    ButtonClass.hIcon = NULL;                    // HICON
+    ButtonClass.hCursor = NULL;                  // HCURSOR
+    ButtonClass.hbrBackground = NULL;            // HBRUSH
+    ButtonClass.lpszMenuName = NULL;             // LPCSTR
+    ButtonClass.lpszClassName = "ButtonClass";   // LPCSTR
+
+    ATOM ButtonClassAtomResult = RegisterClassA(&ButtonClass);
+    if (!ButtonClassAtomResult)
+    {
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, "System error! Could not register button class.", "Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+        return 1;
+    }
+
+    HWND Button = CreateWindow(
+        "button",  // Predefined class; Unicode assumed
+        "OK",      // Button text
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles
+        10,         // x position
+        10,         // y position
+        100,        // Button width
+        100,        // Button height
+        Window,     // Parent window
+        NULL,       // No menu.
+        Instance,
+        NULL);      // Pointer not needed.
+
+    if (Button == NULL)
+    {
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, "System error! Could not create button.", "Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
         return 1;
     }
 
@@ -175,11 +215,4 @@ Int32 WinMain(HINSTANCE Instance,
     }
 
     return 0;
-}
-
-
-void __stdcall WinMainCRTStartup()
-{
-    Int32 rc = WinMain(GetModuleHandle(0), 0, 0, 0);
-    ExitProcess(rc);
 }

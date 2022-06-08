@@ -1,9 +1,10 @@
 #pragma once
 
 #include <defines.hpp>
+#include <byte.hpp>
 
 
-namespace asuka {
+namespace Asuka {
 
 //
 // @note: Arrays are non-owners of data. They are just spans of values (copyable, shares data between instances).
@@ -27,6 +28,8 @@ struct array {
     }
 };
 
+using byte_array = array<memory::byte>;
+
 template <typename T>
 b32 operator == (array<T> lhs, array<T> rhs) {
     b32 same = lhs.size == rhs.size;
@@ -47,12 +50,10 @@ b32 operator != (array<T> lhs, array<T> rhs) {
 template <typename T, typename Allocator>
 array<T> allocate(Allocator allocator, usize size) {
     array<T> result {};
-    result.data = memory::allocate(allocator, size, alognof(T));
+    result.data = (T *) memory::allocate(allocator, size, alignof(T));
     result.size = size;
-    // result.owner = true;
 
     return result;
 }
 
-
-} // namespace asuka
+} // namespace Asuka

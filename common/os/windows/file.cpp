@@ -5,13 +5,13 @@
 
 #include <defines.hpp>
 
-
+namespace Asuka {
 namespace os {
 namespace internal {
 
 
-string load_entire_file(const char* filename) {
-    string result {};
+byte_array load_entire_file(const char* filename) {
+    byte_array result {};
 
     HANDLE FileHandle = CreateFileA(
         filename,
@@ -49,13 +49,13 @@ string load_entire_file(const char* filename) {
         return result;
     }
 
-    result.data = (char *) Memory;
+    result.data = (memory::byte *) Memory;
     result.size = FileSize.QuadPart;
     return result;
 }
 
 
-bool write_file(const char* filename, string file) {
+bool write_file(const char* filename, byte_array file) {
     HANDLE FileHandle = CreateFileA(
         filename,
         GENERIC_WRITE,
@@ -80,3 +80,4 @@ bool write_file(const char* filename, string file) {
 
 } // internal
 } // os
+} // namespace Asuka

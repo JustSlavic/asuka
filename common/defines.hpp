@@ -93,7 +93,7 @@ typedef signed long long   i64;
 #define FORCE_INLINE __attribute__((always_inline))
 
 #if defined(ASUKA_DLL_BUILD)
-#define ASUKA_DLL_EXPORT  __attribute__((dllexport))
+#define ASUKA_DLL_EXPORT __attribute__((dllexport))
 #else
 #define ASUKA_DLL_EXPORT
 #endif // ASUKA_DLL_BUILD
@@ -119,7 +119,7 @@ typedef signed long long   i64;
 #ifdef ASUKA_OS_WINDOWS
 
 #define osOutputDebugString(MSG, ...) \
-{ \
+{  \
     char OutputBuffer_##__LINE__[256]; \
     sprintf(OutputBuffer_##__LINE__, MSG, __VA_ARGS__); \
     OutputDebugStringA(OutputBuffer_##__LINE__); \
@@ -143,11 +143,11 @@ typedef signed long long   i64;
 
 #define OFFSET_OF(STRUCT, MEMBER) ((size_t)&(((STRUCT *)0)->MEMBER(STRUCT, MEMBER)))
 
-#define STATIC            static
-#define INTERNAL          static
-#define PERSIST           static
-#define GLOBAL            static
-#define INLINE            inline
+#define STATIC           static
+#define INTERNAL         static
+#define PERSIST          static
+#define GLOBAL           static
+#define INLINE           inline
 
 #define ARRAY_COUNT(ARRAY) (sizeof(ARRAY) / sizeof((ARRAY)[0]))
 
@@ -185,7 +185,7 @@ typedef signed long long   i64;
 typedef i16 sound_sample_t;
 typedef u64 hash_t;
 
-typedef i32  b32;
+typedef u32  b32;
 typedef size_t usize;
 typedef u64 uintptr;
 typedef i64  intptr;
@@ -204,12 +204,12 @@ struct Defer {
 };
 #define defer Defer CONCAT2(defer__, __LINE__) = [&]()
 
-template <typename ResultType, typename ArgumentType>
-[[nodiscard]] constexpr
-ResultType cast(ArgumentType argument)
-{
-    ResultType result = (ResultType) argument;
-    return result;
+#define DECLARE_FLAGS(NAME, ENUM_TYPE) \
+struct CONCAT2(NAME, _Flags) { \
+    u32 flags; \
+    void set(ENUM_TYPE flag) { flags |= flag; } \
+    void unset(ENUM_TYPE flag) { flags &= (~flag); } \
+    b32  is(ENUM_TYPE flag) { return flags & flag; } \
 }
 
 #endif // ASUKA_COMMON_DEFINES_HPP

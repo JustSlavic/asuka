@@ -5,6 +5,9 @@
 #include "vector2.hpp"
 
 
+namespace Asuka {
+
+
 struct complex {
     union {
         struct { f32 x, y; };
@@ -42,5 +45,6 @@ complex operator * (complex a, complex b)
     return result;
 }
 
+} // namespace Asuka
 
 #endif // ASUKA_COMMON_MATH_COMPLEX_HPP

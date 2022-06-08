@@ -1,6 +1,6 @@
 #pragma once
 
-
+namespace Asuka {
 namespace memory {
 
 
@@ -13,6 +13,7 @@ void copy(void *destination, void *source, usize size);
 
 
 } // namespace memory
+} // namespace Asuka
 
 
 #if UNITY_BUILD

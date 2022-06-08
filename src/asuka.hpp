@@ -7,6 +7,8 @@
 #include <sim_region.hpp>
 #include <bitmap.hpp>
 #include <wav.hpp>
+#include <array.hpp>
+#include <ui/ui.hpp>
 
 #include <stdio.h>
 
@@ -68,7 +70,9 @@ struct ThreadContext {
 // Services that the game provides to the platform layer.
 //
 
-struct Game_ButtonState {
+namespace Game {
+
+struct ButtonState {
     /*
     HalfTransitionCount helps detect very quick pressing.
 
@@ -90,62 +94,62 @@ struct Game_ButtonState {
     */
 
     b32 EndedDown;  // Was it ended down?
-    i32  HalfTransitionCount; // How many times state was changed
+    i32 HalfTransitionCount; // How many times state was changed
 };
 
-struct Game_AxisState {
+struct AxisState {
 
 };
 
-struct Game_ControllerInput {
+struct ControllerInput {
     union {
-        Game_ButtonState Buttons[14];
+        ButtonState Buttons[14];
         struct {
-            Game_ButtonState A;
-            Game_ButtonState B;
-            Game_ButtonState X;
-            Game_ButtonState Y;
-            Game_ButtonState DpadUp;
-            Game_ButtonState DpadDown;
-            Game_ButtonState DpadLeft;
-            Game_ButtonState DpadRight;
-            Game_ButtonState ShoulderLeft;
-            Game_ButtonState ShoulderRight;
-            Game_ButtonState StickLeft;
-            Game_ButtonState StickRight;
-            Game_ButtonState Back;
-            Game_ButtonState Start;
+            ButtonState A;
+            ButtonState B;
+            ButtonState X;
+            ButtonState Y;
+            ButtonState DpadUp;
+            ButtonState DpadDown;
+            ButtonState DpadLeft;
+            ButtonState DpadRight;
+            ButtonState ShoulderLeft;
+            ButtonState ShoulderRight;
+            ButtonState StickLeft;
+            ButtonState StickRight;
+            ButtonState Back;
+            ButtonState Start;
         };
     };
 
-    v2 LeftStickStarted;
-    v2 LeftStickEnded;
+    Vector2 LeftStickStarted;
+    Vector2 LeftStickEnded;
 
-    v2 RightStickStarted;
-    v2 RightStickEnded;
+    Vector2 RightStickStarted;
+    Vector2 RightStickEnded;
 
-    f32 TriggerLeftStarted;
-    f32 TriggerLeftEnded;
+    Float32 TriggerLeftStarted;
+    Float32 TriggerLeftEnded;
 
-    f32 TriggerRightStarted;
-    f32 TriggerRightEnded;
+    Float32 TriggerRightStarted;
+    Float32 TriggerRightEnded;
 };
 
 
-struct Game_MouseState {
+struct MouseState {
     // Coordinates in client area coordinate space
-    u32 X;
-    u32 Y;
-    i32 Wheel;
+    Vec2I Position;
+    Vec2I PreviousPosition;
+    Int32 Wheel;
 
     union {
-        Game_ButtonState Buttons[5];
+        ButtonState Buttons[5];
         struct {
-            Game_ButtonState LMB;
-            Game_ButtonState MMB;
-            Game_ButtonState RMB;
-            Game_ButtonState MB_1;
-            Game_ButtonState MB_2;
+            ButtonState LMB;
+            ButtonState MMB;
+            ButtonState RMB;
+            ButtonState MB_1;
+            ButtonState MB_2;
         };
     };
 };
@@ -160,21 +164,21 @@ enum Debug_PlaybackLoopState {
 #endif // ASUKA_PLAYBACK_LOOP
 
 
-struct Game_Input {
-    Game_MouseState Mouse;
+struct Input {
+    MouseState Mouse;
 
     union {
         // 0 - Keyboard controller
         // 1-5 - Gamepad controllers
-        Game_ControllerInput ControllerInputs[5];
+        ControllerInput ControllerInputs[5];
         struct {
-            Game_ControllerInput KeyboardInput;
-            Game_ControllerInput GamepadInputs[4];
+            ControllerInput KeyboardInput;
+            ControllerInput GamepadInputs[4];
         };
     };
 
     // Probably should go to a game no in controller input?
-    f32 dt;
+    Float32 dt;
 
 #if ASUKA_PLAYBACK_LOOP
     Debug_PlaybackLoopState PlaybackLoopState;
@@ -182,10 +186,10 @@ struct Game_Input {
 };
 
 
-using InputIndex = Index<Game_ControllerInput>;
+using InputIndex = Index<ControllerInput>;
 
 INLINE
-Game_ControllerInput *GetControllerInput(Game_Input *Input, InputIndex ControllerIndex)
+ControllerInput *GetControllerInput(Input *Input, InputIndex ControllerIndex)
 {
     ASSERT(ControllerIndex < ARRAY_COUNT(Input->ControllerInputs));
     return &Input->ControllerInputs[ControllerIndex.index];
@@ -193,30 +197,30 @@ Game_ControllerInput *GetControllerInput(Game_Input *Input, InputIndex Controlle
 
 
 INLINE
-Game_ControllerInput *GetGamepadInput(Game_Input *Input, i32 GamepadIndex)
+ControllerInput *GetGamepadInput(Input *Input, i32 GamepadIndex)
 {
     ASSERT(GamepadIndex < ARRAY_COUNT(Input->GamepadInputs));
     return &Input->GamepadInputs[GamepadIndex];
 }
 
 INLINE
-u32 GetPressCount(Game_ButtonState button)
+UInt32 GetPressCount(ButtonState button)
 {
-    u32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
+    UInt32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
     return result;
 }
 
 INLINE
-u32 GetReleaseCount(Game_ButtonState button)
+UInt32 GetReleaseCount(ButtonState button)
 {
-    u32 result = (button.HalfTransitionCount - (button.EndedDown > 0) + 1) / 2;
+    UInt32 result = (button.HalfTransitionCount - (button.EndedDown > 0) + 1) / 2;
     return result;
 }
 
 INLINE
-u32 GetHoldCount(Game_ButtonState button)
+UInt32 GetHoldCount(ButtonState button)
 {
-    u32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
+    UInt32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
     return result;
 }
 
@@ -230,28 +234,28 @@ struct StoredEntity {
 };
 
 
-struct Game_OffscreenBuffer {
+struct OffscreenBuffer {
     // Pixels are always 32-bits wide Little Endian, Memory Order BBGGRRxx
     void *Memory;
-    i32 Width;
-    i32 Height;
-    i32 Pitch;
-    i32 BytesPerPixel;
+    Int32 Width;
+    Int32 Height;
+    Int32 Pitch;
+    Int32 BytesPerPixel;
 };
 
 
-struct Game_SoundOutputBuffer {
+struct SoundOutputBuffer {
     sound_sample_t *Samples;
-    i32 SampleCount;
-    i32 SamplesPerSecond;
+    Int32 SampleCount;
+    Int32 SamplesPerSecond;
 };
 
 
-struct Game_Memory {
-    u64 PermanentStorageSize;
+struct Memory {
+    UInt64 PermanentStorageSize;
     void *PermanentStorage;
 
-    u64 TransientStorageSize;
+    UInt64 TransientStorageSize;
     void *TransientStorage;
 
     b32 IsInitialized;
@@ -264,7 +268,7 @@ struct VisiblePiece {
     v2 dimensions;
 
     Bitmap *bitmap;
-    color32 color;
+    Color32 color;
 };
 
 
@@ -290,7 +294,8 @@ struct MoveSpec {
 };
 
 
-INLINE MoveSpec move_spec()
+INLINE
+MoveSpec move_spec()
 {
     MoveSpec spec = {};
     return spec;
@@ -301,18 +306,21 @@ struct GameState {
     WorldPosition camera_position;
 
     // @note: 0-th entity is invalid in both arrays (high entities and low entities) and should not be used (it indicates wrong index).
-    u32 entity_count;
+    uint32 entity_count;
     StoredEntity entities[10000];
 
-    PlayerRequest player_for_controller[ARRAY_COUNT(((Game_Input*)0)->ControllerInputs)];
-    u32 index_of_entity_for_camera_to_follow;
+    PlayerRequest player_for_controller[ARRAY_COUNT(((Input*)0)->ControllerInputs)];
+    uint32 index_of_entity_for_camera_to_follow;
 
     World *world;
 
     memory::arena_allocator world_arena;
-    memory::arena_allocator sim_arena;
+    memory::arena_allocator temp_arena;
+    memory::arena_allocator ui_arena;
 
     wav_file_contents test_wav_file;
+
+    byte_array training_set;
 
     Bitmap wall_texture;
     Bitmap tree_texture;
@@ -331,6 +339,8 @@ struct GameState {
     Bitmap player_textures[4];
 
     u32 test_current_sound_cursor;
+
+    UiScene *game_hud;
 };
 
 
@@ -346,13 +356,15 @@ StoredEntity *get_stored_entity(GameState *game_state, u32 index) {
     return result;
 }
 
+} // namespace Game
+
 
 // IN:
 // 1. control input
 // 2. bitmap buffer to fill
 // 3. sound buffer to fill
 // 4. timing
-#define GAME_UPDATE_AND_RENDER(name) void name(ThreadContext* Thread, Game_Memory* Memory, Game_Input* Input, Game_OffscreenBuffer* Buffer, Game_SoundOutputBuffer* SoundBuffer)
+#define GAME_UPDATE_AND_RENDER(name) void name(ThreadContext* Thread, Game::Memory* Memory, Game::Input* Input, Game::OffscreenBuffer* Buffer, Game::SoundOutputBuffer* SoundBuffer)
 typedef GAME_UPDATE_AND_RENDER(Game_UpdateAndRenderT);
 
 
@@ -363,9 +375,10 @@ ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
 #if (ASUKA_DLL && ASUKA_DLL_BUILD) || (!ASUKA_DLL_BUILD)
 #include <world.cpp>
 #include <sim_region.cpp>
+#include <ui/ui.cpp>
 #endif
 
 #if !ASUKA_DLL && !ASUKA_DLL_BUILD
-#include <asuka.cpp>
+#include <Asuka.cpp>
 #else
 #endif

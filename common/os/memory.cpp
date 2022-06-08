@@ -13,7 +13,7 @@
 // Cross-platform code.
 //
 
-
+namespace Asuka {
 namespace memory {
 
 
@@ -53,3 +53,4 @@ void fill_buffer(T *buffer, T value, usize size) {
 
 
 } // namespace memory
+} // namespace Asuka

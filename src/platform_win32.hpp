@@ -1,0 +1,124 @@
+/*
+    Platform Layer:
+
+    - Saved game locations
+    - Getting a handle to our own executable file
+    - Asset loading path
+    - Threading (launch a thread)
+    - Raw input (support for multiple keyboards)
+    - ClipCursor() (multimonitor support)
+    - Fullscreen support
+    - WM_SETCURSOR (control cursor visibility)
+    - QueryCancelAutoplay
+    - WM_ACTIVATEAPP (for when we are not the active application)
+    - Blit speed improvements (BitBlt)
+    - Hardware acceleration (OpenGL or Direct3D)
+    - GetKeyboardLayout (for French keyboards, international WASD support)
+
+    - ChangeDisplaySettings ?
+
+    Just a partial list of stuff
+*/
+
+
+#include <defines.hpp>
+
+// Standrad headers
+#include <stdio.h>
+
+// Windows
+#include <windows.h>
+
+// XInput
+#include <xinput.h>
+
+// Direct Sound
+#include <dsound.h>
+
+
+#define DRAW_DEBUG_SOUND_CURSORS (0 && ASUKA_DEBUG)
+#define DEBUG_WINDOW_ON_TOP (0 && ASUKA_DEBUG)
+
+
+namespace Platform {
+
+
+struct GameDLL
+{
+    HMODULE GameDLL;
+    Game_UpdateAndRenderT* UpdateAndRender;
+    FILETIME Timestamp;
+
+    b32 IsValid;
+};
+
+
+struct OffscreenBuffer
+{
+    // Pixels are always 32-bits wide Little Endian, Memory Order BBGGRRxx
+    BITMAPINFO Info;
+    void* Memory;
+    i32 Width;
+    i32 Height;
+    i32 Pitch;
+    i32 BytesPerPixel;
+};
+
+
+struct WindowDimensions
+{
+    i32 Width;
+    i32 Height;
+};
+
+
+struct SoundOutput
+{
+    u32 SamplesPerSecond;
+    u32 RunningSoundCursor;
+    u32 ChannelCount;
+    u32 BytesPerSoundFrame;
+    u32 SecondaryBufferSize;
+    u32 SafetyBytes;
+    sound_sample_t* Samples;
+};
+
+
+#ifdef DRAW_DEBUG_SOUND_CURSORS
+struct DebugSoundCursors
+{
+    u32 PlayCursor;
+    u32 WriteCursor;
+
+    u32 OutputLocationStart;
+    u32 OutputLocationEnd;
+
+    u32 PageFlip;
+    u32 ExpectedNextPageFlip;
+};
+#endif // DRAW_DEBUG_SOUND_CURSORS
+
+
+#if ASUKA_PLAYBACK_LOOP
+struct DebugInputRecording
+{
+    u64 InitialGameMemorySize;
+    void*  InitialGameMemory;
+
+    // Storage of recorded inputs
+    u64 InputRecordingSize;
+    void * InputRecording;
+
+    // Where playback is currently replaying input
+    u64 CurrentPlaybackInputIndex;
+    // How many input frames recorded to playback
+    u64 RecordedInputsCount;
+
+    Game::Debug_PlaybackLoopState PlaybackLoopState;
+};
+#endif // ASUKA_PLAYBACK_LOOP
+
+
+} // namespace Platform
+
+GLOBAL Platform::DebugInputRecording Global_DebugInputRecording;

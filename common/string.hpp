@@ -30,7 +30,7 @@ usize size_with0(const char *s) {
     return result;
 }
 
-bool equals(char *s1, char *s2) {
+bool equals(char const *s1, char const *s2) {
     bool equal = true;
 
     char c1 = *s1++;

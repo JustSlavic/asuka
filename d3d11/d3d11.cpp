@@ -15,15 +15,7 @@
 struct Vertex
 {
     f32 x, y, z;
-    Color32 color;
-};
-
-
-GLOBAL Vertex Vertices[3] =
-{
-    {  0.0f,   0.5f, 0.0f, Color32{ 1.0f, 0.0f, 0.0f, 1.0f } },
-    {  0.45f, -0.5f, 0.0f, Color32{ 0.0f, 1.0f, 0.0f, 1.0f } },
-    { -0.45f, -0.5f, 0.0f, Color32{ 0.0f, 0.0f, 1.0f, 1.0f } },
+    asuka::Color32 color;
 };
 
 GLOBAL bool Running;
@@ -267,6 +259,13 @@ int WINAPI WinMain(
 
     ID3D11Buffer *VertexBuffer = NULL;
 
+    Vertex Vertices[3] =
+    {
+        {  0.0f,   0.5f, 0.0f, Color32{ 1.0f, 0.0f, 0.0f, 1.0f } },
+        {  0.45f, -0.5f, 0.0f, Color32{ 0.0f, 1.0f, 0.0f, 1.0f } },
+        { -0.45f, -0.5f, 0.0f, Color32{ 0.0f, 0.0f, 1.0f, 1.0f } },
+    };
+
     D3D11_BUFFER_DESC BufferDescription {};
 
     BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
@@ -292,7 +291,7 @@ int WINAPI WinMain(
     D3D11_DeviceContext->IASetInputLayout(InputLayout);
 
     Running = true;
-
+    Int32 FrameCounter = 0;
     while (Running)
     {
         Win32_ProcessPendingMessages();

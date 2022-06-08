@@ -1,11 +1,25 @@
 #include "asuka.hpp"
 #include <png.hpp>
+#include <../son2/son.hpp>
+
 
 #define ASUKA_DEBUG_FOLLOWING_CAMERA 1
 
 
+namespace Game {
+
+
+f32 uniform_real(f32 from, f32 to)
+{
+    ASSERT(to > from);
+
+    f32 r = (f32)rand()/(f32)(RAND_MAX/to); // Uniform [0, 1]
+    return r + from;
+}
+
+
 INTERNAL
-void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, GameState* game_state) {
+void Game_OutputSound(SoundOutputBuffer *SoundBuffer, GameState* game_state) {
     sound_sample_t* SampleOut = SoundBuffer->Samples;
 
     for (i32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
@@ -25,7 +39,7 @@ void Game_OutputSound(Game_SoundOutputBuffer *SoundBuffer, GameState* game_state
 
 INTERNAL
 void DrawBitmap(
-    Game_OffscreenBuffer* buffer,
+    OffscreenBuffer* buffer,
     f32 left, f32 top,
     Bitmap *image,
     f32 c_alpha = 1.0f)
@@ -125,9 +139,9 @@ void DrawBitmap(
 
 INTERNAL
 void DrawRectangle(
-    Game_OffscreenBuffer* buffer,
+    OffscreenBuffer* buffer,
     v2 top_left, v2 bottom_right,
-    color24 color,
+    Color24 color,
     b32 stroke = false)
 {
     Vec2I tl = round_to_v2i(top_left);
@@ -161,7 +175,7 @@ void DrawRectangle(
 
 #if ASUKA_PLAYBACK_LOOP
 INTERNAL
-void DrawBorder(Game_OffscreenBuffer* Buffer, u32 Width, color24 Color)
+void DrawBorder(OffscreenBuffer* Buffer, u32 Width, Color24 Color)
 {
     DrawRectangle(Buffer, V2(0, 0), V2(Buffer->Width, Width), Color);
     DrawRectangle(Buffer, V2(0, Width), V2(Width, Buffer->Height - Width), Color);
@@ -172,7 +186,7 @@ void DrawBorder(Game_OffscreenBuffer* Buffer, u32 Width, color24 Color)
 
 
 INTERNAL
-void draw_empty_rectangle_in_meters(Game_OffscreenBuffer *buffer, Rectangle2 rect, u32 width, color24 color, v2 offset, f32 pixels_per_meter)
+void draw_empty_rectangle_in_meters(OffscreenBuffer *buffer, Rectangle2 rect, u32 width, Color24 color, v2 offset, f32 pixels_per_meter)
 {
     f32 rect_width = get_width(rect);
     f32 rect_height = get_height(rect);
@@ -192,7 +206,116 @@ void draw_empty_rectangle_in_meters(Game_OffscreenBuffer *buffer, Rectangle2 rec
 
 
 INTERNAL
-void push_piece(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, Bitmap *bitmap, color32 color)
+UiScene *ui_allocate_scene(memory::arena_allocator *allocator)
+{
+    UiScene *result = allocate_struct(allocator, UiScene);
+    return result;
+}
+
+
+INTERNAL
+void ui_draw_element(OffscreenBuffer *buffer, UiScene *scene, UiElement *ui_element)
+{
+    switch (ui_element->type)
+    {
+        case UI_ELEMENT_SHAPE:
+        {
+            i32 n = ui_element->shape.n;
+            Rectangle2 aabb = get_bounding_box(ui_element);
+            for (i32 i = 0; i < n; i++)
+            {
+                Vec2F diagonal = (aabb.max - aabb.min) / f32(n);
+
+                Vec2F lt = aabb.min + diagonal * f32(i);
+                Vec2F rb = lt + diagonal;
+
+                Color32 color = ui_element->shape.color;
+
+                for (u32 filter_index = 0; filter_index < ui_element->filter_count; filter_index++)
+                {
+                    UiFilter *filter = ui_element->filters[filter_index];
+
+                    switch (filter->type)
+                    {
+                        case UI_FILTER_BLUR:
+                        {
+                        }
+                        break;
+
+                        case UI_FILTER_SHADOW:
+                        {
+                            UiFilterShadow *shadow = &filter->shadow;
+                            DrawRectangle(buffer, lt + V2(shadow->distance), rb + V2(shadow->distance), Color24::Black);
+                        }
+                        break;
+
+                        case UI_FILTER_TINT:
+                        {
+                            UiFilterTint *tint = &filter->tint;
+                            color.r = color.r * tint->multiply.r + tint->add.r;
+                            color.g = color.g * tint->multiply.g + tint->add.g;
+                            color.b = color.b * tint->multiply.b + tint->add.b;
+                            color.a = color.a * tint->multiply.a + tint->add.a;
+                        }
+                        break;
+
+                        default:
+                            ASSERT_FAIL("Process all kinds of filters!");
+                    }
+                }
+
+                if (ui_element == scene->hovered_element)
+                {
+
+                    if (ui_element == scene->clicked_element)
+                    {
+                        lt += V2(5.0f);
+                        rb += V2(5.0f);
+                        color = Color32::Green;
+                    }
+                    else
+                    {
+                        color = Color32::Red;
+                    }
+                }
+                else
+                {
+                }
+
+
+                DrawRectangle(buffer, lt, rb, color.rgb);
+            }
+        }
+        break;
+
+        case UI_ELEMENT_GROUP:
+        {
+            Matrix4 transform = Matrix4::Identity;
+            for (u32 child_index = 0; child_index < ui_element->group.children_count; child_index++)
+            {
+                auto child = ui_element->group.children[child_index];
+
+                // @todo: pass transform matrix
+                ui_draw_element(buffer, scene, child);
+            }
+        }
+        break;
+
+        default:
+            ASSERT_FAIL("You should process all UiElement types.");
+    }
+}
+
+
+INTERNAL
+void ui_draw(OffscreenBuffer *buffer, UiScene *scene)
+{
+    ui_draw_element(buffer, scene, scene->root);
+}
+
+
+INTERNAL
+void push_piece(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, Bitmap *bitmap, Color32 color)
 {
     // @note offset and dimensions are in world space (in meters, bottom-up coordinate space)
     ASSERT(group->count < ARRAY_COUNT(group->assets));
@@ -208,7 +331,7 @@ void push_piece(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters,
 
 
 INTERNAL
-void push_rectangle(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, color32 color)
+void push_rectangle(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, Color32 color)
 {
     push_piece(group, offset_in_meters, dim_in_meters, NULL, color);
 }
@@ -262,10 +385,11 @@ EntityResult add_entity(GameState *game_state, WorldPosition position = null_pos
 
     ASSERT(result.entity);
 
-    memory::set(result.entity, 0, sizeof(StoredEntity));
+    Asuka::memory::set(result.entity, 0, sizeof(StoredEntity));
     result.entity->world_position = null_position();
     result.entity->sim.storage_index = result.index;
-    result.entity->sim.distance_limit = F32::inf();
+    result.entity->sim.distance_limit = INF;
+    result.entity->sim.time_limit = INF;
 
     change_entity_location(game_state->world, result.index, result.entity, &position, &game_state->world_arena);
 
@@ -293,7 +417,7 @@ EntityResult add_sword(GameState *game_state)
     EntityResult result = add_entity(game_state);
 
     result.entity->sim.type = ENTITY_TYPE_SWORD;
-    result.entity->sim.hitbox = V2(0.4, 0.2);
+    result.entity->sim.hitbox = V3(0.4, 0.2, 0.2);
     set(&result.entity->sim, ENTITY_FLAG_NONSPATIAL);
 
     return result;
@@ -308,8 +432,8 @@ EntityResult add_player(GameState *game_state)
     result.entity->sim.type = ENTITY_TYPE_PLAYER;
     set(&result.entity->sim, ENTITY_FLAG_COLLIDABLE);
 
-    // // @todo: fix coordinates for hitbox
-    result.entity->sim.hitbox = V2(0.8, 0.2); // In top-down coordinates, but in meters.
+    // @todo: fix coordinates for hitbox
+    result.entity->sim.hitbox = V3(0.8, 0.2, 1.0); // In top-down coordinates, but in meters.
 
     EntityResult sword_ = add_sword(game_state);
     result.entity->sim.sword.index = sword_.index;
@@ -321,14 +445,14 @@ EntityResult add_player(GameState *game_state)
 
 
 INTERNAL
-EntityResult add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 p)
+EntityResult add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v3 p)
 {
     WorldPosition position = world_position(game_state->world, chunk_x, chunk_y, chunk_z, p);
 
     EntityResult result = add_entity(game_state, position);
     result.entity->sim.type = ENTITY_TYPE_FAMILIAR;
-    // // @todo: fix coordinates for hitbox
-    result.entity->sim.hitbox = V2(0.8, 0.2);
+    // @todo: fix coordinates for hitbox
+    result.entity->sim.hitbox = V3(0.8, 0.2, 0.2);
     set(&result.entity->sim, ENTITY_FLAG_COLLIDABLE);
 
     return result;
@@ -336,14 +460,14 @@ EntityResult add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 c
 
 
 INTERNAL
-EntityResult add_monster(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 p)
+EntityResult add_monster(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v3 p)
 {
     WorldPosition position = world_position(game_state->world, chunk_x, chunk_y, chunk_z, p);
 
     EntityResult result = add_entity(game_state, position);
     result.entity->sim.type = ENTITY_TYPE_MONSTER;
     result.entity->world_position = position;
-    result.entity->sim.hitbox = V2(2.2, 2.2);
+    result.entity->sim.hitbox = V3(2.2, 2.2, 1.0);
     set(&result.entity->sim, ENTITY_FLAG_COLLIDABLE);
 
     init_hitpoints(result.entity, 7);
@@ -353,7 +477,7 @@ EntityResult add_monster(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 ch
 
 
 INTERNAL
-EntityResult add_wall(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v2 p)
+EntityResult add_wall(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk_z, v3 p)
 {
     WorldPosition position = world_position(game_state->world, chunk_x, chunk_y, chunk_z, p);
 
@@ -361,7 +485,7 @@ EntityResult add_wall(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk
     result.entity->sim.type = ENTITY_TYPE_WALL;
     result.entity->world_position = position;
     set(&result.entity->sim, ENTITY_FLAG_COLLIDABLE);
-    result.entity->sim.hitbox = V2(1, 0.4);
+    result.entity->sim.hitbox = V3(1.0, 0.4, 1.0);
 
     return result;
 }
@@ -410,6 +534,9 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
     v3 velocity = entity->velocity + spec.acceleration * dt;
     v3 destination = position + velocity * dt;
 
+    /*
+        @note:
+    */
     // @todo: include this into common collision logic
     if (destination.z < 0)
     {
@@ -432,7 +559,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
             destination = position + velocity * remaining_dt;
 
             f32 new_distance_to_move = length(destination - position);
-            ASSERT(is_equal(new_distance_to_move, entity->distance_limit));
+            ASSERT(Asuka::is_equal(new_distance_to_move, entity->distance_limit));
             distance_to_move = entity->distance_limit;
         }
 
@@ -497,7 +624,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
                             // @todo: Make sliding better.
                             // @hack: Step out 3*eps from the wall to allow sliding along corners.
                             closest_destination.xy = res.intersection + 4 * EPSILON * normal;
-                            velocity_at_closest_destination.xy = project(velocity.xy, wall); // wall * math::dot(velocity, wall) / wall.length_2();
+                            velocity_at_closest_destination.xy = project(velocity.xy, wall); // wall * dot(velocity, wall) / wall.length_2();
                         }
                     }
                 }
@@ -536,7 +663,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
         }
 
         // How much we have left to move?
-        if (length²(destination - position) < EPSILON²)
+        if (length(destination - position) < EPSILON²)
         {
             break;
         }
@@ -546,6 +673,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
     entity->velocity = velocity;
 }
 
+} // namespace Game
 
 // Random
 #include <time.h>
@@ -567,6 +695,9 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
 
 GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 {
+    using namespace Game;
+    using namespace Asuka;
+
     ASSERT(sizeof(GameState) <= Memory->PermanentStorageSize);
 
     f32 dt = Input->dt;
@@ -585,8 +716,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // @note: reserve entity slot for the null entity
         game_state->entity_count  = 1;
 
-        game_state->test_wav_file = load_wav_file("piano2.wav");
+        game_state->test_wav_file = Asuka::load_wav_file("piano2.wav");
         game_state->test_current_sound_cursor = 0;
+
+        // load_entire_file("../resources/train-images.idx3-ubyte");
 
 // @todo: make it load in the exe, not hot loaded dll
 #if IN_CODE_TEXTURES
@@ -603,33 +736,37 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_state->player_textures[2]  = get_character_3_png();
         game_state->player_textures[3]  = get_character_4_png();
 #else
-        game_state->grass_texture       = load_png_file("grass_texture.png");
-        game_state->tree_texture        = load_png_file("tree_60x100.png");
-        game_state->heart_full_texture  = load_png_file("heart_full.png");
-        game_state->heart_empty_texture = load_png_file("heart_empty.png");
-        game_state->monster_head        = load_png_file("monster_head.png");
-        game_state->monster_left_arm    = load_png_file("monster_left_arm.png");
-        game_state->monster_right_arm   = load_png_file("monster_right_arm.png");
-        game_state->familiar_texture    = load_png_file("familiar.png");
-        game_state->shadow_texture      = load_png_file("shadow.png");
-        game_state->fireball_texture    = load_png_file("fireball.png");
-        game_state->sword_texture       = load_png_file("sword.png");
+        game_state->grass_texture       = Asuka::load_png_file("grass_texture.png");
+        game_state->tree_texture        = Asuka::load_png_file("tree_60x100.png");
+        game_state->heart_full_texture  = Asuka::load_png_file("heart_full.png");
+        game_state->heart_empty_texture = Asuka::load_png_file("heart_empty.png");
+        game_state->monster_head        = Asuka::load_png_file("monster_head.png");
+        game_state->monster_left_arm    = Asuka::load_png_file("monster_left_arm.png");
+        game_state->monster_right_arm   = Asuka::load_png_file("monster_right_arm.png");
+        game_state->familiar_texture    = Asuka::load_png_file("familiar.png");
+        game_state->shadow_texture      = Asuka::load_png_file("shadow.png");
+        game_state->fireball_texture    = Asuka::load_png_file("fireball.png");
+        game_state->sword_texture       = Asuka::load_png_file("sword.png");
 
-        game_state->player_textures[0]  = load_png_file("character_1.png");
-        game_state->player_textures[1]  = load_png_file("character_2.png");
-        game_state->player_textures[2]  = load_png_file("character_3.png");
-        game_state->player_textures[3]  = load_png_file("character_4.png");
+        game_state->player_textures[0]  = Asuka::load_png_file("character_1.png");
+        game_state->player_textures[1]  = Asuka::load_png_file("character_2.png");
+        game_state->player_textures[2]  = Asuka::load_png_file("character_3.png");
+        game_state->player_textures[3]  = Asuka::load_png_file("character_4.png");
 #endif // IN_CODE_TEXTURES
 
         memory::arena_allocator *arena  = &game_state->world_arena;
+        memory::arena_allocator *temp_arena = &game_state->temp_arena;
+        memory::arena_allocator *ui_arena = &game_state->ui_arena;
 
-        initialize_arena(arena, (u8 *) Memory->PermanentStorage + sizeof(GameState), Memory->PermanentStorageSize - sizeof(GameState));
+        initialize(arena, (u8 *) Memory->PermanentStorage + sizeof(GameState), (Memory->PermanentStorageSize - sizeof(GameState)) / 2);
+        initialize(ui_arena, (u8 *) Memory->PermanentStorage + sizeof(GameState) + (Memory->PermanentStorageSize - sizeof(GameState)) / 2, (Memory->PermanentStorageSize - sizeof(GameState)) / 2);
+        initialize(temp_arena, (u8 *) Memory->TransientStorage, Memory->TransientStorageSize);
 
         f32 tile_side_in_meters = 1.0f;
-        f32 chunk_side_in_meters = 5.0f;
-        i32 chunk_side_in_tiles = math::truncate_to_i32(chunk_side_in_meters / tile_side_in_meters);
+        i32 chunk_side_in_tiles = 5;
+        f32 chunk_side_in_meters = chunk_side_in_tiles * tile_side_in_meters;
 
-        World *world = push_struct(arena, World);
+        World *world = allocate_struct(arena, World);
         initialize_world(world, tile_side_in_meters, chunk_side_in_meters);
         game_state->world = world;
 
@@ -641,8 +778,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         i32 screen_y = 0;
         i32 screen_z = 0;
 
-        i32 room_width_in_meters  = math::truncate_to_i32(room_width_in_tiles  * world->tile_side_in_meters);
-        i32 room_height_in_meters = math::truncate_to_i32(room_height_in_tiles * world->tile_side_in_meters);
+        i32 room_width_in_meters  = truncate_to_i32(room_width_in_tiles  * world->tile_side_in_meters);
+        i32 room_height_in_meters = truncate_to_i32(room_height_in_tiles * world->tile_side_in_meters);
 
         enum gen_direction {
             GEN_NONE,
@@ -729,7 +866,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     f32 relative_y = (y % chunk_side_in_tiles) * tile_side_in_meters; // - 0.5f * chunk_side_in_meters + 0.5f * tile_side_in_meters;
 
                     if (tile_value == TILE_WALL) {
-                        add_wall(game_state, chunk_x, chunk_y, chunk_z, v2{ relative_x, relative_y });
+                        add_wall(game_state, chunk_x, chunk_y, chunk_z, v3{ relative_x, relative_y, 0 });
                     }
                 }
             }
@@ -755,11 +892,70 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
 
         // @note: Add a monster BEFORE calling set camera position so it could be brought to the high entity set before player appearing on the screen.
-        add_monster(game_state, 0, 0, 0, V2(2, 1));
+        add_monster(game_state, 0, 0, 0, V3(2, 1, 0));
         for (int i = 0; i < 1; i++) {
             f32 x = -5.0f + i * 1.0f;
-            add_familiar(game_state, 0, 0, 0, V2(x, 1));
+            add_familiar(game_state, 0, 0, 0, V3(x, 1, 0));
         }
+
+        // ======================== UI =======================
+
+        game_state->game_hud = ui_allocate_scene(ui_arena);
+
+        game_state->game_hud->root = allocate_ui_group(ui_arena);
+
+        auto hud_child_1 = allocate_ui_shape(ui_arena);
+        hud_child_1->type = UI_ELEMENT_SHAPE;
+        hud_child_1->scale = V2(1, 1);
+        hud_child_1->position = V2(50, 50);
+        hud_child_1->shape.size = V2(50, 50);
+        hud_child_1->shape.color = Color32::White;
+        hud_child_1->shape.n = 1;
+
+        hud_child_1->on_click = []()
+        {
+            osOutputDebugString("CLICKED!\n");
+        };
+
+        push_child(&game_state->game_hud->root->group, hud_child_1);
+
+
+        auto hud_child_2 = allocate_ui_group(ui_arena);
+        hud_child_2->scale = V2(20, 20);
+        push_child(&game_state->game_hud->root->group, hud_child_2);
+
+        auto hud_child_2_1 = allocate_ui_shape(ui_arena);
+        hud_child_2_1->type = UI_ELEMENT_SHAPE;
+        hud_child_2_1->scale = V2(1, 1);
+        hud_child_2_1->position = V2(200, 10);
+        hud_child_2_1->shape.size = V2(25, 100);
+        hud_child_2_1->shape.color = color32(0.6, 0.3, 0.8);
+        push_child(&hud_child_2->group, hud_child_2_1);
+
+        auto hud_child_2_2 = allocate_ui_shape(ui_arena);
+        hud_child_2_2->type = UI_ELEMENT_SHAPE;
+        hud_child_2_2->scale = V2(1, 1);
+        hud_child_2_2->position = V2(225, 110);
+        hud_child_2_2->shape.size = V2(25, 100);
+        hud_child_2_2->shape.color = color32(0.6, 0.3, 0.8);
+        push_child(&hud_child_2->group, hud_child_2_2);
+
+        // push_child(game_state->game_hud->root, hud_child_2);
+
+
+        // auto shadow_2 = allocate_struct(arena, UiFilter);
+        // shadow_2->type = UI_FILTER_SHADOW;
+        // shadow_2->shadow.angle = 45;
+        // shadow_2->shadow.distance = 10;
+
+        // push_filter(hud_child_2, shadow_2);
+
+        // auto tint_2 = allocate_struct(arena, UiFilter);
+        // tint_2->type = UI_FILTER_TINT;
+        // tint_2->tint.multiply = V4(0, 1, 1, 1);
+        // tint_2->tint.add = V4(0.2, 0, 0, 0);
+
+        // push_filter(hud_child_2, tint_2);
 
         Memory->IsInitialized = true;
     }
@@ -772,7 +968,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     for (InputIndex ControllerIndex { 0 }; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++)
     {
-        Game_ControllerInput* ControllerInput = GetControllerInput(Input, ControllerIndex);
+        ControllerInput* ControllerInput = GetControllerInput(Input, ControllerIndex);
         PlayerRequest *request = game_state->player_for_controller + ControllerIndex.index;
 
         if (request->entity_index == 0)
@@ -790,38 +986,43 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         else
         {
             // ALL CONTROLLER PROCESSING FOR THIS PLAYER GOES HERE //
-            v2 sword_speed {};
+            v3 sword_speed {};
             if (GetPressCount(ControllerInput->X))
             {
-                sword_speed += V2(-1, 0);
+                sword_speed += V3(-1, 0, 0);
             }
             else if (GetPressCount(ControllerInput->Y))
             {
-                sword_speed += V2(0, 1);
+                sword_speed += V3(0, 1, 0);
             }
             else if (GetPressCount(ControllerInput->A))
             {
-                sword_speed += V2(0, -1);
+                sword_speed += V3(0, -1, 0);
             }
             else if (GetPressCount(ControllerInput->B))
             {
-                sword_speed += V2(1, 0);
+                sword_speed += V3(1, 0, 0);
             }
 
-            f32 input_strength  = math::clamp(length(ControllerInput->LeftStickEnded), 0, 1);
+            f32 input_strength  = clamp(length(ControllerInput->LeftStickEnded), 0, 1);
             v2  input_direction = normalized(ControllerInput->LeftStickEnded);
 
             request->player_acceleration_strength = input_strength;
             request->player_acceleration_direction.xy = input_direction;
-            request->sword_velocity.xy = normalized(sword_speed);
+            request->sword_velocity = normalized(sword_speed);
             request->player_jump = GetPressCount(ControllerInput->Start) > 0;
         }
     }
 
-    Rectangle2 sim_bounds = Rectangle2::from_center_dim(V2(0, 0), V2(20, 12)); // in meters
+    Rectangle3 sim_bounds = rect3::from_min_max(V3(-10, -6, -5), V3(10, 6, 5)); // in meters
 
-    initialize_arena(&game_state->sim_arena, (u8 *) Memory->TransientStorage, Memory->TransientStorageSize);
-    SimRegion *sim_region = begin_simulation(game_state, &game_state->sim_arena, game_state->camera_position, sim_bounds);
+    reset(&game_state->temp_arena);
+
+    WorldPosition sim_center = game_state->camera_position;
+    sim_center.offset.z = 0;
+
+    SimRegion *sim_region = begin_simulation(game_state, &game_state->temp_arena,
+        sim_center, sim_bounds);
 
     // Game_OutputSound(SoundBuffer, game_state);
 
@@ -865,7 +1066,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                             // [m/s^2] = [m/s] * [units] * [m/s^2]
                             // @todo: why units do not add up?
                             // @note: N = nu * g []
-                            v2 friction_acceleration = -entity->velocity.xy * friction_coefficient * math::absolute(gravity.z);
+                            v2 friction_acceleration = -entity->velocity.xy * friction_coefficient * absolute(gravity.z);
 
                             spec.acceleration = acceleration_coefficient * request->player_acceleration_strength * request->player_acceleration_direction;
                             spec.acceleration += V3(friction_acceleration, 0);
@@ -873,13 +1074,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
                         if (request->player_jump)
                         {
+                            // @bug @fix: Sometimes after hitting the ground strange jittering happens
                             spec.acceleration.z += 100.0f;
                         }
 
                         spec.acceleration += gravity;
 
                         if (!is_zero(request->player_acceleration_direction)) {
-                            if (math::absolute(request->player_acceleration_direction.x) > math::absolute(request->player_acceleration_direction.y))
+                            if (absolute(request->player_acceleration_direction.x) > absolute(request->player_acceleration_direction.y))
                             {
                                 if (request->player_acceleration_direction.x > 0)
                                 {
@@ -908,9 +1110,13 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                             SimEntity *sword = entity->sword.ptr;
                             if (sword)
                             {
-                                make_entity_spatial(sword, entity->position.xy, entity->velocity.xy + request->sword_velocity.xy * 4.0f);
-                                sword->position.z = 0.5f;
-                                sword->distance_limit = 3.0f; // meters
+                                // @todo @fix @bug: Sword gets additional acceleration, even if player itself isn't moving,
+                                // but only controls suggest it would move forward. But actually, player might be stuck in
+                                // the geometry and its velocity is 0.
+                                make_entity_spatial(sword, entity->position, entity->velocity + request->sword_velocity * 4.0f);
+                                sword->position.z += 0.5f;
+                                // sword->distance_limit = 3.0f; // meters
+                                sword->time_limit = 1.0f; // seconds
                             }
                         }
                     }
@@ -930,7 +1136,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             case ENTITY_TYPE_FAMILIAR:
             {
                 SimEntity *closest_entity = NULL;
-                f32 closest_distance_squared = math::square(7.0f); // @note: maximum following distance
+                f32 closest_distance_squared = square(7.0f); // @note: maximum following distance
 
                 for (u32 index = 0; index < sim_region->entity_count; index++) {
                     SimEntity *test_entity = get_sim_entity(sim_region, index);
@@ -946,7 +1152,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
                 if (closest_entity)
                 {
-                    if (closest_distance_squared > math::square(2.0f)) {
+                    if (closest_distance_squared > square(2.0f)) {
                         f32 speed = 5;
                         v3 direction = normalized(closest_entity->position - entity->position);
                         spec.acceleration = speed * direction; // + gravity;
@@ -957,12 +1163,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 spec.acceleration += friction;
 
                 entity->tBob += dt;
-                if (entity->tBob > 2 * F32::pi()) {
-                    entity->tBob -= 2 * F32::pi();
+                if (entity->tBob > 2 * PI) {
+                    entity->tBob -= 2 * PI;
                 }
 
                 f32 a = 2.0f;
-                f32 t = a * math::sin(3.0f * entity->tBob);
+                f32 t = a * sin(3.0f * entity->tBob);
                 f32 h = 2.0f / (2.0f + a + t);
 
                 auto *shadow = &game_state->shadow_texture;
@@ -1017,6 +1223,16 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 INVALID_CODE_PATH();
         }
 
+        if (entity->time_limit < 0.0f)
+        {
+            entity->time_limit = 0;
+            make_entity_nonspatial(entity);
+        }
+        else
+        {
+            entity->time_limit -= dt;
+        }
+
         if (!is(entity, ENTITY_FLAG_NONSPATIAL))
         {
             move_entity(game_state, sim_region, entity, spec, dt);
@@ -1034,15 +1250,15 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         //     Buffer,
         //     entity_position_in_pixels - 0.5f * entity->hitbox * pixels_per_meter,
         //     entity_position_in_pixels + 0.5f * entity->hitbox * pixels_per_meter,
-        //     color24{ 1.f, 1.f, 0.f });
+        //     Color24{ 1.f, 1.f, 0.f });
         Rectangle2 hitbox_in_pixels = Rectangle2::from_min_max(
-            entity_position_in_pixels - 0.5f * entity->hitbox * pixels_per_meter,
-            entity_position_in_pixels + 0.5f * entity->hitbox * pixels_per_meter);
+            entity_position_in_pixels - 0.5f * entity->hitbox.xy * pixels_per_meter,
+            entity_position_in_pixels + 0.5f * entity->hitbox.xy * pixels_per_meter);
 
         // @note: this draw hitboxes
-        // draw_empty_rectangle_in_meters(Buffer,
-        //     Rectangle2::from_center_dim(entity->position.xy, entity->hitbox),
-        //     2, rgb(1, 1, 0), entity->position.xy, pixels_per_meter);
+        draw_empty_rectangle_in_meters(Buffer,
+            Rectangle2::from_center_dim(entity->position.xy, entity->hitbox.xy),
+            2, rgb(1, 1, 0), entity->position.xy, pixels_per_meter);
 
         for (u32 asset_index = 0; asset_index < group.count; asset_index++) {
             auto *asset = &group.assets[asset_index];
@@ -1079,7 +1295,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     // ===================== RENDERING SIGNALING BORDERS ===================== //
 
 #if ASUKA_PLAYBACK_LOOP
-    color24 BorderColor {};
+    Color24 BorderColor {};
     u32 BorderWidth = 10;
     b32 BorderVisible {};
 
@@ -1104,4 +1320,32 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         DrawBorder(Buffer, BorderWidth, BorderColor);
     }
 #endif // ASUKA_PLAYBACK_LOOP
+
+    ui_handle_input(game_state->game_hud, Input);
+    ui_draw(Buffer, game_state->game_hud);
+
+    [](auto Buffer)
+    {
+        for (u32 i = 0; i < 100000; i++)
+        {
+            f32 r = uniform_real(0, 1);
+            f32 phi = uniform_real(0, 1) * 2 * PI;
+
+            i32 PixelX = (int)(sqrt(r) * cos(phi) * (Buffer->Height / 2 - 1) + Buffer->Width / 2);
+            i32 PixelY = (int)(sqrt(r) * sin(phi) * (Buffer->Height / 2 - 1) + Buffer->Height / 2);
+
+            // if ((PixelX >= 0 && PixelX < Buffer->Width) &&
+            //     (PixelY >= 0 && PixelY < Buffer->Height))
+            {
+                auto Pixel = (u8 *) Buffer->Memory + PixelY * Buffer->Pitch + PixelX * Buffer->BytesPerPixel;
+                *(u32 *)(Pixel) = 0;
+            }
+            // else
+            {
+                // osOutputDebugString("(%d, %d)\n", PixelX, PixelY);
+            }
+        }
+    }
+    // (Buffer)
+    ;
 }

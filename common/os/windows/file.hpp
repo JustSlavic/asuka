@@ -1,15 +1,16 @@
 #ifndef ASUKA_COMMON_OS_WINDOWS_FILE_HPP
 #define ASUKA_COMMON_OS_WINDOWS_FILE_HPP
 
-
+namespace Asuka {
 namespace os {
 namespace internal {
 
-string load_entire_file(const char* filename);
-bool write_file(const char* filename, string file);
+byte_array load_entire_file(const char* filename);
+bool write_file(const char* filename, byte_array contents);
 
-} // windows
+} // internal
 } // os
+} // namespace Asuka
 
 
 #if UNITY_BUILD

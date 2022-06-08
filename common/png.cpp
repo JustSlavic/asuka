@@ -16,6 +16,8 @@ Reference: http://www.libpng.org/pub/png/spec/1.2/PNG-Structure.html
 #include <external/stb_image.h>
 #endif
 
+namespace Asuka {
+
 #pragma pack(push, 1)
 struct PNG_ChunkHeader {
     u32 size_of_data; // in bytes
@@ -311,7 +313,7 @@ void decode_idat_chunk(u8 *data, usize size, Bitmap *result) {
 Bitmap load_png_file_myself(const char *filename) {
     Bitmap result {};
 
-    asuka::string contents = os::load_entire_file(filename);
+    byte_array contents = os::load_entire_file(filename);
 
     u8 *data = (u8 *) contents.data;
 
@@ -384,7 +386,7 @@ Bitmap load_png_file(const char* filename) {
     Bitmap result {};
 
 #if 1
-    asuka::string contents = os::load_entire_file(filename);
+    byte_array contents = os::load_entire_file(filename);
     if (contents.data == NULL) {
         // @todo: handle error
         return result;
@@ -402,3 +404,5 @@ Bitmap load_png_file(const char* filename) {
 
     return result;
 }
+
+} // namespace Asuka

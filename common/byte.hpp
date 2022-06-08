@@ -2,8 +2,9 @@
 
 #include <defines.hpp>
 
+namespace Asuka {
+namespace memory {
 
-namespace asuka {
 
 enum byte : u8 {};
 
@@ -12,4 +13,6 @@ byte operator | (byte a, byte b) {
     return result;
 }
 
-} // namespace asuka
+
+} // namespace memory
+} // namespace Asuka

@@ -10,19 +10,21 @@
 #endif
 
 
+namespace Asuka {
 namespace os {
 
 //
 // Cross-platform code.
 //
 
-string load_entire_file(const char* filename) {
+byte_array load_entire_file(const char* filename) {
     return internal::load_entire_file(filename);
 }
 
-bool write_file(const char* filename, string file) {
-    return internal::write_file(filename, file);
+bool write_file(const char* filename, byte_array contents) {
+    return internal::write_file(filename, contents);
 }
 
 
 } // namespace os
+} // namespace Asuka

@@ -1,5 +1,7 @@
 #pragma once
 
+namespace Game {
+
 
 struct HealthPoint {
     u32 fill; // In percent (max 100).
@@ -55,12 +57,13 @@ struct SimEntity
     FaceDirection face_direction;
 
     // @note: for "stairs"
-    i32 d_abs_tile_z;
-    i32 chunk_z; // for moving up and down "stairs"
+    // i32 d_abs_tile_z;
+    // i32 chunk_z; // for moving up and down "stairs"
 
-    v2 hitbox;
+    v3 hitbox;
     u32 flags;
     f32 distance_limit;
+    f32 time_limit;
 
     i32 health_max;
     u32 health_fill_max;
@@ -81,7 +84,7 @@ struct SimRegion
 {
     World *world;
     WorldPosition origin;
-    Rectangle2 bounds;
+    Rectangle3 bounds;
 
     u32 entity_capacity;
     u32 entity_count;
@@ -102,13 +105,13 @@ SimEntity *get_sim_entity(SimRegion *sim_region, u32 sim_index);
 // Find sim entity in the SimRegion, and if it's not found, add entity to it and return resulted pointer
 SimEntity *get_entity_by_storage_index(GameState *game_state, SimRegion *sim_region, u32 storage_index);
 
-SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_arena, WorldPosition sim_origin, Rectangle2 sim_bounds);
+SimRegion *begin_simulation(GameState *game_state, Asuka::memory::arena_allocator *sim_arena, WorldPosition sim_origin, Rectangle3 sim_bounds);
 void end_simulation(GameState *game_state, SimRegion *sim_region);
 
 
 inline void set(SimEntity *entity, u32 flag)
 {
-    entity->flags = (entity->flags | flag);
+    entity->flags |= flag;
 }
 
 inline void unset(SimEntity *entity, u32 flag)
@@ -127,9 +130,12 @@ inline void make_entity_nonspatial(SimEntity *entity)
     set(entity, ENTITY_FLAG_NONSPATIAL);
 }
 
-inline void make_entity_spatial(SimEntity *entity, v2 p, v2 v)
+inline void make_entity_spatial(SimEntity *entity, v3 p, v3 v)
 {
     unset(entity, ENTITY_FLAG_NONSPATIAL);
-    entity->position.xy = p;
-    entity->velocity.xy = v;
+    entity->position = p;
+    entity->velocity = v;
 }
+
+
+} // namespace Game

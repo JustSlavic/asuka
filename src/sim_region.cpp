@@ -1,4 +1,6 @@
 
+namespace Game {
+
 SimEntity *get_sim_entity(SimRegion *sim_region, u32 index)
 {
     ASSERT(index < sim_region->entity_count);
@@ -23,7 +25,7 @@ SimEntity *add_entity_to_sim_region(SimRegion *sim_region)
     ASSERT(sim_region->entity_count < sim_region->entity_capacity);
 
     SimEntity *entity = sim_region->entities + sim_region->entity_count++;
-    memory::set(entity, 0, sizeof(SimEntity));
+    Asuka::memory::set(entity, 0, sizeof(SimEntity));
 
     return entity;
 }
@@ -125,7 +127,7 @@ SimEntity *get_entity_by_storage_index(GameState *game_state, SimRegion *sim_reg
 }
 
 
-SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_arena, WorldPosition sim_origin, Rectangle2 sim_bounds)
+SimRegion *begin_simulation(GameState *game_state, Asuka::memory::arena_allocator *sim_arena, WorldPosition sim_origin, Rectangle3 sim_bounds)
 {
     SimRegion *sim_region = allocate_struct(sim_arena, SimRegion);
     sim_region->world  = game_state->world;
@@ -141,20 +143,30 @@ SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_
     WorldPosition min_corner = map_into_world_space(game_state->world, sim_origin, sim_bounds.min);
     WorldPosition max_corner = map_into_world_space(game_state->world, sim_origin, sim_bounds.max);
 
-    for (i32 chunk_y = min_corner.chunk.y; chunk_y <= max_corner.chunk.y; chunk_y++){
-        for (i32 chunk_x = min_corner.chunk.x; chunk_x <= max_corner.chunk.x; chunk_x++) {
-            Chunk *chunk = get_chunk(game_state->world, chunk_x, chunk_y, sim_origin.chunk.z, &game_state->world_arena);
-            if (chunk) {
-                for (EntityBlock *block = chunk->entities; block != NULL; block = block->next_block) {
-                    for (u32 i = 0; i < block->entity_count; i++) {
-                        u32 storage_index = block->entities[i];
-                        StoredEntity *entity = get_stored_entity(game_state, storage_index);
+    for (i32 chunk_z = min_corner.chunk.z; chunk_z <= max_corner.chunk.z; chunk_z++)
+    {
+        for (i32 chunk_y = min_corner.chunk.y; chunk_y <= max_corner.chunk.y; chunk_y++)
+        {
+            for (i32 chunk_x = min_corner.chunk.x; chunk_x <= max_corner.chunk.x; chunk_x++)
+            {
+                Chunk *chunk = get_chunk(game_state->world, chunk_x, chunk_y, sim_origin.chunk.z, &game_state->world_arena);
 
-                        if (!is(&entity->sim, ENTITY_FLAG_NONSPATIAL))
+                if (chunk)
+                {
+                    for (EntityBlock *block = chunk->entities; block != NULL; block = block->next_block)
+                    {
+                        for (u32 i = 0; i < block->entity_count; i++)
                         {
-                            v3 sim_space_coordinates = map_to_sim_space_coordinates(sim_region, entity);
-                            if (in_rectangle(sim_bounds, sim_space_coordinates.xy)) {
-                                add_entity_to_sim_region(game_state, sim_region, entity, storage_index, &sim_space_coordinates.xy);
+                            u32 storage_index = block->entities[i];
+                            StoredEntity *entity = get_stored_entity(game_state, storage_index);
+
+                            if (!is(&entity->sim, ENTITY_FLAG_NONSPATIAL))
+                            {
+                                v3 sim_space_coordinates = map_to_sim_space_coordinates(sim_region, entity);
+                                if (in_rectangle(sim_bounds, sim_space_coordinates))
+                                {
+                                    add_entity_to_sim_region(game_state, sim_region, entity, storage_index, &sim_space_coordinates.xy);
+                                }
                             }
                         }
                     }
@@ -167,32 +179,36 @@ SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_
 }
 
 
-void store_entity_in_storage(GameState *game_state, SimRegion *sim_region, SimEntity *entity);
+INTERNAL
 void unload_entity_reference(GameState *game_state, SimRegion *sim_region, EntityReference *ref)
 {
     if (ref->ptr)
     {
-        // store_entity_in_storage(game_state, sim_region, ref->ptr);
         ref->index = ref->ptr->storage_index;
     }
 }
 
 
+INTERNAL
 void store_entity_in_storage(GameState *game_state, SimRegion *sim_region, SimEntity *entity)
 {
     // @todo: Compress entity into StoredEntity
     u32 storage_index = entity->storage_index;
-    entity->storage_index = storage_index;
 
     StoredEntity *stored = get_stored_entity(game_state, storage_index);
-
     unload_entity_reference(game_state, sim_region, &entity->sword);
 
     stored->sim = *entity;
 
-    WorldPosition p = is(entity, ENTITY_FLAG_NONSPATIAL) ?
-        null_position() :
-        map_into_world_space(game_state->world, sim_region->origin, entity->position.xy);
+    WorldPosition p;
+    if (is(entity, ENTITY_FLAG_NONSPATIAL))
+    {
+        p = null_position();
+    }
+    else
+    {
+        p = map_into_world_space(game_state->world, sim_region->origin, entity->position);
+    }
 
     change_entity_location(game_state->world, storage_index, stored, &p, &game_state->world_arena);
 }
@@ -208,3 +224,5 @@ void end_simulation(GameState *game_state, SimRegion *sim_region)
     }
 }
 
+
+} // namespace Game

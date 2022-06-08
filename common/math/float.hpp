@@ -10,6 +10,9 @@
 #define INF HUGE_VALF
 
 
+namespace Asuka {
+
+
 #if LITTLE_ENDIAN
 union IEEE754_32bit {
     struct {
@@ -63,13 +66,6 @@ b32 is_equal(f32 x, f32 y, f32 eps = EPSILON)
     b32 result = is_zero(x - y, eps);
     return result;
 }
-
-
-
-namespace math {
-
-
-
 
 inline b32 is_nan(f32 x) {
     union {
@@ -216,12 +212,22 @@ inline f32 smoothstep(f32 x) {
     return result;
 }
 
-inline f32 sin(f32 x) {
+INLINE
+f32 sin(f32 x)
+{
     f32 result = sinf(x);
     return result;
 }
 
 
-} // namespace math
+INLINE
+f32 cos(f32 x)
+{
+    f32 result = cosf(x);
+    return result;
+}
+
+
+} // namespace Asuka
 
 #endif // ASUKA_COMMON_MATH_FLOAT_HPP
