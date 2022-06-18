@@ -650,16 +650,16 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
             {
                 remaining_dt -= move_distance / length(velocity);
             }
+        }
 
-            position = closest_destination;
-            velocity = velocity_at_closest_destination;
-            destination = position + velocity * remaining_dt;
+        position = closest_destination;
+        velocity = velocity_at_closest_destination;
+        destination = position + velocity * remaining_dt;
 
-            if (hit_entity)
-            {
-                // @todo: Do something with "hit_entity" and "entity", like, register hit or something.
-                handle_collision(entity, hit_entity);
-            }
+        if (hit_entity)
+        {
+            // @todo: Do something with "hit_entity" and "entity", like, register hit or something.
+            handle_collision(entity, hit_entity);
         }
 
         // How much we have left to move?
