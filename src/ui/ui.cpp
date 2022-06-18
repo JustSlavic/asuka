@@ -4,6 +4,13 @@
 namespace Asuka {
 
 
+UiScene *ui_allocate_scene(memory::arena_allocator *allocator)
+{
+    UiScene *result = allocate_struct(allocator, UiScene);
+    return result;
+}
+
+
 void push_child(UiGroup *group, UiElement *child)
 {
     ASSERT(group->children_count < ARRAY_COUNT(group->children));
@@ -12,7 +19,7 @@ void push_child(UiGroup *group, UiElement *child)
 }
 
 
-void ui_handle_input(UiScene *scene, UiElement *ui_element, Game::Input *input)
+void ui_update_element(UiScene *scene, UiElement *ui_element, Game::Input *input)
 {
     switch (ui_element->type)
     {
@@ -20,8 +27,8 @@ void ui_handle_input(UiScene *scene, UiElement *ui_element, Game::Input *input)
         {
             Rect2 aabb = get_bounding_box(ui_element);
 
-            Vec2F mouse_position = V2(input->Mouse.Position);
-            Vec2F mouse_prev_position = V2(input->Mouse.PreviousPosition);
+            Vec2F mouse_position = V2(input->mouse.position);
+            Vec2F mouse_prev_position = V2(input->mouse.previous_position);
             intersection_result res1 = segment_segment_intersection(aabb.min, V2(aabb.max.x, aabb.min.y), mouse_prev_position, mouse_position);
             intersection_result res2 = segment_segment_intersection(aabb.min, V2(aabb.min.x, aabb.max.y), mouse_prev_position, mouse_position);
             intersection_result res3 = segment_segment_intersection(aabb.max, V2(aabb.max.x, aabb.min.y), mouse_prev_position, mouse_position);
@@ -37,12 +44,12 @@ void ui_handle_input(UiScene *scene, UiElement *ui_element, Game::Input *input)
             {
                 scene->hovered_element = ui_element;
 
-                if (GetPressCount(input->Mouse.LMB) > 0)
+                if (GetPressCount(input->mouse.LMB) > 0)
                 {
                     scene->clicked_element = ui_element;
                 }
 
-                if (GetHoldCount(input->Mouse.LMB) > 0)
+                if (GetHoldCount(input->mouse.LMB) > 0)
                 {
                     if (scene->clicked_element == ui_element)
                     {
@@ -58,13 +65,13 @@ void ui_handle_input(UiScene *scene, UiElement *ui_element, Game::Input *input)
                 {
                 }
 
-                if (GetReleaseCount(input->Mouse.LMB) > 0)
+                if (GetReleaseCount(input->mouse.LMB) > 0)
                 {
                     if (scene->clicked_element == ui_element)
                     {
                         if (ui_element->on_click)
                         {
-                            ui_element->shape.n += GetReleaseCount(input->Mouse.LMB);
+                            ui_element->shape.n += GetReleaseCount(input->mouse.LMB);
                             ui_element->on_click();
                         }
                     }
@@ -72,7 +79,7 @@ void ui_handle_input(UiScene *scene, UiElement *ui_element, Game::Input *input)
             }
             else
             {
-                if (GetHoldCount(input->Mouse.LMB) > 0)
+                if (GetHoldCount(input->mouse.LMB) > 0)
                 {
                 }
                 else
@@ -87,7 +94,7 @@ void ui_handle_input(UiScene *scene, UiElement *ui_element, Game::Input *input)
             for (u32 child_index = 0; child_index < ui_element->group.children_count; child_index++)
             {
                 auto child = ui_element->group.children[child_index];
-                ui_handle_input(scene, child, input);
+                ui_update_element(scene, child, input);
             }
         }
         break;
@@ -96,16 +103,16 @@ void ui_handle_input(UiScene *scene, UiElement *ui_element, Game::Input *input)
             ASSERT_FAIL("You should process all UiElement types.");
     }
 
-    if (GetReleaseCount(input->Mouse.LMB) > 0)
+    if (GetReleaseCount(input->mouse.LMB) > 0)
     {
         scene->clicked_element = NULL;
     }
 }
 
-void ui_handle_input(UiScene *scene, Game::Input *input)
+void ui_update_scene(UiScene *scene, Game::Input *input)
 {
     scene->hovered_element = NULL;
-    ui_handle_input(scene, scene->root, input);
+    ui_update_element(scene, scene->root, input);
 }
 
 } // namespace Asuka

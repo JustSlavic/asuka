@@ -212,4 +212,6 @@ struct CONCAT2(NAME, _Flags) { \
     b32  is(ENUM_TYPE flag) { return flags & flag; } \
 }
 
+#define TOGGLE(X) { (X) = !(X); } void(0)
+
 #endif // ASUKA_COMMON_DEFINES_HPP

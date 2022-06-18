@@ -10,6 +10,10 @@
 #include <array.hpp>
 #include <ui/ui.hpp>
 
+#if UI_EDITOR_ENABLED
+#include <ui/ui_editor.hpp>
+#endif
+
 #include <stdio.h>
 
 
@@ -55,7 +59,9 @@
 */
 
 
-struct ThreadContext {
+struct ThreadContext
+{
+    u64 thread_id;
 };
 
 
@@ -70,9 +76,11 @@ struct ThreadContext {
 // Services that the game provides to the platform layer.
 //
 
-namespace Game {
+namespace Game
+{
 
-struct ButtonState {
+struct ButtonState
+{
     /*
     HalfTransitionCount helps detect very quick pressing.
 
@@ -97,14 +105,17 @@ struct ButtonState {
     i32 HalfTransitionCount; // How many times state was changed
 };
 
-struct AxisState {
-
+struct AxisState
+{
 };
 
-struct ControllerInput {
-    union {
+struct ControllerInput
+{
+    union
+    {
         ButtonState Buttons[14];
-        struct {
+        struct
+        {
             ButtonState A;
             ButtonState B;
             ButtonState X;
@@ -136,14 +147,41 @@ struct ControllerInput {
 };
 
 
+// We need this for extended keyboard input, e.g. pressing F1-F12 keys to enable debug drawings, etc.
+struct KeyboardState
+{
+    union
+    {
+        // @todo: Consider making key position in the array equal to VK_Keycode from Win32 API?
+        // for easy access.
+        ButtonState buttons[12];
+        struct
+        {
+            ButtonState F1;
+            ButtonState F2;
+            ButtonState F3;
+            ButtonState F4;
+            ButtonState F5;
+            ButtonState F6;
+            ButtonState F7;
+            ButtonState F8;
+            ButtonState F9;
+            ButtonState F10;
+            ButtonState F11;
+            ButtonState F12;
+        };
+    };
+};
+
+
 struct MouseState {
     // Coordinates in client area coordinate space
-    Vec2I Position;
-    Vec2I PreviousPosition;
-    Int32 Wheel;
+    Vec2I position;
+    Vec2I previous_position;
+    Int32 wheel;
 
     union {
-        ButtonState Buttons[5];
+        ButtonState buttons[5];
         struct {
             ButtonState LMB;
             ButtonState MMB;
@@ -164,14 +202,18 @@ enum Debug_PlaybackLoopState {
 #endif // ASUKA_PLAYBACK_LOOP
 
 
-struct Input {
-    MouseState Mouse;
+struct Input
+{
+    KeyboardState keyboard;
+    MouseState mouse;
 
-    union {
+    union
+    {
         // 0 - Keyboard controller
         // 1-5 - Gamepad controllers
         ControllerInput ControllerInputs[5];
-        struct {
+        struct
+        {
             ControllerInput KeyboardInput;
             ControllerInput GamepadInputs[4];
         };
@@ -341,6 +383,11 @@ struct GameState {
     u32 test_current_sound_cursor;
 
     UiScene *game_hud;
+
+#if UI_EDITOR_ENABLED
+    UiEditor *ui_editor;
+    b32 ui_editor_enabled;
+#endif
 };
 
 
@@ -364,18 +411,26 @@ StoredEntity *get_stored_entity(GameState *game_state, u32 index) {
 // 2. bitmap buffer to fill
 // 3. sound buffer to fill
 // 4. timing
-#define GAME_UPDATE_AND_RENDER(name) void name(ThreadContext* Thread, Game::Memory* Memory, Game::Input* Input, Game::OffscreenBuffer* Buffer, Game::SoundOutputBuffer* SoundBuffer)
+#define GAME_UPDATE_AND_RENDER(NAME) void NAME(ThreadContext* Thread, Game::Memory* Memory, Game::Input* Input, Game::OffscreenBuffer* Buffer)
 typedef GAME_UPDATE_AND_RENDER(Game_UpdateAndRenderT);
 
+#define GAME_OUTPUT_SOUND(NAME) void NAME(ThreadContext *Thread, Game::Memory *Memory, Game::SoundOutputBuffer* SoundBuffer)
+typedef GAME_OUTPUT_SOUND(Game_OutputSoundT);
 
 extern "C" {
 ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
+ASUKA_DLL_EXPORT GAME_OUTPUT_SOUND(Game_OutputSound);
 }
 
 #if (ASUKA_DLL && ASUKA_DLL_BUILD) || (!ASUKA_DLL_BUILD)
 #include <world.cpp>
 #include <sim_region.cpp>
 #include <ui/ui.cpp>
+
+#if UI_EDITOR_ENABLED
+#include <ui/ui_editor.cpp>
+#endif // UI_EDITOR_ENABLED
+
 #endif
 
 #if !ASUKA_DLL && !ASUKA_DLL_BUILD

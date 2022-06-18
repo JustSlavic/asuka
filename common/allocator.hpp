@@ -4,20 +4,43 @@
 #include <defines.hpp>
 #include <os/memory.hpp>
 
-//
-// This module implements various allocator strategies.
-// Following allocators are implemented:
-//   - arena_allocator
-//   - os_allocator
-//   - heap_allocator
-// Yet to be implemented
-//
+/*
+                    Allocators
+
+    This module implements various allocator strategies.
+    Following allocators are implemented:
+      - page allocator
+      - arena allocator
+    Yet to be implemented
+      - stack allocator
+      - pool allocator
+      - heap allocator (needs rewrite)
+
+    All allocators should implement common interface, like 'traits' do.
+    Functions:
+        void initialize(Allocator *allocator, void *memory, usize size);
+        void reset(Allocator *allocator);
+        void *allocate_(Allocator *allocator, usize requested_size, usize alignment);
+        void free(Allocator *allocator, void *memory_to_free);
+
+        void *allocate<Allocator>(usize, usize);
+
+    There are also macros to help to use those:
+      - allocate_struct_(ARENA, TYPE)
+      - allocate_struct(ARENA, TYPE)
+
+      - allocate_array_(ARENA, TYPE, SIZE)
+      - allocate_array(ARENA, TYPE, SIZE)
+
+
+*/
+
 
 namespace Asuka {
 namespace memory {
 
 
-struct os_allocator
+struct page_allocator
 {
     struct memory_block {
         byte *memory;
@@ -30,7 +53,7 @@ struct os_allocator
 
 
 INLINE
-void initialize(os_allocator *allocator, void *memory = NULL, usize size = 0)
+void initialize(page_allocator *allocator, void *memory = NULL, usize size = 0)
 {
     // @note: Ignore arguments, they're here just to comply to the allocator interface
     allocator->blocks = NULL;
@@ -38,17 +61,17 @@ void initialize(os_allocator *allocator, void *memory = NULL, usize size = 0)
 
 
 INLINE
-void *allocate_(os_allocator *allocator, usize requested_size, usize alignment)
+void *allocate_(page_allocator *allocator, usize requested_size, usize alignment)
 {
-    STATIC_ASSERT(alignof(os_allocator::memory_block) == 8);
+    STATIC_ASSERT(alignof(page_allocator::memory_block) == 8);
 
     void *result = NULL;
-    auto memory = (byte *) allocate_pages(sizeof(os_allocator::memory_block) + requested_size);
+    auto memory = (byte *) allocate_pages(sizeof(page_allocator::memory_block) + requested_size);
 
     if (memory)
     {
-        auto new_block = (os_allocator::memory_block *) memory;
-        new_block->memory = memory + sizeof(os_allocator::memory_block);
+        auto new_block = (page_allocator::memory_block *) memory;
+        new_block->memory = memory + sizeof(page_allocator::memory_block);
         new_block->size = requested_size;
         new_block->next_block = allocator->blocks;
         allocator->blocks = new_block;
@@ -61,10 +84,10 @@ void *allocate_(os_allocator *allocator, usize requested_size, usize alignment)
 
 
 INLINE
-void free(os_allocator *allocator, void *memory_to_free, usize size)
+void free(page_allocator *allocator, void *memory_to_free, usize size)
 {
-    os_allocator::memory_block *previous_block = NULL;
-    for (os_allocator::memory_block *block = allocator->blocks;
+    page_allocator::memory_block *previous_block = NULL;
+    for (page_allocator::memory_block *block = allocator->blocks;
          block;
          block = block->next_block)
     {
@@ -127,8 +150,94 @@ void* allocate_(arena_allocator *allocator, usize requested_size, usize alignmen
     return result;
 }
 
+INLINE
+void free(arena_allocator *allocator, void *memory_to_free) {}
 
-struct heap_allocator {
+
+template <typename A>
+struct freelist_allocator
+{
+    A nested_allocator;
+    struct free_memory_chunk
+    {
+        byte *memory;
+        free_memory_chunk *next_chunk;
+    };
+};
+
+
+template <typename A>
+void initialize(freelist_allocator<A> *allocator)
+{
+    initialize(allocator->nested_allocator);
+}
+
+template <typename A>
+void reset(freelist_allocator<A> *allocator)
+{
+    reset(allocator->nested_allocator);
+}
+
+template <typename A>
+void *allocate_(freelist_allocator<A> *allocator, usize requested_size, usize alignment)
+{
+
+}
+
+template <typename A>
+void free(freelist_allocator<A> *allocator, void *memory_to_free);
+
+
+template <usize CHUNK_SIZE>
+struct pool_allocator
+{
+    byte *memory;
+    usize size; // bytes
+    usize used; // bytes
+
+    struct free_memory_chunk
+    {
+        byte *memory;
+        free_memory_chunk *next_chunk;
+    };
+
+    byte *free_memory;
+    free_memory_chunk *free_chunk;
+};
+
+
+template <usize CHUNK_SIZE>
+void initialize(pool_allocator<CHUNK_SIZE> *allocator, void *memory, usize size)
+{
+    allocator->memory = memory;
+    allocator->free_memory = memory;
+    allocator->size = size;
+    allocator->used = 0;
+    allocator->free_block = NULL;
+}
+
+template <usize CHUNK_SIZE>
+void reset(pool_allocator<CHUNK_SIZE> *allocator)
+{
+    allocator->used = 0;
+    allocator->free_block = NULL;
+}
+
+template <usize CHUNK_SIZE>
+void *allocate_(pool_allocator<CHUNK_SIZE> *allocator, usize requested_size, usize alignment)
+{
+
+}
+
+template <usize BLOCK_SIZE>
+void free(pool_allocator<BLOCK_SIZE> *allocator, void *memory_to_free)
+{
+
+}
+
+
+struct heap_allocator
+{
     void *memory;
     usize size; // bytes
     usize used; // bytes

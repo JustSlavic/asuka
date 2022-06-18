@@ -19,7 +19,7 @@ namespace Asuka {
     this coordinates are.
 
        ┌─────────┐
-       │  *─→x   │
+       │  o─→x   │
        │  ↓y     │
        │         │
        └─────────┘

@@ -36,17 +36,50 @@
 #include <dsound.h>
 
 
-#define DRAW_DEBUG_SOUND_CURSORS (0 && ASUKA_DEBUG)
-#define DEBUG_WINDOW_ON_TOP (0 && ASUKA_DEBUG)
+#define DRAW_DEBUG_SOUND_CURSORS (ASUKA_DEBUG && 0)
+#define DEBUG_WINDOW_ON_TOP (ASUKA_DEBUG && 0)
 
 
 namespace Platform {
 
 
+struct Thread
+{
+    DWORD  Id;
+    HANDLE Handle;
+};
+
+
+INLINE
+Thread CreateThread(DWORD (*Function)(LPVOID))
+{
+    Thread Result = {};
+    Result.Handle = ::CreateThread(
+        NULL,             // ThreadAttributes
+        0,                // StackSize
+        Function,         // StartAddress
+        NULL,             // Parameter
+        0,                // CreationFlags
+        &Result.Id);      // pThreadId
+
+    return Result;
+}
+
+
+INLINE
+void JoinThread(Thread ChildThread, DWORD Milliseconds = INFINITE)
+{
+    WaitForSingleObject(ChildThread.Handle, Milliseconds);
+    CloseHandle(ChildThread.Handle);
+}
+
+
 struct GameDLL
 {
     HMODULE GameDLL;
-    Game_UpdateAndRenderT* UpdateAndRender;
+    Game_UpdateAndRenderT *UpdateAndRender;
+    Game_OutputSoundT *OutputSound;
+
     FILETIME Timestamp;
 
     b32 IsValid;

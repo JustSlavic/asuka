@@ -105,9 +105,10 @@ Platform::GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath
         Result.GameDLL = LoadLibraryA(TempDllPath);
 
         if (Result.GameDLL) {
-            Result.UpdateAndRender = (Game_UpdateAndRenderT*)GetProcAddress(Result.GameDLL, "Game_UpdateAndRender");
+            Result.UpdateAndRender = (Game_UpdateAndRenderT *)GetProcAddress(Result.GameDLL, "Game_UpdateAndRender");
+            Result.OutputSound = (Game_OutputSoundT *) GetProcAddress(Result.GameDLL, "Game_OutputSound");
 
-            Result.IsValid = (Result.UpdateAndRender != NULL);
+            Result.IsValid = (Result.UpdateAndRender != NULL) && (Result.OutputSound != NULL);
         }
     }
 
@@ -116,6 +117,7 @@ Platform::GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath
     Win32_GameDLL Result {};
     Result.IsValid = true;
     Result.UpdateAndRender = Game_UpdateAndRender;
+    Result.OutputSound = Game_OutputSound;
 
     return Result;
 #endif
@@ -485,7 +487,7 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
 }
 
 
-void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput* KeyboardController, Game::MouseState* Mouse)
+void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller, Game::KeyboardState *Keyboard, Game::MouseState *Mouse)
 {
     MSG Message;
     while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
@@ -598,49 +600,125 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput* KeyboardCo
                 b32 IsDown  = (Message.lParam & (1 << 31)) == 0;
 
                 if (WasDown != IsDown) {
-                    if (VKCode == VK_ESCAPE) {
-                        Running = false;
-                        Win32_ProcessKeyEvent(&KeyboardController->Back, IsDown);
-                    } else if (VKCode == VK_SPACE) {
-                        Win32_ProcessKeyEvent(&KeyboardController->Start, IsDown);
-                    } else if (VKCode == 'W') {
-                        if (IsDown) {
-                            KeyboardController->LeftStickEnded.y = Asuka::clamp(KeyboardController->LeftStickEnded.y + 1, -1, 1);
-                        } else {
-                            KeyboardController->LeftStickEnded.y = Asuka::clamp(KeyboardController->LeftStickEnded.y - 1, -1, 1);
+                    switch (VKCode)
+                    {
+                        case VK_ESCAPE:
+                        {
+                            Running = false;
+                            Win32_ProcessKeyEvent(&Controller->Back, IsDown);
                         }
-                    } else if (VKCode == 'A') {
-                        if (IsDown) {
-                            KeyboardController->LeftStickEnded.x = Asuka::clamp(KeyboardController->LeftStickEnded.x - 1, -1, 1);
-                        } else {
-                            KeyboardController->LeftStickEnded.x = Asuka::clamp(KeyboardController->LeftStickEnded.x + 1, -1, 1);
+                        break;
+
+                        case VK_SPACE:
+                        {
+                            Win32_ProcessKeyEvent(&Controller->Start, IsDown);
                         }
-                    } else if (VKCode == 'S') {
-                        if (IsDown) {
-                            KeyboardController->LeftStickEnded.y = Asuka::clamp(KeyboardController->LeftStickEnded.y - 1, -1, 1);
-                        } else {
-                            KeyboardController->LeftStickEnded.y = Asuka::clamp(KeyboardController->LeftStickEnded.y + 1, -1, 1);
+                        break;
+
+                        case 'W':
+                        {
+                            if (IsDown) {
+                                Controller->LeftStickEnded.y = Asuka::clamp(Controller->LeftStickEnded.y + 1, -1, 1);
+                            } else {
+                                Controller->LeftStickEnded.y = Asuka::clamp(Controller->LeftStickEnded.y - 1, -1, 1);
+                            }
                         }
-                    } else if (VKCode == 'D') {
-                        if (IsDown) {
-                            KeyboardController->LeftStickEnded.x = Asuka::clamp(KeyboardController->LeftStickEnded.x + 1, -1, 1);
-                        } else {
-                            KeyboardController->LeftStickEnded.x = Asuka::clamp(KeyboardController->LeftStickEnded.x - 1, -1, 1);
+                        break;
+
+                        case 'A':
+                        {
+                            if (IsDown) {
+                                Controller->LeftStickEnded.x = Asuka::clamp(Controller->LeftStickEnded.x - 1, -1, 1);
+                            } else {
+                                Controller->LeftStickEnded.x = Asuka::clamp(Controller->LeftStickEnded.x + 1, -1, 1);
+                            }
                         }
-                    } else if (VKCode == 'Q') {
-                        Win32_ProcessKeyEvent(&KeyboardController->ShoulderLeft, IsDown);
-                    } else if (VKCode == 'E') {
-                        Win32_ProcessKeyEvent(&KeyboardController->ShoulderRight, IsDown);
-                    } else if (VKCode == VK_UP) {
-                        Win32_ProcessKeyEvent(&KeyboardController->Y, IsDown);
-                    } else if (VKCode == VK_DOWN) {
-                        Win32_ProcessKeyEvent(&KeyboardController->A, IsDown);
-                    } else if (VKCode == VK_LEFT) {
-                        Win32_ProcessKeyEvent(&KeyboardController->X, IsDown);
-                    } else if (VKCode == VK_RIGHT) {
-                        Win32_ProcessKeyEvent(&KeyboardController->B, IsDown);
+                        break;
+
+                        case 'S':
+                        {
+                            if (IsDown) {
+                                Controller->LeftStickEnded.y = Asuka::clamp(Controller->LeftStickEnded.y - 1, -1, 1);
+                            } else {
+                                Controller->LeftStickEnded.y = Asuka::clamp(Controller->LeftStickEnded.y + 1, -1, 1);
+                            }
+                        }
+                        break;
+
+                        case 'D':
+                        {
+                            if (IsDown) {
+                                Controller->LeftStickEnded.x = Asuka::clamp(Controller->LeftStickEnded.x + 1, -1, 1);
+                            } else {
+                                Controller->LeftStickEnded.x = Asuka::clamp(Controller->LeftStickEnded.x - 1, -1, 1);
+                            }
+                        }
+                        break;
+
+                        case 'Q':
+                        {
+                            Win32_ProcessKeyEvent(&Controller->ShoulderLeft, IsDown);
+                        }
+                        break;
+
+                        case 'E':
+                        {
+                            Win32_ProcessKeyEvent(&Controller->ShoulderRight, IsDown);
+                        }
+                        break;
+
+                        case VK_UP:
+                        {
+                            Win32_ProcessKeyEvent(&Controller->Y, IsDown);
+                        }
+                        break;
+
+                        case VK_DOWN:
+                        {
+                            Win32_ProcessKeyEvent(&Controller->A, IsDown);
+                        }
+                        break;
+
+                        case VK_LEFT:
+                        {
+                            Win32_ProcessKeyEvent(&Controller->X, IsDown);
+                        }
+                        break;
+
+                        case VK_RIGHT:
+                        {
+                            Win32_ProcessKeyEvent(&Controller->B, IsDown);
+                        }
+                        break;
+
+                        case VK_F1:
+                        {
+                            Win32_ProcessKeyEvent(&Keyboard->F1, IsDown);
+                            osOutputDebugString("F1 (IsDown='%s', HTC=%d)\n", IsDown ? "Down" : "Up", Keyboard->F1.HalfTransitionCount);
+                        }
+                        break;
+
+                        case VK_F2:
+                        {
+                            Win32_ProcessKeyEvent(&Keyboard->F2, IsDown);
+                        }
+                        break;
+
+                        case VK_F3:
+                        {
+                            Win32_ProcessKeyEvent(&Keyboard->F3, IsDown);
+                        }
+                        break;
+
+                        case VK_F4:
+                        {
+                            Win32_ProcessKeyEvent(&Keyboard->F4, IsDown);
+                        }
+                        break;
+                    }
+
 #if ASUKA_PLAYBACK_LOOP
-                    } else if (VKCode == 'L') {
+                    if (VKCode == 'L') {
                         if (IsDown == FALSE) {
                             if (Global_DebugInputRecording.PlaybackLoopState == Game::PLAYBACK_LOOP_IDLE) {
                                 Global_DebugInputRecording.RecordedInputsCount = 0;
@@ -652,7 +730,7 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput* KeyboardCo
                                 // Nullify keyboard controller such as nothing is pressed on stoping the playback loop
                                 // because if there's something left pressed, it will stay pressed although nothing is
                                 // pressed on the actual keyboard
-                                *KeyboardController = {};
+                                *Controller = {};
                                 Global_DebugInputRecording.PlaybackLoopState = Game::PLAYBACK_LOOP_IDLE;
                             }
                         }
@@ -669,7 +747,7 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput* KeyboardCo
                                 // Nullify keyboard controller such as nothing is pressed on stoping the playback loop
                                 // because if there's something left pressed, it will stay pressed although nothing is
                                 // pressed on the actual keyboard
-                                *KeyboardController = {};
+                                *Controller = {};
                                 Global_DebugInputRecording.PlaybackLoopState = Game::PLAYBACK_LOOP_IDLE;
                             }
                         }
@@ -712,44 +790,135 @@ Asuka::Vec2I Win32_GetMousePosition(HWND Window)
 
 #if DRAW_DEBUG_SOUND_CURSORS
 INTERNAL
-void Win32_DebugDrawVerticalMark(
-    Win32_OffscreenBuffer* ScreenBuffer,
-    int X,
-    int Top,
-    int Bottom,
+void Win32_DebugDrawRectangle(
+    Platform::OffscreenBuffer* ScreenBuffer,
+    Asuka::Vec2F MinCorner,
+    Asuka::Vec2F MaxCorner,
     u32 Color,
     bool Dotted = false)
 {
-    if (Bottom >= ScreenBuffer->Height) {
-        Bottom = ScreenBuffer->Height;
-    }
+    Asuka::Vec2I tl = Asuka::round_to_v2i(MinCorner);
+    Asuka::Vec2I br = Asuka::round_to_v2i(MaxCorner);
 
-    u8* Pixel = (u8*) ScreenBuffer->Memory
-                 + X*ScreenBuffer->BytesPerPixel
-                 + Top*ScreenBuffer->Pitch;
+    if (tl.x < 0) tl.x = 0;
+    if (tl.y < 0) tl.y = 0;
+    if (br.x > ScreenBuffer->Width)  br.x = ScreenBuffer->Width;
+    if (br.y > ScreenBuffer->Height) br.y = ScreenBuffer->Height;
 
-    if (Dotted) {
+    Asuka::Vec2I dimensions = br - tl;
+
+    u8* Row = (u8*)ScreenBuffer->Memory + tl.y*ScreenBuffer->Pitch + tl.x*ScreenBuffer->BytesPerPixel;
+
+    if (Dotted)
+    {
+        u8* Pixel = (u8*) ScreenBuffer->Memory
+                     + tl.x*ScreenBuffer->BytesPerPixel
+                     + tl.y*ScreenBuffer->Pitch;
         int DashHeight_InPixels = 4;
-        for (int Y = Top; Y < Bottom; Y += 2*DashHeight_InPixels) {
+        for (int Y = tl.y; Y < br.y; Y += 2*DashHeight_InPixels) {
             for (int DashY = 0; DashY < DashHeight_InPixels / 2; DashY++) {
                 *(u32*)Pixel = Color;
                 Pixel += ScreenBuffer->Pitch;
             }
             Pixel += ScreenBuffer->Pitch * (DashHeight_InPixels + DashHeight_InPixels / 2 + DashHeight_InPixels % 2);
         }
-    } else {
-        for (int Y = Top; Y < Bottom; Y++) {
-            *(u32*)Pixel = Color;
-            Pixel += ScreenBuffer->Pitch;
+    }
+    else
+    {
+        for (int y = 0; y < dimensions.y; y++) {
+            u32* Pixel = (u32*) Row;
+
+            for (int x = 0; x < dimensions.x; x++) {
+                *Pixel = Color;
+                Pixel++;
+            }
+
+            Row += ScreenBuffer->Pitch;
         }
+    }
+
+    // int Bottom = int(MaxCorner.y);
+    // int X = int(MinCorner.x);
+
+    // if (Bottom >= ScreenBuffer->Height) {
+    //     Bottom = ScreenBuffer->Height;
+    // }
+
+
+    // if (Dotted) {
+    // } else {
+    //     for (int Y = Top; Y < Bottom; Y++) {
+    //         *(u32*)Pixel = Color;
+    //         Pixel += ScreenBuffer->Pitch;
+    //     }
+    // }
+}
+
+
+INTERNAL
+Float32 Win32_DebugFourierSound(Game::SoundOutputBuffer *SoundBuffer, Float32 Frequency)
+{
+    Float32 IntegralValue = 0;
+
+    sound_sample_t *Sample = SoundBuffer->Samples;
+    for (Int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++)
+    {
+        IntegralValue += (Asuka::absolute(*Sample++) * 1.0f);
+        IntegralValue += (Asuka::absolute(*Sample++) * 1.0f);
+    }
+}
+
+
+INTERNAL
+void Win32_DebugDrawVolume(
+    Platform::OffscreenBuffer *ScreenBuffer,
+    Game::SoundOutputBuffer *SoundBuffer)
+{
+    Float32 VolumeL = 0;
+    Float32 VolumeR = 0;
+
+    sound_sample_t *Sample = SoundBuffer->Samples;
+    for (Int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++)
+    {
+        VolumeL += Asuka::absolute(*Sample++);
+        VolumeR += Asuka::absolute(*Sample++);
+    }
+
+    PERSIST Float32 VolumeL_[10] = {};
+    PERSIST Float32 VolumeR_[10] = {};
+    PERSIST Int32   VolumeIndex = 0;
+
+    VolumeL /= (SoundBuffer->SampleCount);
+    VolumeR /= (SoundBuffer->SampleCount);
+
+    VolumeL_[VolumeIndex] = VolumeL;
+    VolumeR_[VolumeIndex] = VolumeR;
+
+    VolumeIndex = (VolumeIndex + 1) % 10;
+
+    // Draw sound volume for left and right channels
+    {
+        Float32 L = 0;
+        Float32 R = 0;
+        for (Int32 i = 0; i < 10; i++)
+        {
+            L += VolumeL_[i];
+            R += VolumeR_[i];
+        }
+
+        L /= 1000;
+        R /= 1000;
+
+        Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(0, ScreenBuffer->Height - L), Asuka::V2(50, ScreenBuffer->Height), 0xFFFFFFFF);
+        Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(ScreenBuffer->Width - 50, ScreenBuffer->Height - R), Asuka::V2(ScreenBuffer->Width, ScreenBuffer->Height), 0xFFFFFFFF);
     }
 }
 
 INTERNAL
 void Win32_DebugSoundDisplay(
-    Win32_OffscreenBuffer* ScreenBuffer,
+    Platform::OffscreenBuffer* ScreenBuffer,
     Platform::SoundOutput* SoundOutput,
-    Win32_DebugSoundCursors* Cursors,
+    Platform::DebugSoundCursors* Cursors,
     u32  CursorCount,
     u32  CurrentCursorIndex,
     f32 SecondsPerFrame)
@@ -767,28 +936,29 @@ void Win32_DebugSoundDisplay(
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].PlayCursor);
             u32 Color = CursorIndex == CurrentCursorIndex ? 0xFFFF00FF : 0xFFFFFFFF;
-            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, Color, false);
+            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), Color, false);
         }
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].WriteCursor);
-            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, 0xFFFF0000, false);
+            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), 0xFFFF0000, false);
         }
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].OutputLocationStart);
-            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, 0xFF00FF00, false);
+            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), 0xFF00FF00, false);
         }
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].OutputLocationEnd);
-            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, 0xFF0000FF, false);
+            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), 0xFF0000FF, false);
         }
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].PageFlip);
-            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, 0xFFFFFF00, true);
+            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), 0xFFFFFF00, true);
         }
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].ExpectedNextPageFlip);
-            Win32_DebugDrawVerticalMark(ScreenBuffer, X, Top, Bottom, 0xFF00FFFF, true);
+            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), 0xFF00FFFF, true);
         }
+
     }
 }
 #endif // DRAW_DEBUG_SOUND_CURSORS
@@ -814,6 +984,17 @@ f32 my_sin(f32 x)
 {
     f32 result = x - x * x * x / 6 + x * x * x * x * x / 120 - x * x * x * x * x * x * x / 5040;
     return result;
+}
+
+
+DWORD ThreadTest(void *params)
+{
+    for (int i = 0; i < 10; i++)
+    {
+        osOutputDebugString("%d\n", i);
+    }
+
+    return 0;
 }
 
 
@@ -966,7 +1147,7 @@ int WINAPI WinMain(
 #endif // ASUKA_PLAYBACK_LOOP
 
 #if DRAW_DEBUG_SOUND_CURSORS
-    Win32_DebugSoundCursors Debug_Cursors[30] {};
+    Platform::DebugSoundCursors Debug_Cursors[30] {};
     u32 Debug_SoundCursorIndex = 0;
 #endif // DRAW_DEBUG_SOUND_CURSORS
 
@@ -974,6 +1155,15 @@ int WINAPI WinMain(
     int FrameCounter = 0;
 
     ThreadContext GameThread {};
+    ThreadContext SoundThread {};
+
+#if 0
+    Platform::Thread SoundThread_ = Platform::CreateThread(ThreadTest);
+    osOutputDebugString("ThreadId=%ld; ThreadHandle=%p\n", SoundThread_.Id, SoundThread_.Handle);
+    JoinThread(SoundThread_);
+
+    return 0;
+#endif
 
     Game::Input Input[2] {};
     Game::Input* OldInput = &Input[0];
@@ -1018,27 +1208,27 @@ int WINAPI WinMain(
 
         Game::ControllerInput* OldKeyboardController = &OldInput->KeyboardInput;
         Game::ControllerInput* NewKeyboardController = &NewInput->KeyboardInput;
-        NewInput->Mouse.PreviousPosition = NewInput->Mouse.Position;
-        NewInput->Mouse.Position = Win32_GetMousePosition(Window);
+        NewInput->mouse.previous_position = NewInput->mouse.position;
+        NewInput->mouse.position = Win32_GetMousePosition(Window);
 
+        NewInput->keyboard = OldInput->keyboard;
         *NewKeyboardController = *OldKeyboardController;
 
-        for (u32 ButtonIndex = 0; ButtonIndex < ARRAY_COUNT(NewInput->Mouse.Buttons); ButtonIndex++)
+        for (u32 ButtonIndex = 0; ButtonIndex < ARRAY_COUNT(NewInput->mouse.buttons); ButtonIndex++)
         {
-            NewInput->Mouse.Buttons[ButtonIndex].HalfTransitionCount = 0;
+            NewInput->mouse.buttons[ButtonIndex].HalfTransitionCount = 0;
         }
         for (u32 ButtonIndex = 0; ButtonIndex < ARRAY_COUNT(NewKeyboardController->Buttons); ButtonIndex++)
         {
             NewKeyboardController->Buttons[ButtonIndex].HalfTransitionCount = 0;
         }
+        for (u32 ButtonIndex = 0; ButtonIndex < ARRAY_COUNT(NewInput->keyboard.buttons); ButtonIndex++)
+        {
+            NewInput->keyboard.buttons[ButtonIndex].HalfTransitionCount = 0;
+        }
 
-        // Save EndedDown state between frames so that we could hold buttons
-        // for (u32 ButtonIndex = 0; ButtonIndex < ARRAY_COUNT(OldKeyboardController->Buttons); ButtonIndex++) {
-        //     NewKeyboardController->Buttons[ButtonIndex].EndedDown = OldKeyboardController->Buttons[ButtonIndex].EndedDown;
-        // }
-
-        Win32_ProcessPendingMessages(Window, NewKeyboardController, &NewInput->Mouse);
-        OldInput->Mouse = NewInput->Mouse;
+        Win32_ProcessPendingMessages(Window, NewKeyboardController, &NewInput->keyboard, &NewInput->mouse);
+        OldInput->mouse = NewInput->mouse;
 
         DWORD MaxControllerCount = XUSER_MAX_COUNT;
         if (MaxControllerCount > ARRAY_COUNT(Input[0].ControllerInputs)) {
@@ -1212,8 +1402,14 @@ int WINAPI WinMain(
         }
 #endif // ASUKA_PLAYBACK_LOOP
 
-        if (Game.UpdateAndRender) {
-            Game.UpdateAndRender(&GameThread, &GameMemory, NewInput, &ScreenBuffer, &SoundBuffer);
+        if (Game.UpdateAndRender)
+        {
+            Game.UpdateAndRender(&GameThread, &GameMemory, NewInput, &ScreenBuffer);
+        }
+
+        if (Game.OutputSound)
+        {
+            Game.OutputSound(&SoundThread, &GameMemory, &SoundBuffer);
         }
 
         Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
@@ -1231,9 +1427,9 @@ int WINAPI WinMain(
                 }
             }
 
-            while (SecondsElapsedForFrame < TargetSecondsPerFrame) {
-                SecondsElapsedForFrame = os::get_seconds(os::get_wall_clock() - LastClockTimepoint);
-            }
+            // while (SecondsElapsedForFrame < TargetSecondsPerFrame) {
+            //     SecondsElapsedForFrame = os::get_seconds(os::get_wall_clock() - LastClockTimepoint);
+            // }
 
             if (SecondsElapsedForFrame < TargetSecondsPerFrame) {
                 // @todo: Slept for good time!
@@ -1272,6 +1468,7 @@ int WINAPI WinMain(
                 ARRAY_COUNT(Debug_Cursors),
                 Debug_SoundCursorIndex,
                 TargetSecondsPerFrame);
+            Win32_DebugDrawVolume(&Global_BackBuffer, &SoundBuffer);
 
             Debug_SoundCursorIndex = (Debug_SoundCursorIndex + 1) % ARRAY_COUNT(Debug_Cursors);
         }
@@ -1290,13 +1487,12 @@ int WINAPI WinMain(
             f32 MilliSecondsElapsed = 1000.f * SecondsElapsedForFrame;
             f32 FPS = (f32)1.f / SecondsElapsedForFrame;
 
-            // osOutputDebugString("%f ms/f; FPS: %f\n", MilliSecondsElapsed, FPS);
+            memset(WindowText, 0, sizeof(WindowText));
+            // sprintf(WindowText, "MouseP (%d, %d)", NewInput->mouse.position.x, NewInput->mouse.position.y);
+            sprintf(WindowText, "%f ms/f; FPS: %f\n", MilliSecondsElapsed, FPS);
+
+            SetWindowText(Window, WindowText);
         }
-
-        memset(WindowText, 0, sizeof(WindowText));
-        sprintf(WindowText, "MouseP (%d, %d)", NewInput->Mouse.Position.x, NewInput->Mouse.Position.y);
-
-        SetWindowText(Window, WindowText);
 
         Game::Input* TmpInput = NewInput;
         NewInput = OldInput;

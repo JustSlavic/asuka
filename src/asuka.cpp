@@ -19,25 +19,6 @@ f32 uniform_real(f32 from, f32 to)
 
 
 INTERNAL
-void Game_OutputSound(SoundOutputBuffer *SoundBuffer, GameState* game_state) {
-    sound_sample_t* SampleOut = SoundBuffer->Samples;
-
-    for (i32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
-        u64 left_idx = (game_state->test_current_sound_cursor++) % game_state->test_wav_file.samples_count;
-        u64 right_idx = (game_state->test_current_sound_cursor++) % game_state->test_wav_file.samples_count;
-
-        sound_sample_t LeftSample =  game_state->test_wav_file.samples[left_idx];
-        sound_sample_t RightSample = game_state->test_wav_file.samples[right_idx];
-
-        f32 volume = 0.05f;
-
-        *SampleOut++ = (sound_sample_t)(LeftSample  * volume);
-        *SampleOut++ = (sound_sample_t)(RightSample * volume);
-    }
-}
-
-
-INTERNAL
 void DrawBitmap(
     OffscreenBuffer* buffer,
     f32 left, f32 top,
@@ -206,15 +187,7 @@ void draw_empty_rectangle_in_meters(OffscreenBuffer *buffer, Rectangle2 rect, u3
 
 
 INTERNAL
-UiScene *ui_allocate_scene(memory::arena_allocator *allocator)
-{
-    UiScene *result = allocate_struct(allocator, UiScene);
-    return result;
-}
-
-
-INTERNAL
-void ui_draw_element(OffscreenBuffer *buffer, UiScene *scene, UiElement *ui_element)
+void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buffer)
 {
     switch (ui_element->type)
     {
@@ -271,17 +244,17 @@ void ui_draw_element(OffscreenBuffer *buffer, UiScene *scene, UiElement *ui_elem
                     {
                         lt += V2(5.0f);
                         rb += V2(5.0f);
-                        color = Color32::Green;
+
+                        color = Color32{ 0.2f, 0.3f, 0.5f, 1.0f };
                     }
                     else
                     {
-                        color = Color32::Red;
+                        color = Color32{ 0.9f, 0.2f, 0.2f, 1.0f };
                     }
                 }
                 else
                 {
                 }
-
 
                 DrawRectangle(buffer, lt, rb, color.rgb);
             }
@@ -296,7 +269,7 @@ void ui_draw_element(OffscreenBuffer *buffer, UiScene *scene, UiElement *ui_elem
                 auto child = ui_element->group.children[child_index];
 
                 // @todo: pass transform matrix
-                ui_draw_element(buffer, scene, child);
+                ui_draw_element(scene, child, buffer);
             }
         }
         break;
@@ -307,10 +280,47 @@ void ui_draw_element(OffscreenBuffer *buffer, UiScene *scene, UiElement *ui_elem
 }
 
 
+#if UI_EDITOR_ENABLED
 INTERNAL
-void ui_draw(OffscreenBuffer *buffer, UiScene *scene)
+void ui_draw_editor(UiScene *scene, UiEditor *editor, OffscreenBuffer *buffer)
 {
-    ui_draw_element(buffer, scene, scene->root);
+    UiElement *selection = editor->selection;
+    if (selection)
+    {
+        switch (selection->type)
+        {
+            case UI_ELEMENT_SHAPE:
+            {
+                Rectangle2 aabb = get_bounding_box(selection);
+                Color24 color = { 3.0f / 255.0f, 215.0f / 255.0f, 252.0f / 255.0f };
+
+                f32 width = 2;
+                DrawRectangle(buffer, V2(aabb.min.x - width, aabb.min.y - width), V2(aabb.min.x, aabb.max.y + width), color);
+                DrawRectangle(buffer, V2(aabb.min.x, aabb.min.y - width), V2(aabb.max.x + width, aabb.min.y), color);
+                DrawRectangle(buffer, V2(aabb.max.x, aabb.min.y), V2(aabb.max.x + width, aabb.max.y), color);
+                DrawRectangle(buffer, V2(aabb.min.x, aabb.max.y), V2(aabb.max.x + width, aabb.max.y + width), color);
+
+            }
+            break;
+
+            case UI_ELEMENT_GROUP:
+            {
+
+            }
+            break;
+
+            default:
+                ASSERT_FAIL("You should process all UiElement types.");
+        }
+    }
+}
+#endif // UI_EDITOR_ENABLED
+
+
+INTERNAL
+void ui_draw_scene(UiScene *scene, OffscreenBuffer *buffer)
+{
+    ui_draw_element(scene, scene->root, buffer);
 }
 
 
@@ -543,6 +553,8 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
         destination.z = 0;
         velocity.z = 0;
     }
+
+    // @todo: restructure this code when you will implement more sofisticated collision code
 
     // ================= COLLISION DETECTION ====================== //
 
@@ -957,6 +969,11 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         // push_filter(hud_child_2, tint_2);
 
+#if UI_EDITOR_ENABLED
+        game_state->ui_editor = allocate_struct(ui_arena, UiEditor);
+        game_state->ui_editor_enabled = false;
+#endif // UI_EDITOR_ENABLED
+
         Memory->IsInitialized = true;
     }
 
@@ -965,6 +982,17 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     f32 pixels_per_meter = 60.f; // [pixels/m]
     f32 character_speed = 2.5f; // [m/s]
     f32 character_mass = 80.0f; // [kg]
+
+    // Engine Input
+
+    if (GetPressCount(Input->keyboard.F1))
+    {
+        TOGGLE(game_state->ui_editor_enabled);
+        STATIC int i = 0;
+        osOutputDebugString("i = %d\n", i++);
+    }
+
+    // Game Input
 
     for (InputIndex ControllerIndex { 0 }; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++)
     {
@@ -1023,8 +1051,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     SimRegion *sim_region = begin_simulation(game_state, &game_state->temp_arena,
         sim_center, sim_bounds);
-
-    // Game_OutputSound(SoundBuffer, game_state);
 
     // ===================== RENDERING ===================== //
 
@@ -1110,9 +1136,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                             SimEntity *sword = entity->sword.ptr;
                             if (sword)
                             {
-                                // @todo @fix @bug: Sword gets additional acceleration, even if player itself isn't moving,
-                                // but only controls suggest it would move forward. But actually, player might be stuck in
-                                // the geometry and its velocity is 0.
                                 make_entity_spatial(sword, entity->position, entity->velocity + request->sword_velocity * 4.0f);
                                 sword->position.z += 0.5f;
                                 // sword->distance_limit = 3.0f; // meters
@@ -1292,6 +1315,30 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     }
 #endif
 
+    // ===================== RENDERING UI ===================== //
+
+
+#if UI_EDITOR_ENABLED
+    if (game_state->ui_editor_enabled)
+    {
+        ui_update_editor(game_state->ui_editor, game_state->game_hud, Input);
+    }
+    else
+    {
+        ui_update_scene(game_state->game_hud, Input);
+    }
+    ui_draw_scene(game_state->game_hud, Buffer);
+    if (game_state->ui_editor_enabled)
+    {
+        ui_draw_editor(game_state->game_hud, game_state->ui_editor, Buffer);
+    }
+#else // UI_EDITOR_ENABLED
+    ui_update_scene(game_state->game_hud, Input);
+    ui_draw_scene(game_state->game_hud, Buffer);
+#endif // UI_EDITOR_ENABLED
+
+    // ======================================================== //
+
     // ===================== RENDERING SIGNALING BORDERS ===================== //
 
 #if ASUKA_PLAYBACK_LOOP
@@ -1319,11 +1366,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     if (BorderVisible) {
         DrawBorder(Buffer, BorderWidth, BorderColor);
     }
+    else if (game_state->ui_editor_enabled)
+    {
+        DrawBorder(Buffer, 2, color24(0, 0, 0));
+    }
+
 #endif // ASUKA_PLAYBACK_LOOP
 
-    ui_handle_input(game_state->game_hud, Input);
-    ui_draw(Buffer, game_state->game_hud);
-
+#if 0
     [](auto Buffer)
     {
         for (u32 i = 0; i < 100000; i++)
@@ -1345,7 +1395,39 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 // osOutputDebugString("(%d, %d)\n", PixelX, PixelY);
             }
         }
+    }(Buffer);
+#endif
+}
+
+
+namespace Game
+{
+
+INTERNAL
+void Game_OutputSound_(SoundOutputBuffer *SoundBuffer, GameState* game_state) {
+    sound_sample_t* SampleOut = SoundBuffer->Samples;
+
+    for (i32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
+        u64 left_idx = (game_state->test_current_sound_cursor++) % game_state->test_wav_file.samples_count;
+        u64 right_idx = (game_state->test_current_sound_cursor++) % game_state->test_wav_file.samples_count;
+
+        sound_sample_t LeftSample =  game_state->test_wav_file.samples[left_idx];
+        sound_sample_t RightSample = game_state->test_wav_file.samples[right_idx];
+
+        // f32 volume = 0.05f;
+        f32 volume = 0;
+
+        *SampleOut++ = (sound_sample_t)(LeftSample  * volume);
+        *SampleOut++ = (sound_sample_t)(RightSample * volume);
     }
-    // (Buffer)
-    ;
+}
+
+}
+
+
+// Game_OutputSound(ThreadContext *Thread, Game::Memory *Memory, Game::SoundOutputBuffer* SoundBuffer)
+GAME_OUTPUT_SOUND(Game_OutputSound)
+{
+    Game::GameState* game_state = (Game::GameState*)Memory->PermanentStorage;
+    Game_OutputSound_(SoundBuffer, game_state);
 }
