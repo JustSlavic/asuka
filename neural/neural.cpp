@@ -330,26 +330,26 @@ Asuka::byte_array load_mnist_db(char const *images_filename)
 
     Asuka::memory::byte *bytes = contents.data;
 
-    auto magic_number = change_endiannes(*((UInt32 *)bytes));
-    bytes += sizeof(UInt32);
+    auto magic_number = change_endiannes(*((u32 *)bytes));
+    bytes += sizeof(u32);
 
     if (magic_number != 0x00000803) {
         // @error: free memory, report error, exit function
         return contents;
     }
 
-    auto number_of_images = change_endiannes(*((Int32 *)bytes));
-    bytes += sizeof(Int32);
-    auto number_of_rows = change_endiannes(*((Int32 *) bytes));
-    bytes += sizeof(Int32);
-    auto number_of_columns = change_endiannes(*((Int32 *) bytes));
-    bytes += sizeof(Int32);
+    auto number_of_images = change_endiannes(*((i32 *)bytes));
+    bytes += sizeof(i32);
+    auto number_of_rows = change_endiannes(*((i32 *) bytes));
+    bytes += sizeof(i32);
+    auto number_of_columns = change_endiannes(*((i32 *) bytes));
+    bytes += sizeof(i32);
 
-    for (Int32 image_index = 0; image_index < number_of_images; image_index++)
+    for (i32 image_index = 0; image_index < number_of_images; image_index++)
     {
-        for (Int32 row = 0; row < number_of_rows; row++)
+        for (i32 row = 0; row < number_of_rows; row++)
         {
-            for (Int32 column = 0; column < number_of_columns; column++)
+            for (i32 column = 0; column < number_of_columns; column++)
             {
                 auto pixel = *bytes;
                 osOutputDebugString("%s", (pixel > (255 / 2)) ? "%" : " ");

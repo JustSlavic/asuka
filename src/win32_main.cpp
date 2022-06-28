@@ -105,6 +105,7 @@ Platform::GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath
         Result.GameDLL = LoadLibraryA(TempDllPath);
 
         if (Result.GameDLL) {
+            Result.InitializeMemory = (Game_InitializeMemoryT *)GetProcAddress(Result.GameDLL, "Game_InitializeMemory");
             Result.UpdateAndRender = (Game_UpdateAndRenderT *)GetProcAddress(Result.GameDLL, "Game_UpdateAndRender");
             Result.OutputSound = (Game_OutputSoundT *) GetProcAddress(Result.GameDLL, "Game_OutputSound");
 
@@ -987,7 +988,7 @@ f32 my_sin(f32 x)
 }
 
 
-DWORD ThreadTest(void *params)
+THREAD_FUNCTION(ThreadTest)
 {
     for (int i = 0; i < 10; i++)
     {
@@ -999,10 +1000,10 @@ DWORD ThreadTest(void *params)
 
 
 int WINAPI WinMain(
-    HINSTANCE hInstance,
-    HINSTANCE hPrevInstance,
-    LPSTR lpCmdLine,
-    int nCmdShow)
+    HINSTANCE Instance,
+    HINSTANCE PrevInstance,
+    LPSTR CmdLine,
+    int CmdShow)
 {
 #if 0
     u32 dct = GetDoubleClickTime();
@@ -1023,10 +1024,10 @@ int WINAPI WinMain(
 
     UINT DesiredSchedulerGranularityMS = 1; // ms
     MMRESULT TimeBeginPeriodResult = timeBeginPeriod(DesiredSchedulerGranularityMS); // Set this so that sleep granularity
-    b32 SleepIsGranular = TimeBeginPeriodResult == TIMERR_NOERROR;
+    bool SleepIsGranular = (TimeBeginPeriodResult == TIMERR_NOERROR);
 
     char ProgramPath [256] {};
-    DWORD ProgramPathSize = GetModuleFileNameA(hInstance, ProgramPath, 256);
+    DWORD ProgramPathSize = GetModuleFileNameA(Instance, ProgramPath, 256);
 
     DWORD IndexOfLastSlash = 0;
     for (DWORD CharIndex = 0; CharIndex < ProgramPathSize; CharIndex++) {
@@ -1038,7 +1039,7 @@ int WINAPI WinMain(
 
     const i32 ResolutionIndex = 1;
     STATIC_ASSERT_MSG(ResolutionIndex < ARRAY_COUNT(Global_ResolutionPresets), "Resolution Index is too high");
-    Asuka::v2i Resolution = Global_ResolutionPresets[ResolutionIndex];
+    Asuka::Vector2i Resolution = Global_ResolutionPresets[ResolutionIndex];
 
     Win32_LoadXInputFunctions();
     Win32_ResizeDIBSection(&Global_BackBuffer, Resolution[0], Resolution[1]);
@@ -1050,42 +1051,46 @@ int WINAPI WinMain(
     WNDCLASSA WindowClass{};
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = MainWindowCallback;
-    WindowClass.hInstance = hInstance;
+    WindowClass.hInstance = Instance;
     WindowClass.lpszClassName = "AsukaWindowClass";
     // HICON     hIcon;
     WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
 
-    // os::timepoint WallClockFrequency = os::get_wall_clock_frequency();
-
     ATOM ClassAtomResult = RegisterClassA(&WindowClass);
     if (!ClassAtomResult) {
-        // Handle error
+        Platform::ErrorPopup("Could not register window class");
+        return 1; // @todo: Should make up error codes for errors?
+    }
+
+    RECT WindowRectangle { 0, 0, Resolution[0], Resolution[1] };
+    if (!AdjustWindowRect(&WindowRectangle, WS_OVERLAPPEDWINDOW, false)) {
+        Platform::ErrorPopup("Could not adjust window rectangle for some reason");
         return 1;
     }
 
-    RECT client_rectangle { 0, 0, Resolution[0], Resolution[1] };
-    if (!AdjustWindowRect(&client_rectangle, WS_OVERLAPPEDWINDOW, false)) {
-        // @error: handle not correct window size ?
-        return 1;
-    }
+#if DEBUG_WINDOW_ON_TOP
+    DWORD WindowExStyle = WS_EX_TOPMOST | WS_EX_LAYERED;
+#else
+    DWORD WindowExStyle = 0;
+#endif
+    DWORD WindowStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE; // WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 
     HWND Window = CreateWindowExA(
-#if DEBUG_WINDOW_ON_TOP
-        WS_EX_TOPMOST | WS_EX_LAYERED,
-#else
-        0,
-#endif
-        WindowClass.lpszClassName,
-        "AsukaWindow",
-        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_VISIBLE, // WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-        CW_USEDEFAULT, // int X,
-        CW_USEDEFAULT, // int Y,
-        client_rectangle.right - client_rectangle.left, // CW_USEDEFAULT, // int nWidth,
-        client_rectangle.bottom - client_rectangle.top, // CW_USEDEFAULT, // int nHeight,
-        0, 0, hInstance, 0);
+        WindowExStyle,                    // ExStyle
+        WindowClass.lpszClassName,        // ClassName
+        "AsukaWindow",                    // WindowName
+        WindowStyle,                      // Style
+        CW_USEDEFAULT,                    // X,
+        CW_USEDEFAULT,                    // Y,
+        Platform::Width(WindowRectangle),           // Width
+        Platform::Height(WindowRectangle),          // Height
+        0,                                // WndParent
+        0,                                // Menu
+        Instance,                         // Instance
+        NULL);                            // Param
 
     if (!Window) {
-        // Handle error
+        Platform::ErrorPopup("Could not create window");
         return 1;
     }
 
@@ -1154,8 +1159,8 @@ int WINAPI WinMain(
     Running = true;
     int FrameCounter = 0;
 
-    ThreadContext GameThread {};
-    ThreadContext SoundThread {};
+    Thread GameThread {};
+    Thread SoundThread {};
 
 #if 0
     Platform::Thread SoundThread_ = Platform::CreateThread(ThreadTest);

@@ -59,7 +59,7 @@
 */
 
 
-struct ThreadContext
+struct Thread
 {
     u64 thread_id;
 };
@@ -69,7 +69,7 @@ struct ThreadContext
 // Services that the platform layer provides to the game.
 //
 
-// Include ThreadContext into Debug_PlatformReadEntireFile(),
+// Include Thread into Debug_PlatformReadEntireFile(),
 // Debug_PlatfromWriteEntireFile() and Debug_PlatformFreeFileMemory()
 
 //
@@ -411,13 +411,17 @@ StoredEntity *get_stored_entity(GameState *game_state, u32 index) {
 // 2. bitmap buffer to fill
 // 3. sound buffer to fill
 // 4. timing
-#define GAME_UPDATE_AND_RENDER(NAME) void NAME(ThreadContext* Thread, Game::Memory* Memory, Game::Input* Input, Game::OffscreenBuffer* Buffer)
+#define GAME_INITIALIZE_MEMORY(NAME) void NAME(Game::Memory *memory);
+typedef GAME_INITIALIZE_MEMORY(Game_InitializeMemoryT);
+
+#define GAME_UPDATE_AND_RENDER(NAME) void NAME(Thread *thread, Game::Memory *Memory, Game::Input *Input, Game::OffscreenBuffer *Buffer)
 typedef GAME_UPDATE_AND_RENDER(Game_UpdateAndRenderT);
 
-#define GAME_OUTPUT_SOUND(NAME) void NAME(ThreadContext *Thread, Game::Memory *Memory, Game::SoundOutputBuffer* SoundBuffer)
+#define GAME_OUTPUT_SOUND(NAME) void NAME(Thread *thread, Game::Memory *Memory, Game::SoundOutputBuffer* SoundBuffer)
 typedef GAME_OUTPUT_SOUND(Game_OutputSoundT);
 
 extern "C" {
+ASUKA_DLL_EXPORT GAME_INITIALIZE_MEMORY(Game_InitializeMemory);
 ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
 ASUKA_DLL_EXPORT GAME_OUTPUT_SOUND(Game_OutputSound);
 }
