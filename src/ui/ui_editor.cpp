@@ -7,6 +7,7 @@ namespace Asuka
 
 struct UiEditorUpdateResult
 {
+    UiElement *hovered_element;
     UiElement *ui_element_to_select;
     v2 dP;
 };
@@ -41,6 +42,7 @@ void ui_update_editor_impl(
 
             if (hover)
             {
+                result.hovered_element = ui_element;
                 if (GetPressCount(input->mouse.LMB) > 0)
                 {
                     result.ui_element_to_select = ui_element;
@@ -78,6 +80,8 @@ void ui_update_editor(UiEditor *editor, UiScene *scene, Game::Input *input)
 {
     UiEditorUpdateResult update_result = {};
     ui_update_editor_impl(editor, scene, scene->root, input, update_result);
+
+    editor->hovered_element = update_result.hovered_element;
 
     if (GetPressCount(input->mouse.LMB) > 0)
     {

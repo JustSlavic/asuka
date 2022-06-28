@@ -8,6 +8,7 @@ namespace Asuka {
 
 struct UiEditor
 {
+    UiElement *hovered_element;
     UiElement *selection;
 };
 

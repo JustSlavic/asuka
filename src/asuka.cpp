@@ -285,6 +285,36 @@ void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buf
 INTERNAL
 void ui_draw_editor(UiScene *scene, UiEditor *editor, OffscreenBuffer *buffer)
 {
+    UiElement *hovered = editor->hovered_element;
+    if (hovered)
+    {
+        switch (hovered->type)
+        {
+            case UI_ELEMENT_SHAPE:
+            {
+                Rectangle2 aabb = get_bounding_box(hovered);
+                Color24 color = { 215.0f / 255.0f, 215.0f / 255.0f, 215.0f / 255.0f };
+
+                f32 width = 2;
+                DrawRectangle(buffer, make_vector2(aabb.min.x - width, aabb.min.y - width), make_vector2(aabb.min.x, aabb.max.y + width), color);
+                DrawRectangle(buffer, make_vector2(aabb.min.x, aabb.min.y - width), make_vector2(aabb.max.x + width, aabb.min.y), color);
+                DrawRectangle(buffer, make_vector2(aabb.max.x, aabb.min.y), make_vector2(aabb.max.x + width, aabb.max.y), color);
+                DrawRectangle(buffer, make_vector2(aabb.min.x, aabb.max.y), make_vector2(aabb.max.x + width, aabb.max.y + width), color);
+
+            }
+            break;
+
+            case UI_ELEMENT_GROUP:
+            {
+
+            }
+            break;
+
+            default:
+                ASSERT_FAIL("You should process all UiElement types.");
+        }
+    }
+
     UiElement *selection = editor->selection;
     if (selection)
     {
