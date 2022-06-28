@@ -2,17 +2,47 @@
 #define ASUKA_COMMON_DEFINES_HPP
 
 /*
+    ANSI Graphics for schemes in comments:
 
-ASUKA_DEBUG=1 - compile with:
-    + with debug symbols
-    + with debug utilities
-    - without optimizations
+    ← ↑ → ↓
 
-ASUKA_PROFILING=1
-    + include profiling stuff
-    - without slow code except profiling utilities
+    ─ │ ┌┐┍┑┎┒┏┓
+    ━ ┃ └┘┕┙┖┚┗┛
+    ╌ ╎ ├┤┝┥┞┦┟┧ ┠┨┡┩┢┪┣┫
+    ╍ ╏ ┮┯┭┬ ┰┲┳┱
+    ┄ ┆ ┶┷┵┴ ┸┺┻┹
+    ┅ ┇ ╆╅  ╈┿╉ ┼┾╋
+    ┈ ┊ ╄╃  ╇┽╊ ╀╁╂
+    ┉ ┋
+    ═ ║ ╒╕ ╓╖ ╔╗
+    ╶ ╷ ╘╛ ╙╜ ╚╝
+    ╴ ╵ ╞╡ ╟╢ ╠╣
+    ╺ ╻ ╤ ╥ ╦
+    ╸ ╹ ╧ ╨ ╩ ╪ ╫ ╬
+    ╼ ╽ ╭╮
+    ╾ ╿ ╯╰  ╱╲ ╳
+
+▕
+▏
+▎
+▍
+▋
+▊
+▉
+█▇▆▅▄▃▂▁
+▁▂
+▔    ▄■▀
+▛▜▗▖
+▌▐▝▘
+▙▟ ▞▚
+░▒▓
+
+    ¢¥£®¤øØ×º°§¯¬¦|Ï·¨‗±«»
+    ¹²³ªƒßµ
+    ½¼¾
 
 */
+
 
 #ifdef _MSC_VER
 #define ASUKA_COMPILER_MICROSOFT

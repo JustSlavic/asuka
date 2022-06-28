@@ -321,18 +321,18 @@ void heap_allocator::initialize(void *memory_, usize size_) {
     usize aligned_size = size_ - size_ % alignment;
 
     {
-        //
-        // +------------+----------+------------------------------+-----------+------------+
-        // | terminator |  header  |            . . .             |  trailer  | terminator |
-        // +------------+----------+------------------------------+-----------+------------+
-        //       ↑            ↑                                         ↑            ↑
-        //       │            └──────────────────┐                      │            │
-        //       └───────────────────────────┐   │                      │            │
-        //     1) Set guard terminator to 0 ─┘   │                      │            │
-        //     2) Set size into header ──────────┘                      │            │
-        //            and into trailer ─────────────────────────────────┘            │
-        //     3) Set guard terminator to 0 ─────────────────────────────────────────┘
-        //
+        /*
+           ┌────────────┬──────────┬──────────────────────────────┬───────────┬────────────┐
+           │ terminator │  header  │            . . .             │  trailer  │ terminator │
+           └────────────┴──────────┴──────────────────────────────┴───────────┴────────────┘
+                 ↑            ↑                                         ↑            ↑
+                 │            └──────────────────┐                      │            │
+                 └───────────────────────────┐   │                      │            │
+               1) Set guard terminator to 0 ─┘   │                      │            │
+               2) Set size into header ──────────┘                      │            │
+                      and into trailer ─────────────────────────────────┘            │
+               3) Set guard terminator to 0 ─────────────────────────────────────────┘
+        */
 
         usize memory_block_size = aligned_size - 4*sizeof(heap_allocator::header);
 
@@ -378,9 +378,9 @@ void *heap_allocator::allocate(usize requested_size) {
 
             if (residual_size >= (2*sizeof(heap_allocator::header) + heap_allocator::MIN_BLOCK_SIZE)) {
                 //
-                //     --+--------+-------------+---------+--------+-------------+---------+--
-                //       | header |    . . .    | trailer | header |    . . .    | trailer |
-                //     --+--------+-------------+---------+--------+-------------+---------+--
+                //     ──┬────────┬─────────────┬─────────┬────────┬─────────────┬─────────┬──
+                //       │ header │    . . .    │ trailer │ header │    . . .    │ trailer │
+                //     ──┴────────┴─────────────┴─────────┴────────┴─────────────┴─────────┴──
                 //           ↑                       ↑         ↑                      ↑
                 //           └───────────────────┐   │         │                      │
                 //     1) Update size in header ─┘   │         │                      │
@@ -451,9 +451,9 @@ void heap_allocator::free(void *memory_to_free) {
     auto *next_header      = (heap_allocator::header *)  (bytes + current_size + sizeof(u64));
 
     //
-    //     --+---------+--------+----------
-    //       | trailer | header |    . . .
-    //     --+---------+--------+----------
+    //     ──┬─────────┬────────┬────────────
+    //       │ trailer │ header │    . . .
+    //     ──┴─────────┴────────┴────────────
     //            ↑
     //            └────┐
     // Ask if trailer ─┘ is zero, meaning that I reached the beginning of memory
@@ -472,9 +472,9 @@ void heap_allocator::free(void *memory_to_free) {
     }
 
     //
-    //   --------+---------+--------+--
-    //    . . .  | trailer | header |
-    //   --------+---------+--------+--
+    //   ────────┬─────────┬────────┬──
+    //    . . .  │ trailer │ header │
+    //   ────────┴─────────┴────────┴──
     //                          ↑
     //                ┌─────────┘
     // Ask if header ─┘ is zero, meaning that I reached the end of memory
