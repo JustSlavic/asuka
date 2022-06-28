@@ -26,12 +26,12 @@ void ui_update_editor_impl(
         {
             Rect2 aabb = get_bounding_box(ui_element);
 
-            Vec2F mouse_position = V2(input->mouse.position);
-            Vec2F mouse_prev_position = V2(input->mouse.previous_position);
-            intersection_result res1 = segment_segment_intersection(aabb.min, V2(aabb.max.x, aabb.min.y), mouse_prev_position, mouse_position);
-            intersection_result res2 = segment_segment_intersection(aabb.min, V2(aabb.min.x, aabb.max.y), mouse_prev_position, mouse_position);
-            intersection_result res3 = segment_segment_intersection(aabb.max, V2(aabb.max.x, aabb.min.y), mouse_prev_position, mouse_position);
-            intersection_result res4 = segment_segment_intersection(aabb.max, V2(aabb.min.x, aabb.max.y), mouse_prev_position, mouse_position);
+            Vec2F mouse_position = make_vector2(input->mouse.position);
+            Vec2F mouse_prev_position = make_vector2(input->mouse.previous_position);
+            intersection_result res1 = segment_segment_intersection(aabb.min, make_vector2(aabb.max.x, aabb.min.y), mouse_prev_position, mouse_position);
+            intersection_result res2 = segment_segment_intersection(aabb.min, make_vector2(aabb.min.x, aabb.max.y), mouse_prev_position, mouse_position);
+            intersection_result res3 = segment_segment_intersection(aabb.max, make_vector2(aabb.max.x, aabb.min.y), mouse_prev_position, mouse_position);
+            intersection_result res4 = segment_segment_intersection(aabb.max, make_vector2(aabb.min.x, aabb.max.y), mouse_prev_position, mouse_position);
 
             b32 hover = in_rectangle(aabb, mouse_position)
                      || res1.found == INTERSECTION_FOUND
@@ -48,7 +48,7 @@ void ui_update_editor_impl(
 
                 if (GetHoldCount(input->mouse.LMB) > 0)
                 {
-                    result.dP = V2(input->mouse.position - input->mouse.previous_position);
+                    result.dP = make_vector2(input->mouse.position - input->mouse.previous_position);
                 }
             }
         }

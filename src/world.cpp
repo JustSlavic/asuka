@@ -8,7 +8,7 @@ void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_m
     Asuka::memory::set(world, 0, sizeof(World));
 
     world->tile_side_in_meters = tile_side_in_meters;
-    world->chunk_dim = V3(chunk_side_in_meters, chunk_side_in_meters, chunk_side_in_meters);
+    world->chunk_dim = make_vector3(chunk_side_in_meters, chunk_side_in_meters, chunk_side_in_meters);
 }
 
 
@@ -104,8 +104,8 @@ Chunk *get_chunk(World *world, WorldPosition position, Asuka::memory::arena_allo
 
 v3 position_difference(World *world, WorldPosition p1, WorldPosition p2)
 {
-    v3 result = (hadamard(cast_to_v3(p1.chunk), world->chunk_dim) + p1.offset)
-        - (hadamard(cast_to_v3(p2.chunk), world->chunk_dim) + p2.offset);
+    v3 result = (hadamard(make_vector3(p1.chunk), world->chunk_dim) + p1.offset)
+        - (hadamard(make_vector3(p2.chunk), world->chunk_dim) + p2.offset);
 
     return result;
 }
@@ -332,10 +332,10 @@ WorldPosition canonicalize_position(WorldPosition p, Vec3F chunk_dim)
 {
     WorldPosition result = p;
 
-    Vec3I chunk_offset = round_to_v3i(hadamard_div(p.offset, chunk_dim));
+    Vec3I chunk_offset = round_to_vector3i(hadamard_div(p.offset, chunk_dim));
 
     result.chunk += chunk_offset;
-    result.offset -= hadamard(cast_to_v3(chunk_offset), chunk_dim);
+    result.offset -= hadamard(make_vector3(chunk_offset), chunk_dim);
 
     ASSERT(is_canonical(result.offset, chunk_dim));
     return result;

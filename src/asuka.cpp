@@ -26,11 +26,11 @@ void DrawBitmap(
     f32 c_alpha = 1.0f)
 {
     // @note: Top-down coordinate system.
-    Vec2I tl = round_to_v2i(V2(left, top));
-    Vec2I br = tl + round_to_v2i(V2(image->width, image->height));
+    Vector2i tl = round_to_v2i(make_vector2(left, top));
+    Vector2i br = tl + round_to_v2i(make_vector2(image->width, image->height));
 
-    Vec2I image_tl = V2I(0, 0);
-    Vec2I image_br = V2I(image->width, image->height);
+    Vector2i image_tl = make_vector2i(0, 0);
+    Vector2i image_br = make_vector2i(image->width, image->height);
 
     if (tl.x < 0) {
         image_tl.x = -tl.x;
@@ -47,10 +47,10 @@ void DrawBitmap(
         br.y = buffer->Height;
     }
 
-    Vec2I dimensions = br - tl;
-    Vec2I image_dims = image_br - image_tl;
+    Vector2i dimensions = br - tl;
+    Vector2i image_dims = image_br - image_tl;
 
-    Vec2I dims {
+    Vector2i dims {
         (dimensions.x < image_dims.x) ? dimensions.x : image_dims.x,
         (dimensions.y < image_dims.y) ? dimensions.y : image_dims.y,
     };
@@ -99,6 +99,7 @@ void DrawBitmap(
                 f32 back_b = ((*Pixel & 0xFF0000) >> 16) / 255.f;
                 f32 back_a = ((*Pixel & 0xFF000000) >> 24) / 255.f;
 
+                // @todo: it seems I messed up red and blue channels here
                 f32 new_r = (1.0f - a) * back_r + a * r;
                 f32 new_g = (1.0f - a) * back_g + a * g;
                 f32 new_b = (1.0f - a) * back_b + a * b;
@@ -125,15 +126,15 @@ void DrawRectangle(
     Color24 color,
     b32 stroke = false)
 {
-    Vec2I tl = round_to_v2i(top_left);
-    Vec2I br = round_to_v2i(bottom_right);
+    Vector2i tl = round_to_v2i(top_left);
+    Vector2i br = round_to_v2i(bottom_right);
 
     if (tl.x < 0) tl.x = 0;
     if (tl.y < 0) tl.y = 0;
     if (br.x > buffer->Width)  br.x = buffer->Width;
     if (br.y > buffer->Height) br.y = buffer->Height;
 
-    Vec2I dimensions = br - tl;
+    Vector2i dimensions = br - tl;
 
     u8* Row = (u8*)buffer->Memory + tl.y*buffer->Pitch + tl.x*buffer->BytesPerPixel;
 
@@ -158,10 +159,10 @@ void DrawRectangle(
 INTERNAL
 void DrawBorder(OffscreenBuffer* Buffer, u32 Width, Color24 Color)
 {
-    DrawRectangle(Buffer, V2(0, 0), V2(Buffer->Width, Width), Color);
-    DrawRectangle(Buffer, V2(0, Width), V2(Width, Buffer->Height - Width), Color);
-    DrawRectangle(Buffer, V2(Buffer->Width - Width, Width), V2(Buffer->Width, Buffer->Height - Width), Color);
-    DrawRectangle(Buffer, V2(0, Buffer->Height - Width), V2(Buffer->Width, Buffer->Height), Color);
+    DrawRectangle(Buffer, make_vector2(0, 0), make_vector2(Buffer->Width, Width), Color);
+    DrawRectangle(Buffer, make_vector2(0, Width), make_vector2(Width, Buffer->Height - Width), Color);
+    DrawRectangle(Buffer, make_vector2(Buffer->Width - Width, Width), make_vector2(Buffer->Width, Buffer->Height - Width), Color);
+    DrawRectangle(Buffer, make_vector2(0, Buffer->Height - Width), make_vector2(Buffer->Width, Buffer->Height), Color);
 }
 #endif
 
@@ -172,17 +173,17 @@ void draw_empty_rectangle_in_meters(OffscreenBuffer *buffer, Rectangle2 rect, u3
     f32 rect_width = get_width(rect);
     f32 rect_height = get_height(rect);
 
-    v2 screen_center_in_pixels = 0.5f * V2(buffer->Width, buffer->Height);
+    v2 screen_center_in_pixels = 0.5f * make_vector2(buffer->Width, buffer->Height);
 
     offset.y = -offset.y;
 
     v2 min_corner_in_pixels = screen_center_in_pixels - (get_center(rect) - rect.min - offset) * pixels_per_meter;
     v2 max_corner_in_pixels = screen_center_in_pixels + (rect.max - get_center(rect) + offset) * pixels_per_meter;
 
-    DrawRectangle(buffer, min_corner_in_pixels, V2(max_corner_in_pixels.x, min_corner_in_pixels.y + width), color);
-    DrawRectangle(buffer, V2(min_corner_in_pixels.x, min_corner_in_pixels.y + width), V2(min_corner_in_pixels.x + width, max_corner_in_pixels.y - width), color);
-    DrawRectangle(buffer, V2(max_corner_in_pixels.x - width, min_corner_in_pixels.y + width), V2(max_corner_in_pixels.x, max_corner_in_pixels.y - width), color);
-    DrawRectangle(buffer, V2(min_corner_in_pixels.x, max_corner_in_pixels.y - width), max_corner_in_pixels, color);
+    DrawRectangle(buffer, min_corner_in_pixels, make_vector2(max_corner_in_pixels.x, min_corner_in_pixels.y + width), color);
+    DrawRectangle(buffer, make_vector2(min_corner_in_pixels.x, min_corner_in_pixels.y + width), make_vector2(min_corner_in_pixels.x + width, max_corner_in_pixels.y - width), color);
+    DrawRectangle(buffer, make_vector2(max_corner_in_pixels.x - width, min_corner_in_pixels.y + width), make_vector2(max_corner_in_pixels.x, max_corner_in_pixels.y - width), color);
+    DrawRectangle(buffer, make_vector2(min_corner_in_pixels.x, max_corner_in_pixels.y - width), max_corner_in_pixels, color);
 }
 
 
@@ -218,7 +219,7 @@ void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buf
                         case UI_FILTER_SHADOW:
                         {
                             UiFilterShadow *shadow = &filter->shadow;
-                            DrawRectangle(buffer, lt + V2(shadow->distance), rb + V2(shadow->distance), Color24::Black);
+                            DrawRectangle(buffer, lt + make_vector2(shadow->distance), rb + make_vector2(shadow->distance), Color24::Black);
                         }
                         break;
 
@@ -242,8 +243,8 @@ void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buf
 
                     if (ui_element == scene->clicked_element)
                     {
-                        lt += V2(5.0f);
-                        rb += V2(5.0f);
+                        lt += make_vector2(5.0f);
+                        rb += make_vector2(5.0f);
 
                         color = Color32{ 0.2f, 0.3f, 0.5f, 1.0f };
                     }
@@ -295,10 +296,10 @@ void ui_draw_editor(UiScene *scene, UiEditor *editor, OffscreenBuffer *buffer)
                 Color24 color = { 3.0f / 255.0f, 215.0f / 255.0f, 252.0f / 255.0f };
 
                 f32 width = 2;
-                DrawRectangle(buffer, V2(aabb.min.x - width, aabb.min.y - width), V2(aabb.min.x, aabb.max.y + width), color);
-                DrawRectangle(buffer, V2(aabb.min.x, aabb.min.y - width), V2(aabb.max.x + width, aabb.min.y), color);
-                DrawRectangle(buffer, V2(aabb.max.x, aabb.min.y), V2(aabb.max.x + width, aabb.max.y), color);
-                DrawRectangle(buffer, V2(aabb.min.x, aabb.max.y), V2(aabb.max.x + width, aabb.max.y + width), color);
+                DrawRectangle(buffer, make_vector2(aabb.min.x - width, aabb.min.y - width), make_vector2(aabb.min.x, aabb.max.y + width), color);
+                DrawRectangle(buffer, make_vector2(aabb.min.x, aabb.min.y - width), make_vector2(aabb.max.x + width, aabb.min.y), color);
+                DrawRectangle(buffer, make_vector2(aabb.max.x, aabb.min.y), make_vector2(aabb.max.x + width, aabb.max.y), color);
+                DrawRectangle(buffer, make_vector2(aabb.min.x, aabb.max.y), make_vector2(aabb.max.x + width, aabb.max.y + width), color);
 
             }
             break;
@@ -333,7 +334,7 @@ void push_piece(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters,
     VisiblePiece *asset = group->assets + (group->count++);
     memory::set(asset, 0, sizeof(VisiblePiece));
 
-    asset->offset = V2(offset_in_meters.x, -(offset_in_meters.y + offset_in_meters.z)) * group->pixels_per_meter;
+    asset->offset = make_vector2(offset_in_meters.x, -(offset_in_meters.y + offset_in_meters.z)) * group->pixels_per_meter;
     asset->dimensions = dim_in_meters * group->pixels_per_meter;
     asset->bitmap = bitmap;
     asset->color = color;
@@ -350,7 +351,7 @@ void push_rectangle(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_met
 INTERNAL
 void push_asset(VisiblePieceGroup *group, Bitmap *bitmap, v3 offset_in_meters, f32 alpha = 1.0f)
 {
-    push_piece(group, offset_in_meters, V2(0, 0), bitmap, rgba(0, 0, 0, alpha));
+    push_piece(group, offset_in_meters, make_vector2(0, 0), bitmap, rgba(0, 0, 0, alpha));
 }
 
 
@@ -367,9 +368,9 @@ void draw_hitpoints(SimEntity *entity, VisiblePieceGroup *group)
         HealthPoint hp = entity->health[health_index];
 
         if (hp.fill > 0) {
-            push_rectangle(group, V3(offset_x, offset_y, 0), V2(health_width), rgba(0.0f, 1.0f, 0.0f, 1.0f));
+            push_rectangle(group, make_vector3(offset_x, offset_y, 0), make_vector2(health_width), rgba(0.0f, 1.0f, 0.0f, 1.0f));
         } else {
-            push_rectangle(group, V3(offset_x, offset_y, 0), V2(health_width), rgba(1.0f, 0.0f, 0.0f, 1.0f));
+            push_rectangle(group, make_vector3(offset_x, offset_y, 0), make_vector2(health_width), rgba(1.0f, 0.0f, 0.0f, 1.0f));
         }
 
         offset_x += health_spacing;
@@ -427,7 +428,7 @@ EntityResult add_sword(GameState *game_state)
     EntityResult result = add_entity(game_state);
 
     result.entity->sim.type = ENTITY_TYPE_SWORD;
-    result.entity->sim.hitbox = V3(0.4, 0.2, 0.2);
+    result.entity->sim.hitbox = make_vector3(0.4, 0.2, 0.2);
     set(&result.entity->sim, ENTITY_FLAG_NONSPATIAL);
 
     return result;
@@ -443,7 +444,7 @@ EntityResult add_player(GameState *game_state)
     set(&result.entity->sim, ENTITY_FLAG_COLLIDABLE);
 
     // @todo: fix coordinates for hitbox
-    result.entity->sim.hitbox = V3(0.8, 0.2, 1.0); // In top-down coordinates, but in meters.
+    result.entity->sim.hitbox = make_vector3(0.8, 0.2, 1.0); // In top-down coordinates, but in meters.
 
     EntityResult sword_ = add_sword(game_state);
     result.entity->sim.sword.index = sword_.index;
@@ -462,7 +463,7 @@ EntityResult add_familiar(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 c
     EntityResult result = add_entity(game_state, position);
     result.entity->sim.type = ENTITY_TYPE_FAMILIAR;
     // @todo: fix coordinates for hitbox
-    result.entity->sim.hitbox = V3(0.8, 0.2, 0.2);
+    result.entity->sim.hitbox = make_vector3(0.8, 0.2, 0.2);
     set(&result.entity->sim, ENTITY_FLAG_COLLIDABLE);
 
     return result;
@@ -477,7 +478,7 @@ EntityResult add_monster(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 ch
     EntityResult result = add_entity(game_state, position);
     result.entity->sim.type = ENTITY_TYPE_MONSTER;
     result.entity->world_position = position;
-    result.entity->sim.hitbox = V3(2.2, 2.2, 1.0);
+    result.entity->sim.hitbox = make_vector3(2.2, 2.2, 1.0);
     set(&result.entity->sim, ENTITY_FLAG_COLLIDABLE);
 
     init_hitpoints(result.entity, 7);
@@ -495,7 +496,7 @@ EntityResult add_wall(GameState *game_state, i32 chunk_x, i32 chunk_y, i32 chunk
     result.entity->sim.type = ENTITY_TYPE_WALL;
     result.entity->world_position = position;
     set(&result.entity->sim, ENTITY_FLAG_COLLIDABLE);
-    result.entity->sim.hitbox = V3(1.0, 0.4, 1.0);
+    result.entity->sim.hitbox = make_vector3(1.0, 0.4, 1.0);
 
     return result;
 }
@@ -606,7 +607,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
                 v2 w1 = vertices[(vertex_idx + 1) % ARRAY_COUNT(vertices)];
 
                 v2 wall = w1 - w0;
-                v2 normal = normalized(V2(-wall.y, wall.x));
+                v2 normal = normalized(make_vector2(-wall.y, wall.x));
 
                 if (dot(velocity.xy, normal) < 0)
                 {
@@ -904,10 +905,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
 
         // @note: Add a monster BEFORE calling set camera position so it could be brought to the high entity set before player appearing on the screen.
-        add_monster(game_state, 0, 0, 0, V3(2, 1, 0));
+        add_monster(game_state, 0, 0, 0, make_vector3(2, 1, 0));
         for (int i = 0; i < 1; i++) {
             f32 x = -5.0f + i * 1.0f;
-            add_familiar(game_state, 0, 0, 0, V3(x, 1, 0));
+            add_familiar(game_state, 0, 0, 0, make_vector3(x, 1, 0));
         }
 
         // ======================== UI =======================
@@ -918,9 +919,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         auto hud_child_1 = allocate_ui_shape(ui_arena);
         hud_child_1->type = UI_ELEMENT_SHAPE;
-        hud_child_1->scale = V2(1, 1);
-        hud_child_1->position = V2(50, 50);
-        hud_child_1->shape.size = V2(50, 50);
+        hud_child_1->scale = make_vector2(1, 1);
+        hud_child_1->position = make_vector2(50, 50);
+        hud_child_1->shape.size = make_vector2(50, 50);
         hud_child_1->shape.color = Color32::White;
         hud_child_1->shape.n = 1;
 
@@ -933,22 +934,22 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
 
         auto hud_child_2 = allocate_ui_group(ui_arena);
-        hud_child_2->scale = V2(20, 20);
+        hud_child_2->scale = make_vector2(20, 20);
         push_child(&game_state->game_hud->root->group, hud_child_2);
 
         auto hud_child_2_1 = allocate_ui_shape(ui_arena);
         hud_child_2_1->type = UI_ELEMENT_SHAPE;
-        hud_child_2_1->scale = V2(1, 1);
-        hud_child_2_1->position = V2(200, 10);
-        hud_child_2_1->shape.size = V2(25, 100);
+        hud_child_2_1->scale = make_vector2(1, 1);
+        hud_child_2_1->position = make_vector2(200, 10);
+        hud_child_2_1->shape.size = make_vector2(25, 100);
         hud_child_2_1->shape.color = color32(0.6, 0.3, 0.8);
         push_child(&hud_child_2->group, hud_child_2_1);
 
         auto hud_child_2_2 = allocate_ui_shape(ui_arena);
         hud_child_2_2->type = UI_ELEMENT_SHAPE;
-        hud_child_2_2->scale = V2(1, 1);
-        hud_child_2_2->position = V2(225, 110);
-        hud_child_2_2->shape.size = V2(25, 100);
+        hud_child_2_2->scale = make_vector2(1, 1);
+        hud_child_2_2->position = make_vector2(225, 110);
+        hud_child_2_2->shape.size = make_vector2(25, 100);
         hud_child_2_2->shape.color = color32(0.6, 0.3, 0.8);
         push_child(&hud_child_2->group, hud_child_2_2);
 
@@ -1017,19 +1018,19 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             v3 sword_speed {};
             if (GetPressCount(ControllerInput->X))
             {
-                sword_speed += V3(-1, 0, 0);
+                sword_speed += make_vector3(-1, 0, 0);
             }
             else if (GetPressCount(ControllerInput->Y))
             {
-                sword_speed += V3(0, 1, 0);
+                sword_speed += make_vector3(0, 1, 0);
             }
             else if (GetPressCount(ControllerInput->A))
             {
-                sword_speed += V3(0, -1, 0);
+                sword_speed += make_vector3(0, -1, 0);
             }
             else if (GetPressCount(ControllerInput->B))
             {
-                sword_speed += V3(1, 0, 0);
+                sword_speed += make_vector3(1, 0, 0);
             }
 
             f32 input_strength  = clamp(length(ControllerInput->LeftStickEnded), 0, 1);
@@ -1042,7 +1043,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
     }
 
-    Rectangle3 sim_bounds = rect3::from_min_max(V3(-10, -6, -5), V3(10, 6, 5)); // in meters
+    Rectangle3 sim_bounds = rect3::from_min_max(make_vector3(-10, -6, -5), make_vector3(10, 6, 5)); // in meters
 
     reset(&game_state->temp_arena);
 
@@ -1055,8 +1056,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     // ===================== RENDERING ===================== //
 
     // Render pink background to see pixels I didn't drew.
-    // DrawRectangle(Buffer, V2(0, 0), V2(Buffer->Width, Buffer->Height), rgb(1.f, 0.f, 1.f));
-    DrawRectangle(Buffer, V2(0, 0), V2(Buffer->Width, Buffer->Height), rgb(0.5, 0.5, 0.5));
+    // DrawRectangle(Buffer, make_vector2(0, 0), make_vector2(Buffer->Width, Buffer->Height), rgb(1.f, 0.f, 1.f));
+    DrawRectangle(Buffer, make_vector2(0, 0), make_vector2(Buffer->Width, Buffer->Height), rgb(0.5, 0.5, 0.5));
 
     // Background grass
     // DrawBitmap(Buffer, { 0, 0 }, { (f32)Buffer->Width, (f32)Buffer->Height }, &game_state->grass_texture);
@@ -1082,7 +1083,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     if (request->entity_index == entity->storage_index)
                     {
                         f32 acceleration_coefficient = 100.0f; // [m/s^2]
-                        v3 gravity = V3(0, 0, -9.8); // [m/s^2]
+                        v3 gravity = make_vector3(0, 0, -9.8); // [m/s^2]
 
                         // @note: accelerate the guy only if he's standing on the ground.
                         if (entity->position.z < EPSILON)
@@ -1095,13 +1096,13 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                             v2 friction_acceleration = -entity->velocity.xy * friction_coefficient * absolute(gravity.z);
 
                             spec.acceleration = acceleration_coefficient * request->player_acceleration_strength * request->player_acceleration_direction;
-                            spec.acceleration += V3(friction_acceleration, 0);
+                            spec.acceleration += make_vector3(friction_acceleration, 0);
                         }
 
                         if (request->player_jump)
                         {
                             // @bug @fix: Sometimes after hitting the ground strange jittering happens
-                            spec.acceleration.z += 100.0f;
+                            spec.acceleration.z += 200.0f;
                         }
 
                         spec.acceleration += gravity;
@@ -1146,10 +1147,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 }
 
                 auto *shadow_texture = &game_state->shadow_texture;
-                push_asset(&group, shadow_texture, V3(-0.5f, 0.85f, 0), 1.0f / (1.0f + entity->position.z));
+                push_asset(&group, shadow_texture, make_vector3(-0.5f, 0.85f, 0), 1.0f / (1.0f + entity->position.z));
 
                 auto *player_texture = &game_state->player_textures[entity->face_direction];
-                push_asset(&group, player_texture, V3(-0.4f, 1.0f, entity->position.z));
+                push_asset(&group, player_texture, make_vector3(-0.4f, 1.0f, entity->position.z));
 
                 draw_hitpoints(entity, &group);
 
@@ -1195,10 +1196,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 f32 h = 2.0f / (2.0f + a + t);
 
                 auto *shadow = &game_state->shadow_texture;
-                push_asset(&group, shadow, V3(-0.5f, 0.85f, 0), h);
+                push_asset(&group, shadow, make_vector3(-0.5f, 0.85f, 0), h);
 
                 auto *texture = &game_state->familiar_texture;
-                push_asset(&group, texture, V3(-0.5f, 0.8f, 0.2f / h));
+                push_asset(&group, texture, make_vector3(-0.5f, 0.8f, 0.2f / h));
             }
             break;
 
@@ -1208,9 +1209,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 auto *left_arm  = &game_state->monster_left_arm;
                 auto *right_arm = &game_state->monster_right_arm;
 
-                push_asset(&group, head, V3(-2.5f, 2.5f, 0));
-                push_asset(&group, left_arm, V3(-2.0f, 2.5f, 0));
-                push_asset(&group, right_arm, V3(-3.0f, 2.5f, 0));
+                push_asset(&group, head, make_vector3(-2.5f, 2.5f, 0));
+                push_asset(&group, left_arm, make_vector3(-2.0f, 2.5f, 0));
+                push_asset(&group, right_arm, make_vector3(-3.0f, 2.5f, 0));
 
                 draw_hitpoints(entity, &group);
             }
@@ -1219,14 +1220,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             case ENTITY_TYPE_WALL:
             {
                 auto *texture = &game_state->tree_texture;
-                push_asset(&group, texture, V3(-0.5f, 1.6f, 0));
+                push_asset(&group, texture, make_vector3(-0.5f, 1.6f, 0));
             }
             break;
 
             case ENTITY_TYPE_SWORD:
             {
                 // @note: swords fly linearly, with no acceleration
-                spec.acceleration = V3(0, 0, 0);
+                spec.acceleration = make_vector3(0, 0, 0);
 
                 if (entity->distance_limit < EPSILON)
                 {
@@ -1237,8 +1238,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 auto *shadow_texture = &game_state->shadow_texture;
 
                 // @todo: If I have to take into account position.z in here, therefore I should
-                push_asset(&group, shadow_texture, V3(-0.5, 0.85, 0), 1.0f / (1.0f + entity->position.z));
-                push_asset(&group, texture, V3(-0.4f, 0.2f, entity->position.z));
+                push_asset(&group, shadow_texture, make_vector3(-0.5, 0.85, 0), 1.0f / (1.0f + entity->position.z));
+                push_asset(&group, texture, make_vector3(-0.4f, 0.2f, entity->position.z));
             }
             break;
 
@@ -1262,8 +1263,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
 
         v2 entity_position_in_pixels =
-            0.5f * V2(Buffer->Width, Buffer->Height) +
-            V2(entity->position.x, -entity->position.y) * pixels_per_meter;
+            0.5f * make_vector2(Buffer->Width, Buffer->Height) +
+            make_vector2(entity->position.x, -entity->position.y) * pixels_per_meter;
 
         f32 x = entity_position_in_pixels.x;
         f32 y = entity_position_in_pixels.y;
@@ -1287,7 +1288,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             auto *asset = &group.assets[asset_index];
             ASSERT(asset);
 
-            v2 center = V2(x, y) + asset->offset;
+            v2 center = make_vector2(x, y) + asset->offset;
             if (asset->bitmap) {
                 DrawBitmap(Buffer, center.x, center.y, asset->bitmap, asset->color.a);
             } else {
@@ -1310,8 +1311,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // draw_empty_rectangle_in_meters(Buffer, sim_bounds, 2, rgb(1, 1, 0), pixels_per_meter);
 
         // @note: debug draw one meter square in the center fo the screen
-        // Rectangle2 debug_rect_to_draw = Rectangle2::from_center_dim(V2(0, 0), V2(1, 1));
-        // draw_empty_rectangle_in_meters(Buffer, debug_rect_to_draw, 2, rgb(0, 1, 0), V2(0, 0), pixels_per_meter);
+        // Rectangle2 debug_rect_to_draw = Rectangle2::from_center_dim(make_vector2(0, 0), make_vector2(1, 1));
+        // draw_empty_rectangle_in_meters(Buffer, debug_rect_to_draw, 2, rgb(0, 1, 0), make_vector2(0, 0), pixels_per_meter);
     }
 #endif
 

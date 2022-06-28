@@ -71,7 +71,7 @@ struct StoredEntity;
 void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_meters);
 WorldPosition null_position();
 WorldPosition world_origin();
-WorldPosition world_position(World *world, i32 chunk_x, i32 chunk_y, i32 chunk_z, v3 offset = V3(0, 0, 0));
+WorldPosition world_position(World *world, i32 chunk_x, i32 chunk_y, i32 chunk_z, v3 offset = make_vector3(0, 0, 0));
 v3 position_difference(World *world, WorldPosition p1, WorldPosition p2);
 void change_entity_location(World *world, u32 storage_index, StoredEntity *entity, WorldPosition *new_position, Asuka::memory::arena_allocator *arena);
 b32 is_canonical(World *world, WorldPosition p);

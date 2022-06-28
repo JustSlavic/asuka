@@ -24,8 +24,6 @@ namespace Asuka {
        │         │
        └─────────┘
 
-    ├ ┼ ┴ ┬ ┤ ← ↑ → ↓
-
     4.
 */
 
@@ -119,7 +117,7 @@ UiElement *allocate_ui_element(Allocator *allocator, UiElementType type)
 {
     auto ui_element = allocate_struct(allocator, UiElement);
     ui_element->type = type;
-    ui_element->scale = V2(1, 1);
+    ui_element->scale = make_vector2(1, 1);
 
     return ui_element;
 }
@@ -129,7 +127,7 @@ UiElement *allocate_ui_shape(Allocator *allocator)
 {
     auto ui_element = allocate_ui_element(allocator, UI_ELEMENT_SHAPE);
 
-    ui_element->shape.size = V2(100, 100);
+    ui_element->shape.size = make_vector2(100, 100);
     ui_element->shape.color = Color32::White;
     ui_element->shape.n = 1;
 
