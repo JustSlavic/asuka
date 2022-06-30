@@ -43,7 +43,7 @@ variables:
 
 contexts:
   main:
-    - include: things
+    - include: global-things
 
   unique-keywords:
     - match: \bbreak\b
@@ -165,7 +165,13 @@ contexts:
         # - match: (?=^\s*#\s*(elif|else|endif)\b)
         #   pop: true
         - include: block
-        - include: things
+        - include: local-things
+
+  function-declaration:
+    - match: '(?:[[:alpha:]_][[:alnum:]_²]*)\s*(?=\()'
+      scope: meta.function.c++ entity.name.function.c++
+    - match: '\b(operator\s+(:?\+|\-|\*|\/|\=\=|\!\=|\+\=|\-\=|\*\=|\/\=|\[\]))\s*(?=\()'
+      scope: meta.function-call.c++
 
   function-call:
     - match: '(?:[[:alpha:]_][[:alnum:]_²]*)\s*(?=\()'
@@ -269,6 +275,13 @@ contexts:
         - include: punctuation
         - include: operators
 
+  namespace:
+    - match: '\b(namespace)\s+({{identifier}})\s*(\{)'
+      captures:
+        1: keyword.control.c++
+        2: entity.name.namespace.c++
+        3: punctuation.section.block.begin.c
+
   using-namespace:
     - match: '\b(using)\s+(namespace)\b'
       captures:
@@ -320,7 +333,7 @@ contexts:
         - meta_scope: debug-preprocessor-body
         - include: line-continuation
         - include: preprocessor-line-ending
-        - include: things
+        - include: local-things
 
   line-continuation:
     - match: '(\\)$'
@@ -336,7 +349,26 @@ contexts:
     - match: '$'
       pop: true
 
-  things:
+  global-things:
+    - include: strings
+    - include: char
+    - include: comments
+    - include: numbers
+    - include: unique-keywords
+    - include: operators
+    - include: punctuation
+    - include: namespace
+    - include: block
+    - include: function-declaration
+    - include: asuka-types
+    - include: constants
+    - include: data-structures
+    - include: using-namespace
+    - include: using-alias
+    - include: preprocessor
+    - include: line-continuation
+
+  local-things:
     - include: strings
     - include: char
     - include: comments

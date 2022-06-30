@@ -67,7 +67,7 @@
         },
         {
             "name":       "String",
-            "scope":      "string, build-result.path",
+            "scope":      "string.quoted, build-result.path",
             "foreground": "var(string-green)"
         },
         {
@@ -102,7 +102,7 @@
         },
         {
             "name":       "Function name",
-            "scope":      "variable.function, meta.function-call",
+            "scope":      "variable.function, meta.function-call, meta.function, entity.name.function",
             "foreground": "#719DD7"
         },
         {
@@ -115,11 +115,11 @@
             "scope":      "keyword.operator, punctuation.definition.string",
             "foreground": "#709B9D"
         },
-        {
-            "name":       "Type",
-            "scope":      "storage",
-            "foreground": "var(blue)"
-        },
+        // {
+        //     "name":       "Type",
+        //     "scope":      "storage",
+        //     "foreground": "var(blue)"
+        // },
         // {
         //     "name":       "Asm",
         //     "scope":      "asuka.asm",
