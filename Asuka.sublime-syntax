@@ -171,7 +171,7 @@ contexts:
     - match: '(?:[[:alpha:]_][[:alnum:]_²]*)\s*(?=\()'
       scope: meta.function.c++ entity.name.function.c++
     - match: '\b(operator\s+(:?\+|\-|\*|\/|\=\=|\!\=|\+\=|\-\=|\*\=|\/\=|\[\]))\s*(?=\()'
-      scope: meta.function-call.c++
+      scope: meta.function.c++ entity.name.function.c++
 
   function-call:
     - match: '(?:[[:alpha:]_][[:alnum:]_²]*)\s*(?=\()'
@@ -305,23 +305,34 @@ contexts:
         2: entity.name.namespace.c++
 
   data-structures:
-    - match: '\bclass\b'
-      scope: keyword.declaration.class.c++
+    - match: '\b(class)\s*({{identifier}})'
+      captures:
+        1: keyword.declaration.class.c++
+        2: entity.name.class.c++
       push: data-structure-body
-    - match: '\bstruct\b'
-      scope: keyword.declaration.struct.type.c++
+    - match: '\b(struct)\s*({{identifier}})'
+      captures:
+        1: keyword.declaration.struct.type.c++
+        2: entity.name.struct.c++
       push: data-structure-body
-    - match: '\benum(\s+(class|struct))?\b'
-      scope: keyword.declaration.enum.type.c++
+    - match: '\b(enum(?:\s+(?:class|struct))?)\s*({{identifier}})'
+      captures:
+        1: keyword.declaration.enum.type.c++
+        2: entity.name.enum.c++
       push: data-structure-body
-    - match: '\bunion\b'
-      scope: keyword.declaration.union.type.c++
+    - match: '\b(union)\s*({{identifier}})'
+      captures:
+        1: keyword.declaration.union.type.c++
+        2: entity.name.union.c++
       push: data-structure-body
 
   data-structure-body:
-    - match: '{{identifier}}'
-      scope: entity.name.struct.c++
+    - match: ';'
+      scope: punctuation.terminator.c++
       pop: true
+    - match: '\{'
+      push:
+        - include: global-things
     - match: '(?=\S)'
       pop: true
 
