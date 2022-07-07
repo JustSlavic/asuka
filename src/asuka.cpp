@@ -759,8 +759,11 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // @note: reserve entity slot for the null entity
         game_state->entity_count  = 1;
 
+#if IN_CODE_TEXTURES
+#else
         game_state->test_wav_file = Asuka::load_wav_file("piano2.wav");
         game_state->test_current_sound_cursor = 0;
+#endif
 
         // load_entire_file("../resources/train-images.idx3-ubyte");
 
@@ -1236,6 +1239,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
             case ENTITY_TYPE_MONSTER:
             {
+                #if 0
                 auto *head = &game_state->monster_head;
                 auto *left_arm  = &game_state->monster_left_arm;
                 auto *right_arm = &game_state->monster_right_arm;
@@ -1245,6 +1249,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 push_asset(&group, right_arm, make_vector3(-3.0f, 2.5f, 0));
 
                 draw_hitpoints(entity, &group);
+                #endif
             }
             break;
 
@@ -1440,6 +1445,8 @@ namespace Game
 
 INTERNAL
 void Game_OutputSound_(SoundOutputBuffer *SoundBuffer, GameState* game_state) {
+#if IN_CODE_TEXTURES
+#else
     sound_sample_t* SampleOut = SoundBuffer->Samples;
 
     for (i32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++) {
@@ -1455,6 +1462,7 @@ void Game_OutputSound_(SoundOutputBuffer *SoundBuffer, GameState* game_state) {
         *SampleOut++ = (sound_sample_t)(LeftSample  * volume);
         *SampleOut++ = (sound_sample_t)(RightSample * volume);
     }
+#endif // IN_CODE_TEXTURES
 }
 
 }
