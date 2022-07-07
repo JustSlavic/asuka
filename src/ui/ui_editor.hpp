@@ -28,7 +28,8 @@ struct UiEditorActionMove
 
 struct UiEditorActionSelection
 {
-    UiElement *ui_element;
+    UiElement *from;
+    UiElement *to;
 };
 
 struct UiEditorAction
@@ -42,14 +43,32 @@ struct UiEditorAction
 };
 
 
+UiEditorAction ui_action(UiEditorActionType type)
+{
+    UiEditorAction action = {};
+    action.type = type;
+
+    return action;
+}
+
+
+UiEditorAction ui_action()
+{
+    UiEditorAction result = ui_action(UI_ACTION_NONE);
+    return result;
+}
+
+
 struct UiEditor
 {
     UiElement *hovered_element;
     UiElement *selection;
 
+    // @note: current_action is like a scratchpad where you
+    // record your action and then commit to history later.
+    UiEditorAction current_action;
     UiEditorAction history[32];
-    isize last_action_index;
-    isize current_action_index = -1;
+    isize action_end_index;
 
     UiElement *graveyard[32];
     usize graveyard_size;
@@ -57,26 +76,11 @@ struct UiEditor
 
 
 INLINE
-isize get_next_action_index(UiEditor *editor)
+UiEditorAction *get_action(UiEditor *editor, isize index)
 {
-    isize result = (editor->last_action_index + 1) % ARRAY_COUNT(editor->history);
-    return result;
-}
-
-
-INLINE
-UiEditorAction *get_next_action(UiEditor *editor)
-{
-    isize desired_index = get_next_action_index(editor);
-    UiEditorAction *result = editor->history + desired_index;
-    return result;
-}
-
-
-INLINE
-UiEditorAction *get_last_action(UiEditor *editor)
-{
-    UiEditorAction *result = editor->history + editor->last_action_index;
+    // Wrapping to the positive modulo
+    index = (index % ARRAY_COUNT(editor->history) + ARRAY_COUNT(editor->history)) % ARRAY_COUNT(editor->history);
+    UiEditorAction *result = editor->history + index;
     return result;
 }
 
@@ -84,23 +88,16 @@ UiEditorAction *get_last_action(UiEditor *editor)
 INLINE
 UiEditorAction *get_current_action(UiEditor *editor)
 {
-    UiEditorAction *result = NULL;
-
-    if (editor->current_action_index != -1)
-    {
-        ASSERT(editor->current_action_index < ARRAY_COUNT(editor->history));
-        result = editor->history + editor->current_action_index;
-    }
-
+    UiEditorAction *result = &editor->current_action;
     return result;
 }
 
+
 INLINE
-void commit_action(UiEditor *editor, UiEditorAction *action)
+UiEditorAction *get_last_action(UiEditor *editor)
 {
-    isize next_index = get_next_action_index(editor);
-    editor->last_action_index = next_index;
-    editor->current_action_index = -1;
+    UiEditorAction *result = get_action(editor, editor->action_end_index - 1);
+    return result;
 }
 
 

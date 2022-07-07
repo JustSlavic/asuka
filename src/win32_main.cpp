@@ -724,6 +724,12 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                         }
                         break;
 
+                        case VK_SHIFT:
+                        {
+                            Win32_ProcessKeyEvent(&Keyboard->Shift, IsDown);
+                        }
+                        break;
+
                         case VK_DELETE:
                         {
                             Win32_ProcessKeyEvent(&Keyboard->Delete, IsDown);

@@ -76,6 +76,76 @@ void ui_update_editor_impl(
 }
 
 
+INTERNAL
+void commit_action(UiEditor *editor, UiEditorAction action)
+{
+    ASSERT(action.type != UI_ACTION_NONE);
+
+    auto next = get_action(editor, editor->action_end_index);
+    editor->action_end_index += 1;
+    auto end = get_action(editor, editor->action_end_index);
+
+    *next = action;
+    *end  = ui_action();
+}
+
+
+INTERNAL
+void undo_action(UiEditor *editor)
+{
+    auto last_action = get_last_action(editor);
+    switch (last_action->type)
+    {
+        case UI_ACTION_MOVE:
+        {
+            last_action->move.ui_element->position = last_action->move.old_position;
+        }
+        break;
+
+        case UI_ACTION_SELECTION:
+        {
+            editor->selection = last_action->selection.from;
+        }
+        break;
+    }
+
+    if (last_action->type != UI_ACTION_NONE)
+    {
+        editor->action_end_index -= 1;
+    }
+
+    osOutputDebugString("Ctrl+Z => %lld\n", editor->action_end_index);
+}
+
+
+INTERNAL
+void redo_action(UiEditor *editor)
+{
+    auto next_action = get_action(editor, editor->action_end_index);
+    switch (next_action->type)
+    {
+        case UI_ACTION_MOVE:
+        {
+            next_action->move.ui_element->position = next_action->move.new_position;
+        }
+        break;
+
+        case UI_ACTION_SELECTION:
+        {
+            editor->selection = next_action->selection.to;
+        }
+        break;
+    }
+
+    if (next_action->type != UI_ACTION_NONE)
+    {
+        editor->action_end_index += 1;
+    }
+
+    osOutputDebugString("Ctrl+Shift+Z => %lld\n", editor->action_end_index);
+}
+
+
 void ui_update_editor(UiEditor *editor, UiScene *scene, Game::Input *input)
 {
     UiEditorUpdateResult update_result = {};
@@ -87,65 +157,52 @@ void ui_update_editor(UiEditor *editor, UiScene *scene, Game::Input *input)
     {
         if (editor->selection != update_result.ui_element_to_select)
         {
-            auto action = get_next_action(editor);
-            action->type = UI_ACTION_SELECTION;
-            action->selection.ui_element = editor->selection;
+            auto action = ui_action(UI_ACTION_SELECTION);
+            action.selection.from = editor->selection;
+            action.selection.to   = update_result.ui_element_to_select;
+
             commit_action(editor, action);
 
             editor->selection = update_result.ui_element_to_select;
-            osOutputDebugString("commit selection: %lld\n", editor->last_action_index);
+            osOutputDebugString("commit selection: %lld\n", editor->action_end_index - 1);
         }
     }
     if (editor->selection != NULL && length(update_result.dP) > 0.5f) // 0.5f is a deadzone
     {
-        if (editor->current_action_index == -1)
+        if (editor->current_action.type == UI_ACTION_NONE)
         {
-            auto action = get_next_action(editor);
+            auto action = get_current_action(editor);
             action->type = UI_ACTION_MOVE;
             action->move.ui_element   = editor->selection;
             action->move.old_position = editor->selection->position;
-
-            editor->current_action_index = editor->last_action_index;
         }
 
         editor->selection->position += update_result.dP;
     }
-    if (GetReleaseCount(input->mouse.LMB) > 0 && editor->current_action_index != -1)
+    if (GetReleaseCount(input->mouse.LMB) > 0 && editor->current_action.type != UI_ACTION_NONE)
     {
         auto action = get_current_action(editor);
-        if (action)
+        if (action && action->type == UI_ACTION_MOVE)
         {
             action->move.new_position = editor->selection->position;
-            commit_action(editor, action);
-            osOutputDebugString("commit move: %lld\n", editor->last_action_index);
+            commit_action(editor, *action);
+            *action = ui_action();
+            osOutputDebugString("commit move: %lld\n", editor->action_end_index - 1);
+        }
+        else
+        {
+            INVALID_CODE_PATH();
         }
     }
-    if (GetHoldCount(input->keyboard.Ctrl) > 0 && GetPressCount(input->keyboard.Z) > 0)
+    if (GetHoldCount(input->keyboard.Ctrl) > 0 && GetHoldCount(input->keyboard.Shift) > 0 && GetPressCount(input->keyboard.Z) > 0)
     {
-        auto last_action = get_last_action(editor);
-        switch (last_action->type)
-        {
-            case UI_ACTION_MOVE:
-            {
-                last_action->move.ui_element->position = last_action->move.old_position;
-            }
-            break;
-
-            case UI_ACTION_SELECTION:
-            {
-                editor->selection = last_action->selection.ui_element;
-            }
-            break;
-        }
-
-        editor->last_action_index -= 1;
-        if (editor->last_action_index < 0)
-        {
-            editor->last_action_index += ARRAY_COUNT(editor->history);
-        }
-
-        osOutputDebugString("Ctrl+Z => %lld\n", editor->last_action_index);
+        redo_action(editor);
+    }
+    else if (GetHoldCount(input->keyboard.Ctrl) > 0 && GetPressCount(input->keyboard.Z) > 0)
+    {
+        undo_action(editor);
     }
 }
+
 
 } // namespace Asuka

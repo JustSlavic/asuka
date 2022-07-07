@@ -158,6 +158,7 @@ struct KeyboardState
         struct
         {
             ButtonState Ctrl;
+            ButtonState Shift;
 
             ButtonState F1;
             ButtonState F2;
