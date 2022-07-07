@@ -426,7 +426,7 @@ EntityResult add_entity(GameState *game_state, WorldPosition position = null_pos
 
     ASSERT(result.entity);
 
-    Asuka::memory::set(result.entity, 0, sizeof(StoredEntity));
+    memory::set(result.entity, 0, sizeof(StoredEntity));
     result.entity->world_position = null_position();
     result.entity->sim.storage_index = result.index;
     result.entity->sim.distance_limit = INF;
@@ -1002,6 +1002,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
 #if UI_EDITOR_ENABLED
         game_state->ui_editor = allocate_struct(ui_arena, UiEditor);
+        game_state->ui_editor->current_action_index = -1;
         game_state->ui_editor_enabled = false;
 #endif // UI_EDITOR_ENABLED
 
@@ -1353,6 +1354,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     if (game_state->ui_editor_enabled)
     {
         ui_update_editor(game_state->ui_editor, game_state->game_hud, Input);
+
+        // @note: reset hovered element in the UI, so in editor it would not stuck in hovered state.
+        game_state->game_hud->hovered_element = NULL;
     }
     else
     {

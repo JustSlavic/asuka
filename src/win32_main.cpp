@@ -717,6 +717,18 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                             Win32_ProcessKeyEvent(&Keyboard->F4, IsDown);
                         }
                         break;
+
+                        case VK_CONTROL:
+                        {
+                            Win32_ProcessKeyEvent(&Keyboard->Ctrl, IsDown);
+                        }
+                        break;
+
+                        case VK_DELETE:
+                        {
+                            Win32_ProcessKeyEvent(&Keyboard->Delete, IsDown);
+                        }
+                        break;
                     }
 
 #if ASUKA_PLAYBACK_LOOP

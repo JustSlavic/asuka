@@ -154,9 +154,11 @@ struct KeyboardState
     {
         // @todo: Consider making key position in the array equal to VK_Keycode from Win32 API?
         // for easy access.
-        ButtonState buttons[12];
+        ButtonState buttons[15];
         struct
         {
+            ButtonState Ctrl;
+
             ButtonState F1;
             ButtonState F2;
             ButtonState F3;
@@ -169,6 +171,10 @@ struct KeyboardState
             ButtonState F10;
             ButtonState F11;
             ButtonState F12;
+
+            ButtonState Z;
+
+            ButtonState Delete;
         };
     };
 };

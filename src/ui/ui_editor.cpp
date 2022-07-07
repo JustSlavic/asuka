@@ -85,11 +85,66 @@ void ui_update_editor(UiEditor *editor, UiScene *scene, Game::Input *input)
 
     if (GetPressCount(input->mouse.LMB) > 0)
     {
-        editor->selection = update_result.ui_element_to_select;
+        if (editor->selection != update_result.ui_element_to_select)
+        {
+            auto action = get_next_action(editor);
+            action->type = UI_ACTION_SELECTION;
+            action->selection.ui_element = editor->selection;
+            commit_action(editor, action);
+
+            editor->selection = update_result.ui_element_to_select;
+            osOutputDebugString("commit selection: %lld\n", editor->last_action_index);
+        }
     }
-    if (editor->selection != NULL && length(update_result.dP) > 0.5f) // 0.1f is a deadzone
+    if (editor->selection != NULL && length(update_result.dP) > 0.5f) // 0.5f is a deadzone
     {
+        if (editor->current_action_index == -1)
+        {
+            auto action = get_next_action(editor);
+            action->type = UI_ACTION_MOVE;
+            action->move.ui_element   = editor->selection;
+            action->move.old_position = editor->selection->position;
+
+            editor->current_action_index = editor->last_action_index;
+        }
+
         editor->selection->position += update_result.dP;
+    }
+    if (GetReleaseCount(input->mouse.LMB) > 0 && editor->current_action_index != -1)
+    {
+        auto action = get_current_action(editor);
+        if (action)
+        {
+            action->move.new_position = editor->selection->position;
+            commit_action(editor, action);
+            osOutputDebugString("commit move: %lld\n", editor->last_action_index);
+        }
+    }
+    if (GetHoldCount(input->keyboard.Ctrl) > 0 && GetPressCount(input->keyboard.Z) > 0)
+    {
+        auto last_action = get_last_action(editor);
+        switch (last_action->type)
+        {
+            case UI_ACTION_MOVE:
+            {
+                last_action->move.ui_element->position = last_action->move.old_position;
+            }
+            break;
+
+            case UI_ACTION_SELECTION:
+            {
+                editor->selection = last_action->selection.ui_element;
+            }
+            break;
+        }
+
+        editor->last_action_index -= 1;
+        if (editor->last_action_index < 0)
+        {
+            editor->last_action_index += ARRAY_COUNT(editor->history);
+        }
+
+        osOutputDebugString("Ctrl+Z => %lld\n", editor->last_action_index);
     }
 }
 
