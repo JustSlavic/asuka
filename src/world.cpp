@@ -5,7 +5,7 @@ namespace Game {
 
 void initialize_world(World *world, f32 tile_side_in_meters, f32 chunk_side_in_meters)
 {
-    Asuka::memory::set(world, 0, sizeof(World));
+    memory::set(world, 0, sizeof(World));
 
     world->tile_side_in_meters = tile_side_in_meters;
     world->chunk_dim = make_vector3(chunk_side_in_meters, chunk_side_in_meters, chunk_side_in_meters);
@@ -48,7 +48,7 @@ b32 is_valid(WorldPosition p)
 
 
 INTERNAL INLINE
-Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, Asuka::memory::arena_allocator *arena = NULL)
+Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, memory::arena_allocator *arena = NULL)
 {
     // @todo: MAKE BETTER HASH FUNCTION!!!
     hash_t hash = chunk_x * 3 + chunk_y * 13 + chunk_z * 53;
@@ -95,7 +95,7 @@ Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, Asuka::mem
 
 
 INLINE INTERNAL
-Chunk *get_chunk(World *world, WorldPosition position, Asuka::memory::arena_allocator *arena = NULL)
+Chunk *get_chunk(World *world, WorldPosition position, memory::arena_allocator *arena = NULL)
 {
     Chunk *result = get_chunk(world, position.chunk.x, position.chunk.y, position.chunk.z, arena);
     return result;
@@ -119,7 +119,7 @@ b32 in_same_chunk(WorldPosition p1, WorldPosition p2)
 
 
 INTERNAL
-EntityBlock *add_entity_block_to_chunk(World *world, Chunk *chunk, Asuka::memory::arena_allocator *arena)
+EntityBlock *add_entity_block_to_chunk(World *world, Chunk *chunk, memory::arena_allocator *arena)
 {
     EntityBlock *block = chunk->entities;
 
@@ -145,7 +145,7 @@ EntityBlock *add_entity_block_to_chunk(World *world, Chunk *chunk, Asuka::memory
 
 
 INTERNAL
-void push_entity_into_chunk(World *world, Chunk *chunk, u32 low_index, Asuka::memory::arena_allocator *arena)
+void push_entity_into_chunk(World *world, Chunk *chunk, u32 low_index, memory::arena_allocator *arena)
 {
     EntityBlock *block = chunk->entities;
 
@@ -184,7 +184,7 @@ void remove_entity_from_chunk(World *world, Chunk *chunk, u32 storage_index)
 
                     first_block->next_block = world->next_free_block;
                     world->next_free_block = first_block;
-                    Asuka::memory::set(first_block, 0, sizeof(EntityBlock));
+                    memory::set(first_block, 0, sizeof(EntityBlock));
                 }
 
                 return;
@@ -241,7 +241,7 @@ void sanity_check(World *world, u32 storage_index, u32 expected)
 //
 // @note: if StoredEntity pointer is null, remove entity with this storage index from sparse storage.
 //
-void change_entity_location_internal(World *world, u32 index, StoredEntity *entity, WorldPosition *new_position, Asuka::memory::arena_allocator *arena)
+void change_entity_location_internal(World *world, u32 index, StoredEntity *entity, WorldPosition *new_position, memory::arena_allocator *arena)
 {
     if ((new_position && in_same_chunk(entity->world_position, *new_position)) ||
         (!new_position && !is_valid(entity->world_position)))
@@ -284,7 +284,7 @@ void change_entity_location_internal(World *world, u32 index, StoredEntity *enti
 }
 
 
-void change_entity_location(World *world, u32 storage_index, StoredEntity *entity, WorldPosition *new_position, Asuka::memory::arena_allocator *arena)
+void change_entity_location(World *world, u32 storage_index, StoredEntity *entity, WorldPosition *new_position, memory::arena_allocator *arena)
 {
     if (entity)
     {

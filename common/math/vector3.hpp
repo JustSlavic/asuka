@@ -122,6 +122,11 @@ using Vector3  = Internal::Vector3<f32>;
 using Vector3i = Internal::Vector3<i32>;
 using Vector3u = Internal::Vector3<u32>;
 
+using vector3  = Internal::Vector3<f32>;
+using vector3i = Internal::Vector3<i32>;
+using vector3u = Internal::Vector3<u32>;
+
+// @todo: remove typedefs below
 using Vec3F = Internal::Vector3<Float32>;
 using Vec3I = Internal::Vector3<Int32>;
 using Vec3U = Internal::Vector3<UInt32>;

@@ -1,3 +1,5 @@
+#include "sim_region.hpp"
+
 
 namespace Game {
 
@@ -25,7 +27,7 @@ SimEntity *add_entity_to_sim_region(SimRegion *sim_region)
     ASSERT(sim_region->entity_count < sim_region->entity_capacity);
 
     SimEntity *entity = sim_region->entities + sim_region->entity_count++;
-    Asuka::memory::set(entity, 0, sizeof(SimEntity));
+    memory::set(entity, 0, sizeof(SimEntity));
 
     return entity;
 }
@@ -127,7 +129,7 @@ SimEntity *get_entity_by_storage_index(GameState *game_state, SimRegion *sim_reg
 }
 
 
-SimRegion *begin_simulation(GameState *game_state, Asuka::memory::arena_allocator *sim_arena, WorldPosition sim_origin, Rectangle3 sim_bounds)
+SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_arena, WorldPosition sim_origin, Rectangle3 sim_bounds)
 {
     SimRegion *sim_region = allocate_struct(sim_arena, SimRegion);
     sim_region->world  = game_state->world;

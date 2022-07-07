@@ -1,7 +1,6 @@
 #pragma once
 
 
-namespace asuka {
 namespace type {
 
 template <typename LHS, typename RHS>
@@ -16,4 +15,3 @@ struct is_same<T, T> {
 };
 
 } // namespace type
-} // namespace asuka

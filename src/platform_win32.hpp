@@ -37,7 +37,7 @@
 
 
 #define DRAW_DEBUG_SOUND_CURSORS (ASUKA_DEBUG && 0)
-#define DEBUG_WINDOW_ON_TOP (ASUKA_DEBUG && 0)
+#define DEBUG_WINDOW_ON_TOP (ASUKA_DEBUG && 1)
 
 #define THREAD_FUNCTION(NAME) DWORD NAME(LPVOID Parameters)
 
@@ -79,28 +79,27 @@ void JoinThread(Thread ChildThread, DWORD Milliseconds = INFINITE)
 }
 
 
-struct MemoryBlock
+// I made these memory routines just to hide the Flag arguments from the main code.
+INLINE
+void *AllocateMemory(void *BaseAddress, usize Size)
 {
-    void *Memory;
-    usize Size;
-};
-
-
-MemoryBlock AllocateMemoryBlock(void *BaseAddress, usize Size)
-{
-    MemoryBlock Result = {};
-    Result.Memory = VirtualAlloc(BaseAddress, Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (Result.Memory) {
-        Result.Size = Size;
-    }
-
+    void *Result = VirtualAlloc(BaseAddress, Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    ASSERT_MSG(Result, "VirtualAlloc failed.");
     return Result;
 }
 
-
-void DeallocateMemoryBlock(MemoryBlock Block)
+INLINE
+void *AllocateMemory(usize Size)
 {
-    VirtualFree(Block.Memory, 0, MEM_RELEASE);
+    void *Result = AllocateMemory(NULL, Size);
+    return Result;
+}
+
+INLINE
+void FreeMemory(void *Memory)
+{
+    BOOL Success = VirtualFree(Memory, 0, MEM_RELEASE);
+    ASSERT_MSG(Success, "VirtualFree failed.");
 }
 
 

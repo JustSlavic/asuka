@@ -2,7 +2,6 @@
 
 #include <windows.h>
 
-namespace Asuka {
 namespace memory {
 namespace internal {
 
@@ -24,4 +23,3 @@ void free_pages(void* memory) {
 
 } // namespace internal
 } // namespace memory
-} // namespace Asuka

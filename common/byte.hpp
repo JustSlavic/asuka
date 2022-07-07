@@ -2,7 +2,6 @@
 
 #include <defines.hpp>
 
-namespace Asuka {
 namespace memory {
 
 
@@ -15,4 +14,3 @@ byte operator | (byte a, byte b) {
 
 
 } // namespace memory
-} // namespace Asuka

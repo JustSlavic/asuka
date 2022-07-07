@@ -36,76 +36,7 @@
 */
 
 
-namespace Asuka {
 namespace memory {
-
-
-struct page_allocator
-{
-    struct memory_block {
-        byte *memory;
-        usize size;
-        memory_block *next_block;
-    };
-
-    memory_block *blocks;
-};
-
-
-INLINE
-void initialize(page_allocator *allocator, void *memory = NULL, usize size = 0)
-{
-    // @note: Ignore arguments, they're here just to comply to the allocator interface
-    allocator->blocks = NULL;
-}
-
-
-INLINE
-void *allocate_(page_allocator *allocator, usize requested_size, usize alignment)
-{
-    STATIC_ASSERT(alignof(page_allocator::memory_block) == 8);
-
-    void *result = NULL;
-    auto memory = (byte *) allocate_pages(sizeof(page_allocator::memory_block) + requested_size);
-
-    if (memory)
-    {
-        auto new_block = (page_allocator::memory_block *) memory;
-        new_block->memory = memory + sizeof(page_allocator::memory_block);
-        new_block->size = requested_size;
-        new_block->next_block = allocator->blocks;
-        allocator->blocks = new_block;
-
-        result = new_block->memory;
-    }
-
-    return result;
-}
-
-
-INLINE
-void free(page_allocator *allocator, void *memory_to_free, usize size)
-{
-    page_allocator::memory_block *previous_block = NULL;
-    for (page_allocator::memory_block *block = allocator->blocks;
-         block;
-         block = block->next_block)
-    {
-        if (block->memory == memory_to_free)
-        {
-            free_pages(memory_to_free);
-
-            if (previous_block)
-            {
-                previous_block->next_block = block->next_block;
-            }
-
-            break;
-        }
-
-        previous_block = block;
-    }
-}
 
 
 struct arena_allocator {
@@ -513,7 +444,6 @@ void* allocate(Allocator *allocator, usize requested_size, usize alignment) {
 
 
 } // namespace memory
-} // namespace Asuka
 
 
 #endif // ASUKA_ALLOCATOR_HPP

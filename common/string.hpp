@@ -11,7 +11,7 @@
 // You should free in manually via your allocator.
 //
 
-namespace asuka {
+namespace Asuka {
 
 namespace cstring {
 
@@ -60,7 +60,7 @@ bool equals(char const *s1, char const *s2) {
 
 
 using byte_string = array<byte>;
-using string = array<char>;
+// using string = array<char>;
 // using utf8_string = bast_string<>; // @todo: utf8 string
 
 
@@ -141,6 +141,6 @@ string from_cstr(char *str) {
     return result;
 }
 
-} // namespace asuka
+} // namespace Asuka
 
 #endif // ASUKA_COMMON_STRING_HPP

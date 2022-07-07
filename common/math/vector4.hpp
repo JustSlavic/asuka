@@ -145,6 +145,7 @@ using vector4  = Internal::Vector4<f32>;
 using vector4i = Internal::Vector4<i32>;
 using vector4u = Internal::Vector4<u32>;
 
+// @todo: remove typedefs below
 using Vec4F = Vector4;
 using Vec4I = Vector4i;
 using Vec4U = Vector4u;

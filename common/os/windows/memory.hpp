@@ -1,6 +1,5 @@
 #pragma once
 
-namespace Asuka {
 namespace memory {
 namespace internal {
 
@@ -12,7 +11,6 @@ void  free_pages(void *memory, u64 size);
 
 } // namespace internal
 } // namespace memory
-} // namespace Asuka
 
 
 #if UNITY_BUILD

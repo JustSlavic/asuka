@@ -132,14 +132,15 @@ typedef signed long long   i64;
 
 #ifdef ASUKA_DEBUG
 #define ASSERT(COND)           if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
-#define ASSERT_MSG(COND, MSG)  if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
+#define ASSERT_MSG(COND, ...)  if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
 #else // ASUKA_DEBUG
 #define ASSERT(COND)           void(0)
-#define ASSERT_MSG(COND, MSG)  void(0)
+#define ASSERT_MSG(COND, ...)  void(0)
 #endif // ASUKA_DEBUG
 
-#define ASSERT_FAIL(MSG)        ASSERT_MSG(NULL, MSG)
-#define INVALID_CODE_PATH(...)  ASSERT_FAIL("Invalid code path")
+#define ASSERT_FAIL(...)        ASSERT_MSG(NULL, __VA_ARGS__)
+
+#define INVALID_CODE_PATH(...)  ASSERT_FAIL("%s:%d (%s) Invalid code path!", __FILE__, __LINE__, __FUNCTION__);
 
 #define STATIC_ASSERT(COND)           static_assert(COND, "")
 #define STATIC_ASSERT_MSG(COND, MSG)  static_assert(COND, MSG)
@@ -215,11 +216,12 @@ typedef signed long long   i64;
 typedef i16 sound_sample_t;
 typedef u64 hash_t;
 
-typedef u32  b32;
+typedef u32    b32;
 typedef size_t usize;
-typedef u64 uintptr;
-typedef i64  intptr;
-typedef i64  ptrdiff;
+typedef i64    isize;
+typedef u64    uintptr;
+typedef i64    intptr;
+typedef i64    ptrdiff;
 
 typedef float  f32;
 typedef double f64;

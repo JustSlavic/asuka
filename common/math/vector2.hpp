@@ -115,6 +115,7 @@ using vector2f = Vector2f;
 using vector2i = Vector2i;
 using vector2u = Vector2u;
 
+// @todo: remove typedefs below
 using Vec2F = Vector2;
 using Vec2I = Vector2i;
 using Vec2U = Vector2u;

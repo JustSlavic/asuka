@@ -7,10 +7,6 @@
 #include <platform_win32.hpp>
 
 
-namespace Platform {
-
-}
-
 GLOBAL bool Running;
 GLOBAL Platform::OffscreenBuffer Global_BackBuffer;
 GLOBAL LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
@@ -115,7 +111,7 @@ Platform::GameDLL Win32_LoadGameDLL(const char* DllPath, const char* TempDllPath
 
     return Result;
 #else
-    Win32_GameDLL Result {};
+    Platform::GameDLL Result {};
     Result.IsValid = true;
     Result.UpdateAndRender = Game_UpdateAndRender;
     Result.OutputSound = Game_OutputSound;
@@ -261,7 +257,7 @@ Platform::WindowDimensions Win32_GetWindowDimention(HWND Window) {
 INTERNAL
 void Win32_ResizeDIBSection(Platform::OffscreenBuffer* Buffer, LONG Width, LONG Height) {
     if (Buffer->Memory) {
-        VirtualFree(Buffer->Memory, 0, MEM_RELEASE);
+        Platform::FreeMemory(Buffer->Memory);
     }
 
     int BytesPerPixel = 4;
@@ -279,7 +275,7 @@ void Win32_ResizeDIBSection(Platform::OffscreenBuffer* Buffer, LONG Width, LONG 
     Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
     int BitmapMemorySize = (Buffer->Width * Buffer->Height)*BytesPerPixel;
-    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    Buffer->Memory = Platform::AllocateMemory(BitmapMemorySize);
 }
 
 
@@ -668,6 +664,12 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                         }
                         break;
 
+                        case 'Z':
+                        {
+                            Win32_ProcessKeyEvent(&Keyboard->Z, IsDown);
+                        }
+                        break;
+
                         case VK_UP:
                         {
                             Win32_ProcessKeyEvent(&Controller->Y, IsDown);
@@ -695,7 +697,6 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                         case VK_F1:
                         {
                             Win32_ProcessKeyEvent(&Keyboard->F1, IsDown);
-                            osOutputDebugString("F1 (IsDown='%s', HTC=%d)\n", IsDown ? "Down" : "Up", Keyboard->F1.HalfTransitionCount);
                         }
                         break;
 
@@ -1118,7 +1119,7 @@ int WINAPI WinMain(
     Win32_ClearSoundBuffer(&SoundOutput);
     Global_SecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
-    SoundOutput.Samples = (sound_sample_t*) VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    SoundOutput.Samples = (sound_sample_t*) Platform::AllocateMemory(SoundOutput.SecondaryBufferSize);
 
 #ifdef ASUKA_DEBUG
     LPVOID BaseAddress = (LPVOID)TERABYTES(1);
@@ -1131,7 +1132,7 @@ int WINAPI WinMain(
     GameMemory.TransientStorageSize = GIGABYTES(1);
 
     u64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
-    GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, (size_t)TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    GameMemory.PermanentStorage = Platform::AllocateMemory(BaseAddress, TotalSize);
     GameMemory.TransientStorage = (u8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
 
 #if ASUKA_PLAYBACK_LOOP
