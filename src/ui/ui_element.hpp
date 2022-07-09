@@ -115,7 +115,7 @@ struct UiElement
 template <typename Allocator>
 UiElement *allocate_ui_element(Allocator *allocator, UiElementType type)
 {
-    auto ui_element = allocate_struct(allocator, UiElement);
+    auto ui_element = memory::allocate_struct<UiElement>(allocator);
     ui_element->type = type;
     ui_element->scale = make_vector2(1, 1);
 

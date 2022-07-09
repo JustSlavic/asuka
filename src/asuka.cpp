@@ -812,7 +812,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         i32 chunk_side_in_tiles = 5;
         f32 chunk_side_in_meters = chunk_side_in_tiles * tile_side_in_meters;
 
-        World *world = allocate_struct(arena, World);
+        World *world = memory::allocate_struct<World>(arena);
         initialize_world(world, tile_side_in_meters, chunk_side_in_meters);
         game_state->world = world;
 
@@ -1004,8 +1004,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // push_filter(hud_child_2, tint_2);
 
 #if UI_EDITOR_ENABLED
-        game_state->ui_editor = allocate_struct(ui_arena, UiEditor);
-        game_state->ui_editor->current_action_index = -1;
+        game_state->ui_editor = memory::allocate_struct<UiEditor>(ui_arena);
         game_state->ui_editor_enabled = false;
 #endif // UI_EDITOR_ENABLED
 

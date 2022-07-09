@@ -72,7 +72,7 @@ Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, memory::ar
         {
             osOutputDebugString("Allocate Chunk at (%d, %d, %d)\n", chunk_x, chunk_y, chunk_z);
 
-            chunk->next_in_hashtable = allocate_struct(arena, Chunk);
+            chunk->next_in_hashtable = memory::allocate_struct<Chunk>(arena);
         }
 
         chunk = chunk->next_in_hashtable;
@@ -84,7 +84,7 @@ Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, memory::ar
         chunk->chunk_y = chunk_y;
         chunk->chunk_z = chunk_z;
 
-        chunk->entities = allocate_struct(arena, EntityBlock);
+        chunk->entities = memory::allocate_struct<EntityBlock>(arena);
 
         chunk->next_in_hashtable = 0;
     }
@@ -136,7 +136,7 @@ EntityBlock *add_entity_block_to_chunk(World *world, Chunk *chunk, memory::arena
     {
         osOutputDebugString("Allocated entity block from memory arena.\n");
 
-        chunk->entities = allocate_struct(arena, EntityBlock);
+        chunk->entities = memory::allocate_struct<EntityBlock>(arena);
     }
 
     chunk->entities->next_block = block;

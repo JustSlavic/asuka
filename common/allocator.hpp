@@ -424,14 +424,6 @@ void heap_allocator::free(void *memory_to_free) {
     }
 }
 
-
-#define allocate_struct_(ARENA, TYPE) (TYPE*)allocate_(ARENA, sizeof(TYPE), alignof(TYPE))
-#define allocate_struct(ARENA, TYPE) (TYPE*)allocate(ARENA, sizeof(TYPE), alignof(TYPE))
-
-#define allocate_array_(ARENA, TYPE, SIZE) (TYPE*)allocate_(ARENA, sizeof(TYPE)*SIZE, alignof(TYPE))
-#define allocate_array(ARENA, TYPE, SIZE) (TYPE*)allocate(ARENA, sizeof(TYPE)*SIZE, alignof(TYPE))
-
-
 template <typename Allocator>
 void* allocate(Allocator *allocator, usize requested_size, usize alignment) {
     void *result = allocate_(allocator, requested_size, alignment);
@@ -439,6 +431,38 @@ void* allocate(Allocator *allocator, usize requested_size, usize alignment) {
     {
         memory::set(result, 0, requested_size);
     }
+    return result;
+}
+
+
+template <typename T, typename Allocator>
+T *allocate_struct_(Allocator *allocator)
+{
+    T *result = (T *)allocate_(allocator, sizeof(T), alignof(T));
+    return result;
+}
+
+
+template <typename T, typename Allocator>
+T *allocate_struct(Allocator *allocator)
+{
+    T *result = (T *)allocate(allocator, sizeof(T), alignof(T));
+    return result;
+}
+
+
+template <typename T, typename Allocator>
+T *allocate_buffer_(Allocator *allocator, usize count)
+{
+    T *result = (T *)allocate_(allocator, sizeof(T) * count, alignof(T));
+    return result;
+}
+
+
+template <typename T, typename Allocator>
+T *allocate_buffer(Allocator *allocator, usize count)
+{
+    T *result = (T *)allocate(allocator, sizeof(T) * count, alignof(T));
     return result;
 }
 
