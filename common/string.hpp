@@ -64,26 +64,6 @@ using byte_string = array<byte>;
 // using utf8_string = bast_string<>; // @todo: utf8 string
 
 
-template <typename T>
-byte_string to_byte_string(array<T> s) {
-    byte_string result;
-    result.data = (byte *) s.data;
-    result.size = s.size * sizeof(T);
-
-    return result;
-}
-
-
-template <typename T>
-array<T> from_byte_string(byte_string s) {
-    array<T> result;
-    result.data = (T *) s.data;
-    result.size = s.size / sizeof(T);
-
-    return result;
-}
-
-
 b32 is_empty(string s) {
     return (s.data == 0) || (s.size == 0);
 }
@@ -129,7 +109,7 @@ void free_string(Allocator allocator, array<T> s) {
 
 
 // @note: Always be sure that c-string have null termination.
-string from_cstr(char *str) {
+string from_cstr(char const *str) {
     string result {};
 
     usize size = 0;

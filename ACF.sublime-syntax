@@ -1,0 +1,164 @@
+%YAML 1.2
+---
+name: Asuka Config File
+scope: source.acf
+
+file_extensions:
+  - acf
+
+variables:
+  bin_digit: '[01]'
+  oct_digit: '[0-7]'
+  dec_digit: '[\d]'
+  hex_digit: '[\h]'
+
+  dec_digits: '(?:\d(?:{{dec_digit}}*\d)?)'
+
+  # number exponents
+  dec_exponent: '(?:[eE][-+]?{{dec_digit}}*)'
+  hex_exponent: '(?:[pP][-+]?{{dec_digit}}*)'
+
+  identifier: '\b[[:alpha:]_][[:alnum:]_]*\b' # upper and lowercase
+  coroutine_keywords: 'co_(?:await|return|yield)'
+  non_func_keywords: 'if|for|switch|while|decltype|sizeof|__declspec|__attribute__|typeid|alignof|alignas|static_assert'
+
+contexts:
+  main:
+    - match: '\{'
+      scope: punctuation.section.block.begin.acf
+    - match: '\}'
+      scope: punctuation.section.block.end.acf
+    - match: '='
+      scope: keyword.operator.assignment
+    - include: punctuation
+    - include: constants
+    - include: numbers
+    - include: strings
+    - include: comments
+
+  constants:
+    - match: '(null|true|false)'
+      scope: keyword.acf
+
+  strings:
+    - match: '(L|u|U)?(")'
+      captures:
+        1: storage.type.string.c
+        2: punctuation.definition.string.begin.c
+      push:
+        - meta_scope: string.quoted.double.c
+        - include: string-escape-char
+        - match: '"'
+          scope: punctuation.definition.string.end.c
+          pop: true
+
+  string-escape-char:
+    - match: '(\\)$\n'
+      captures:
+        1: punctuation.separator.continuation.c
+    - match: \\(?:\\|[abefnrtv\'"?]|[0-3][0-9]{0,2}|[4-7][0-9]?|x[a-fA-F0-9]+|u[a-fA-F0-9]{4}|U[a-fA-F0-9]{8})
+      scope: constant.character.escape.c
+    - match: \\.
+      scope: invalid.illegal.unknown-escape.c
+
+  comments:
+    - match: '/\*'
+      scope: punctuation.definition.comment.c
+      push:
+        - meta_scope: comment.block.c
+        - match: '\*/'
+          scope: punctuation.definition.comment.c
+          pop: true
+        - include: comment-notes
+    - match: '\*/(?!\*)'
+      scope: invalid.illegal.stray-comment-end.c
+    - match: '//'
+      scope: punctuation.definition.comment.c
+      push:
+        - meta_scope: comment.line.double-slash.c
+        - match: '(\\)$'
+          captures:
+            1: punctuation.separator.continuation.c
+        - match: '$'
+          pop: true
+        - include: comment-notes
+
+  comment-notes:
+    - match: '@todo:?'
+      scope: comment.todo
+    - match: '@note:?'
+      scope: comment.note
+    - match: '@nocommit\b'
+      scope: comment.nocommit
+    - match: '@\w+:?'
+      scope: comment.at
+
+  punctuation:
+    - match: '[\.::\(\),;\[\]]'
+      scope: punctuation
+
+  numbers:
+    # Decimal floats
+    - match: |-
+        (?x:
+          \b({{dec_digits}})
+          (?:
+            ( (\.)
+              (?:
+                # 1.1, 1.1e1, 1.1e-1, 1.1f, 1.1e1f, 1.1e-1f, 1.1L, 1.1e1L, 1.1e-1L
+                {{dec_digit}}+ {{dec_exponent}}?
+                # 1.e1, 1.e-1, 1.e1f, 1.e-1f, 1.e1L, 1.e-1L
+                | {{dec_exponent}}
+                # 1., 1.f, 1.L # but not `..`
+                | (?!\.)
+              )
+              # 1e1 1e1f 1e1L
+              | {{dec_exponent}}
+            )
+          )
+          # .1, .1e1, .1e-1, .1f, .1e1f, .1e-1f, .1L, .1e1L, .1e-1L
+          | ( (\.) {{dec_digit}}+ {{dec_exponent}}? )
+        )
+      scope: meta.number.float.decimal.c
+      captures:
+        1: constant.numeric.value.c
+        2: constant.numeric.value.c
+        3: punctuation.separator.decimal.c
+        4: constant.numeric.value.c
+        5: punctuation.separator.decimal.c
+
+    # Hexadecimal float (C99)
+    - match: \b(0[xX])({{hex_digit}}*(\.){{hex_digit}}*{{hex_exponent}})
+      scope: meta.number.float.hexadecimal.c
+      captures:
+        1: constant.numeric.base.c
+        2: constant.numeric.value.c
+        3: punctuation.separator.decimal.c
+        4: constant.numeric.suffix.c
+        5: invalid.illegal.numeric.suffix.c
+
+    # Binary integer
+    - match: \b(0[bB])({{bin_digit}}*)
+      scope: meta.number.integer.binary.c
+      captures:
+        1: constant.numeric.base.c
+        2: constant.numeric.value.c
+        3: constant.numeric.suffix.c
+        4: invalid.illegal.numeric.suffix.c
+
+    # Hexadecimal integer
+    - match: '\b(0[xX])({{hex_digit}}*)'
+      scope: meta.number.integer.hexadecimal
+      captures:
+        1: constant.numeric.base.c
+        2: constant.numeric.value.c
+        3: constant.numeric.suffix.c
+        4: invalid.illegal.numeric.suffix.c
+
+    # Decimal integer
+    - match: '\b({{dec_digits}})'
+      scope: meta.number.integer.decimal.c
+      captures:
+        1: constant.numeric.value.c
+        2: constant.numeric.suffix.c
+        3: invalid.illegal.numeric.suffix.c

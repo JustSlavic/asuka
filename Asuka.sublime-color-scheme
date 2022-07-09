@@ -80,6 +80,11 @@
             "scope":      "punctuation",
             "foreground": "var(punctuation-grey)"
         },
+        {
+            "name":       "ACF Keyword",
+            "scope":      "keyword.acf",
+            "foreground": "var(constant-purple)"
+        },
         // {
         //     "name":       "Keyword",
         //     "scope":      "keyword.control",

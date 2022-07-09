@@ -57,6 +57,37 @@ using string = array<char>;
 // @todo: Utf8 support
 // using utf8_string = array<utf8_char>;
 
+
+template <typename T>
+byte_string to_byte_string(array<T> s) {
+    byte_string result;
+    result.data = (byte *) s.data;
+    result.size = s.size * sizeof(T);
+
+    return result;
+}
+
+
+template <typename T>
+array<T> from_byte_string(byte_string s) {
+    array<T> result;
+    result.data = (T *) s.data;
+    result.size = s.size / sizeof(T);
+
+    return result;
+}
+
+
+string make_string(byte_array array)
+{
+    string result = {};
+    result.data = (char *) array.data;
+    result.size = array.size;
+
+    return result;
+}
+
+
 template <typename T>
 b32 operator == (array<T> lhs, array<T> rhs)
 {
@@ -104,3 +135,5 @@ string allocate_string__(Allocator allocator, usize count)
     string result = allocate_array__<char>(allocator, count);
     return result;
 }
+
+#include "string.hpp"

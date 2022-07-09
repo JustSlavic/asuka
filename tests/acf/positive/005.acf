@@ -1,0 +1,4 @@
+{
+    boolean_true_value = true;
+    boolean_false_value = false;
+}
