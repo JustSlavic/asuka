@@ -139,7 +139,7 @@ SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_
     // @todo: need to be more specific aboute entity counts
     sim_region->entity_capacity = 1024;
     sim_region->entity_count = 0;
-    sim_region->entities = allocate_buffer(sim_arena, SimEntity, sim_region->entity_capacity);
+    sim_region->entities = memory::allocate_buffer<SimEntity>(sim_arena, sim_region->entity_capacity);
 
     // Map stored entities into sim_space
     WorldPosition min_corner = map_into_world_space(game_state->world, sim_origin, sim_bounds.min);
