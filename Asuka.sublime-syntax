@@ -174,8 +174,14 @@ contexts:
       scope: meta.function.c++ entity.name.function.c++
 
   function-call:
-    - match: '(?:[[:alpha:]_][[:alnum:]_²]*)\s*(?=\()'
-      scope: meta.function-call.c++
+    - match: '([[:alpha:]_][[:alnum:]_²]*)\s*(?:(\<)\s*(?:({{identifier}})\s*(?:(,)\s*({{identifier}}))*)(\>))?\s*(?=\()'
+      captures:
+        1: meta.function-call.c++
+        2: punctuation.separation.generic.begin.c++
+        # 3: entity.name.class
+        4: punctuation.separation.c++
+        # 5: entity.name.class
+        6: punctuation.separation.generic.end.c++
     - match: '\b(operator\s+(:?\+|\-|\*|\/|\=\=|\!\=|\+\=|\-\=|\*\=|\/\=|\[\]))\s*(?=\()'
       scope: meta.function-call.c++
 
@@ -331,8 +337,11 @@ contexts:
       scope: punctuation.terminator.c++
       pop: true
     - match: '\{'
+      scope: punctuation.block.begin.c
       push:
         - include: global-things
+        - match: '\}'
+          scope: punctuation.block.begin.c
     - match: '(?=\S)'
       pop: true
 
