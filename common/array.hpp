@@ -39,6 +39,14 @@ struct array
         return result;
     }
 
+    T const& operator [] (int32 index) const
+    {
+        ASSERT_MSG(index < size, "Attempt to access memory out of bounds.");
+
+        T & result = data[index];
+        return result;
+    }
+
     STATIC
     array<T> from_cstr(const char *s) {
         static_assert(type::is_same<T, char>::value);

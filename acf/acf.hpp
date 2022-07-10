@@ -211,6 +211,74 @@ public:
         type = acf_type::custom;
         custom_value = value;
     }
+
+    usize size() const
+    {
+        switch (get_type()) {
+            case acf_type::null:
+                return 0;
+            case acf_type::boolean:
+            case acf_type::integer:
+            case acf_type::floating:
+            case acf_type::string:
+                return 1;
+            case acf_type::object:
+            {
+                return object_value.keys.size;
+            }
+            case acf_type::array:
+            {
+                return array_value.size;
+            }
+            case acf_type::custom:
+            {
+                return 1 + custom_value.arguments.size;
+            }
+        }
+
+        // Why gcc says that control reaches end of non-void function,
+        // if there's return in every possible case above?
+        return 0;
+    }
+
+    usize depth_size() const
+    {
+        switch (get_type())
+        {
+            case acf_type::null:
+            case acf_type::boolean:
+            case acf_type::integer:
+            case acf_type::floating:
+            case acf_type::string:
+                return 1;
+            case acf_type::object:
+            {
+                usize n = 0;
+                for (int i = 0; i < object_value.keys.size; i++)
+                {
+                    n += 1; // account for the key
+                    n += object_value.values[i].depth_size();
+                }
+                return n;
+            }
+            case acf_type::array:
+            {
+                usize n = 0;
+                for (int i = 0; i < array_value.size; i++)
+                {
+                    n += array_value[i].depth_size();
+                }
+                return n;
+            }
+            case acf_type::custom:
+            {
+                usize n = 1 + custom_value.arguments.size;
+                return n;
+            }
+        }
+
+        return 0;
+    }
 };
 
 
@@ -1556,7 +1624,9 @@ int32_t pretty_print_impl(son& value, const print_options& options, int32_t dept
 
 */
 
-void acf_print(acf const& value, acf_print_options options)
+// 60 spaces should be enough
+char const* spaces = "                                                            ";
+void acf_print_impl(acf const& value, acf_print_options options, int32 depth = 0)
 {
     switch (value.get_type())
     {
@@ -1573,32 +1643,57 @@ void acf_print(acf const& value, acf_print_options options)
 
         case acf_type::object:
         {
-            osOutputDebugString("{ ");
+            bool in_one_line = (options.multiline == acf_print_options::multiline_t::smart && value.depth_size() <= 6)
+                || options.multiline == acf_print_options::multiline_t::disabled;
+
+            osOutputDebugString("{%s", in_one_line ? " " : "\n");
+            depth += 1;
+
             auto obj = value.get_object();
             for (int i = 0; i < obj.keys.size; i++)
             {
                 auto &s = obj.keys[i];
+                auto &v = obj.values[i];
+
+                if (!in_one_line) { osOutputDebugString("%.*s", options.indent * depth, spaces); }
                 osOutputDebugString("%.*s = ", (int) s.size, s.data);
 
-                auto &v = obj.values[i];
-                acf_print(v);
+                acf_print_impl(v, options, depth);
 
-                osOutputDebugString("; ");
+                osOutputDebugString("%s%s",
+                    options.print_semicolons ? ";" : "",
+                    in_one_line ? " " : "\n");
             }
-            osOutputDebugString("}");
+
+            depth -= 1;
+            osOutputDebugString("%.*s}", in_one_line ? 0 : options.indent * depth, spaces);
         }
         break;
-
+        
         case acf_type::array:
         {
-            osOutputDebugString("[");
+            bool in_one_line = (options.multiline == acf_print_options::multiline_t::smart && value.depth_size() <= 6)
+                || options.multiline == acf_print_options::multiline_t::disabled;
+
+            osOutputDebugString("[%s", in_one_line ? value.size() > 0 ? " " : "" : "\n");
+            depth += 1;
+
             auto arr = value.get_array();
             for (int i = 0; i < arr.size; i++)
             {
-                acf_print(arr[i]);
-                osOutputDebugString(", ");
+                auto& v = arr[i];
+
+                if (!in_one_line) { osOutputDebugString("%.*s", options.indent * depth, spaces); }
+
+                acf_print_impl(v, options, depth);
+
+                osOutputDebugString("%s%s",
+                    (options.print_commas && ((i + 1) < arr.size)) ? "," : "",
+                    in_one_line ? " " : "\n");
             }
-            osOutputDebugString("]");
+
+            depth -= 1;
+            osOutputDebugString("%.*s]", in_one_line ? 0 : options.indent * depth, spaces);
         }
         break;
 
@@ -1616,6 +1711,11 @@ void acf_print(acf const& value, acf_print_options options)
         break;
 
     }
+}
+
+void acf_print(acf const& value, acf_print_options options)
+{
+    acf_print_impl(value, options, 0);
 }
 
 #endif // ACF_LIB_IMPLEMENTATION
