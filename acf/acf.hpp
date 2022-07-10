@@ -336,8 +336,12 @@ enum class acf_token_type
     keyword_null = 300,
     keyword_true,
     keyword_false,
+    keyword_bool,
     keyword_int,
     keyword_float,
+    keyword_string,
+    keyword_object,
+    keyword_array,
 
     identifier,
     integer,
@@ -366,8 +370,12 @@ char const *get_acf_token_type_string(acf_token_type type)
         case acf_token_type::keyword_null: return "keyword_null";
         case acf_token_type::keyword_true: return "keyword_true";
         case acf_token_type::keyword_false: return "keyword_false";
+        case acf_token_type::keyword_bool: return "keyword_bool";
         case acf_token_type::keyword_int: return "keyword_int";
         case acf_token_type::keyword_float: return "keyword_float";
+        case acf_token_type::keyword_string: return "keyword_string";
+        case acf_token_type::keyword_object: return "keyword_object";
+        case acf_token_type::keyword_array: return "keyword_array";
         case acf_token_type::identifier: return "identifier";
         case acf_token_type::integer: return "integer";
         case acf_token_type::floating: return "floating";
@@ -478,6 +486,12 @@ void print_acf_token(acf_token token)
         }
         break;
 
+        case acf_token_type::keyword_bool:
+        {
+            osOutputDebugString("bool");
+        }
+        break;
+
         case acf_token_type::keyword_int:
         {
             osOutputDebugString("int");
@@ -487,6 +501,24 @@ void print_acf_token(acf_token token)
         case acf_token_type::keyword_float:
         {
             osOutputDebugString("float");
+        }
+        break;
+
+        case acf_token_type::keyword_string:
+        {
+            osOutputDebugString("string");
+        }
+        break;
+
+        case acf_token_type::keyword_object:
+        {
+            osOutputDebugString("object");
+        }
+        break;
+
+        case acf_token_type::keyword_array:
+        {
+            osOutputDebugString("array");
         }
         break;
 
@@ -615,6 +647,7 @@ void initialize_acf_lexer(acf_lexer *lexer, string buffer)
     register_acf_keyword(lexer, "null", acf_token_type::keyword_null);
     register_acf_keyword(lexer, "true", acf_token_type::keyword_true);
     register_acf_keyword(lexer, "false", acf_token_type::keyword_false);
+    register_acf_keyword(lexer, "bool", acf_token_type::keyword_bool);
     register_acf_keyword(lexer, "int", acf_token_type::keyword_int);
     register_acf_keyword(lexer, "float", acf_token_type::keyword_float);
 }
@@ -843,6 +876,7 @@ acf_token eat_token(acf_lexer *lexer)
 #define ACF_GET_TOKEN_OR_FAIL(TOKEN_TYPE) \
     get_token(lexer); \
     if (get_token(lexer).type == acf_token_type::TOKEN_TYPE) { eat_token(lexer); } else { *lexer = checkpoint; return false; } \
+    void(0)
 
 
 template <typename Allocator>
@@ -864,7 +898,7 @@ bool parse_key_value_pair(Allocator *allocator, acf_lexer *lexer, string *key, a
     acf_lexer checkpoint = *lexer;
 
     auto ident_token = ACF_GET_TOKEN_OR_FAIL(identifier);
-    auto equal_token = ACF_GET_TOKEN_OR_FAIL(equals);
+    ACF_GET_TOKEN_OR_FAIL(equals);
 
     *key = ident_token.span;
     acf_token t = get_token(lexer);
@@ -1236,9 +1270,28 @@ bool parse_array(Allocator *allocator, acf_lexer *lexer, acf *result, bool brack
 
 bool parse_type(acf_lexer *lexer, acf_type *type)
 {
+    // @todo: make it parse already registered types
     acf_token type_name = get_token(lexer);
     switch (type_name.type)
     {
+        case acf_token_type::keyword_null:
+        {
+            eat_token(lexer);
+            if (type)
+            {
+                *type = acf_type::null;
+            }
+            return true;
+        }
+        case acf_token_type::keyword_bool:
+        {
+            eat_token(lexer);
+            if (type)
+            {
+                *type = acf_type::boolean;
+            }
+            return true;
+        }
         case acf_token_type::keyword_int:
         {
             eat_token(lexer);
@@ -1254,6 +1307,33 @@ bool parse_type(acf_lexer *lexer, acf_type *type)
             if (type)
             {
                 *type = acf_type::floating;
+            }
+            return true;
+        }
+        case acf_token_type::keyword_string:
+        {
+            eat_token(lexer);
+            if (type)
+            {
+                *type = acf_type::string;
+            }
+            return true;
+        }
+        case acf_token_type::keyword_object:
+        {
+            eat_token(lexer);
+            if (type)
+            {
+                *type = acf_type::object;
+            }
+            return true;
+        }
+        case acf_token_type::keyword_array:
+        {
+            eat_token(lexer);
+            if (type)
+            {
+                *type = acf_type::array;
             }
             return true;
         }
@@ -1331,16 +1411,7 @@ bool parse_constructor_call(Allocator *allocator, acf_lexer *lexer, acf *result)
     acf_constructor_arguments args;
     if (is_newtype_registered(lexer, constructor_name_token.span, &args))
     {
-        acf_token paren_open_token = get_token(lexer);
-        if (paren_open_token.type == acf_token_type::parentheses_open)
-        {
-            eat_token(lexer);
-        }
-        else
-        {
-            *lexer = checkpoint;
-            return false;
-        }
+        ACF_GET_TOKEN_OR_FAIL(parentheses_open);
 
         for (uint32 argument_index = 0; argument_index < args.argument_count; argument_index++)
         {
