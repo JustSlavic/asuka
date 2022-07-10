@@ -840,6 +840,11 @@ acf_token eat_token(acf_lexer *lexer)
 }
 
 
+#define ACF_GET_TOKEN_OR_FAIL(TOKEN_TYPE) \
+    get_token(lexer); \
+    if (get_token(lexer).type == acf_token_type::TOKEN_TYPE) { eat_token(lexer); } else { *lexer = checkpoint; return false; } \
+
+
 template <typename Allocator>
 bool parse_key_value_pair(Allocator *allocator, acf_lexer *lexer, string *key, acf *value);
 
@@ -858,19 +863,8 @@ bool parse_key_value_pair(Allocator *allocator, acf_lexer *lexer, string *key, a
 {
     acf_lexer checkpoint = *lexer;
 
-    acf_token ident_token = eat_token(lexer);
-    if (ident_token.type != acf_token_type::identifier)
-    {
-        *lexer = checkpoint;
-        return false;
-    }
-
-    acf_token equals_token = eat_token(lexer);
-    if (equals_token.type != acf_token_type::equals)
-    {
-        *lexer = checkpoint;
-        return false;
-    }
+    auto ident_token = ACF_GET_TOKEN_OR_FAIL(identifier);
+    auto equal_token = ACF_GET_TOKEN_OR_FAIL(equals);
 
     *key = ident_token.span;
     acf_token t = get_token(lexer);
@@ -1273,16 +1267,7 @@ bool parse_directive(acf_lexer *lexer)
 {
     acf_lexer checkpoint = *lexer;
 
-    acf_token pound_token = get_token(lexer);
-    if (pound_token.type == acf_token_type::pound)
-    {
-        eat_token(lexer);
-    }
-    else
-    {
-        *lexer = checkpoint;
-        return false;
-    }
+    auto pound_token = ACF_GET_TOKEN_OR_FAIL(pound);
 
     acf_token directive_token = get_token(lexer);
     if ((directive_token.type == acf_token_type::identifier)
@@ -1296,27 +1281,8 @@ bool parse_directive(acf_lexer *lexer)
         return false;
     }
 
-    acf_token constructor_name_token = get_token(lexer);
-    if (constructor_name_token.type == acf_token_type::identifier)
-    {
-        eat_token(lexer);
-    }
-    else
-    {
-        *lexer = checkpoint;
-        return false;
-    }
-
-    acf_token paren_open_token = get_token(lexer);
-    if (paren_open_token.type == acf_token_type::parentheses_open)
-    {
-        eat_token(lexer);
-    }
-    else
-    {
-        *lexer = checkpoint;
-        return false;
-    }
+    auto constructor_name_token = ACF_GET_TOKEN_OR_FAIL(identifier);
+    auto paren_open_token = ACF_GET_TOKEN_OR_FAIL(parentheses_open);
 
     acf_constructor_arguments args = {};
     bool should_stop = false;
@@ -1346,16 +1312,7 @@ bool parse_directive(acf_lexer *lexer)
         }
     }
 
-    acf_token paren_close_token = get_token(lexer);
-    if (paren_close_token.type == acf_token_type::parentheses_close)
-    {
-        eat_token(lexer);
-    }
-    else
-    {
-        *lexer = checkpoint;
-        return false;
-    }
+    auto paren_close_token = ACF_GET_TOKEN_OR_FAIL(parentheses_close);
 
     register_acf_new_type(lexer, constructor_name_token.span, args);
 
@@ -1368,16 +1325,7 @@ bool parse_constructor_call(Allocator *allocator, acf_lexer *lexer, acf *result)
 {
     acf_lexer checkpoint = *lexer;
 
-    acf_token constructor_name_token = get_token(lexer);
-    if (constructor_name_token.type == acf_token_type::identifier)
-    {
-        eat_token(lexer);
-    }
-    else
-    {
-        *lexer = checkpoint;
-        return false;
-    }
+    auto constructor_name_token = ACF_GET_TOKEN_OR_FAIL(identifier);
 
     array<acf> argument_values = allocate_array<acf>(allocator, 4);
     acf_constructor_arguments args;
@@ -1442,31 +1390,12 @@ bool parse_constructor_call(Allocator *allocator, acf_lexer *lexer, acf *result)
 
             if (argument_index + 1 < args.argument_count) // Do not support trailing comma in function calls.
             {
-                acf_token comma = get_token(lexer);
-                if (comma.type == acf_token_type::comma)
-                {
-                    // Consume required comma, if present.
-                    eat_token(lexer);
-                }
-                else
-                {
-                    osOutputDebugString("Comma is required in constructor call.\n");
-                    *lexer = checkpoint;
-                    return false;
-                }
+                // Consume required comma, if present.
+                acf_token comma = ACF_GET_TOKEN_OR_FAIL(comma);
             }
         }
 
-        acf_token paren_close_token = get_token(lexer);
-        if (paren_close_token.type == acf_token_type::parentheses_close)
-        {
-            eat_token(lexer);
-        }
-        else
-        {
-            *lexer = checkpoint;
-            return false;
-        }
+        auto paren_close_token = ACF_GET_TOKEN_OR_FAIL(parentheses_close);
     }
     else
     {
