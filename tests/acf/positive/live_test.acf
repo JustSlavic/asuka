@@ -1,6 +1,11 @@
-// This is a comment.
+// Register new type and constructor for it
+#newtype vector2(int, int)
+//#newtype vector3(int, int, int)
 
-x = [ 1, 2 { a = null } ];
-y = true; // @note: @-things highlighting works too! Wow!
-z = false;
-s = "Strings are supported"
+v = [1, 2, 3, 4, { a=1 b=2 c=vector2(0, 0) }]
+x = 10;
+y = 20;
+s = "hello";
+
+is_ok = true;
+w = vector2(10, 10)

@@ -82,7 +82,7 @@ void* allocate_(arena_allocator *allocator, usize requested_size, usize alignmen
 }
 
 INLINE
-void free(arena_allocator *allocator, void *memory_to_free) {}
+void deallocate(arena_allocator *allocator, void *memory_to_free) {}
 
 
 template <typename A>
@@ -464,6 +464,13 @@ T *allocate_buffer(Allocator *allocator, usize count)
 {
     T *result = (T *)allocate(allocator, sizeof(T) * count, alignof(T));
     return result;
+}
+
+
+template <typename Allocator>
+void deallocate_buffer(Allocator *allocator, void *memory)
+{
+    deallocate(allocator, memory);
 }
 
 

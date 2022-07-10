@@ -1018,12 +1018,40 @@ THREAD_FUNCTION(ThreadTest)
 }
 
 
+#define ACF_LIB_IMPLEMENTATION
+#include "../acf/acf.hpp"
+
+
 int WINAPI WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
     LPSTR CmdLine,
     int CmdShow)
 {
+#if 1
+    // char acf_buffer[] = "{ x = y; z = [a, b, c] }";
+
+    // string acf_string = {};
+    // acf_string.data = acf_buffer;
+    // acf_string.size = sizeof(acf_buffer);
+
+    usize acf_arena_memory_size = MEGABYTES(1);
+    void* acf_arena_memory = malloc(acf_arena_memory_size);
+
+    memory::arena_allocator acf_arena;
+    initialize(&acf_arena, acf_arena_memory, acf_arena_memory_size);
+
+    byte_array test_content = Asuka::os::load_entire_file("../tests/acf/positive/live_test.acf");
+    string acf_string = make_string(test_content);
+    acf parsed = parse_acf(&acf_arena, acf_string);
+
+    acf_print(parsed);
+    osOutputDebugString("\n");
+
+    return 0;
+#endif
+
+
 #if 0
     u32 dct = GetDoubleClickTime();
     printf("dct=%u\n", dct);

@@ -15,19 +15,16 @@ namespace Asuka {
 
 namespace cstring {
 
-usize size_no0(const char *s) {
-    usize result = 0;
-    while (*s) {
-        result += 1;
-        s += 1;
-    }
+usize size_no0(const char *str) {
+    usize size = 0;
+    while (str[size]) { size += 1; }
 
-    return result;
+    return size;
 }
 
 usize size_with0(const char *s) {
-    usize result = size_no0(s) + 1;
-    return result;
+    usize size = size_no0(s) + 1;
+    return size;
 }
 
 bool equals(char const *s1, char const *s2) {
@@ -61,7 +58,7 @@ bool equals(char const *s1, char const *s2) {
 
 using byte_string = array<byte>;
 // using string = array<char>;
-// using utf8_string = bast_string<>; // @todo: utf8 string
+// using utf8_string = array<utf8_char>; // @todo: utf8 string
 
 
 b32 is_empty(string s) {
@@ -112,11 +109,8 @@ void free_string(Allocator allocator, array<T> s) {
 string from_cstr(char const *str) {
     string result {};
 
-    usize size = 0;
-    while (str[size]) size += 1;
-
     result.data = (char *)str;
-    result.size = size;
+    result.size = cstring::size_no0(str);
 
     return result;
 }
