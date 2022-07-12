@@ -58,8 +58,6 @@ struct array
         Ptr data;
         usize index;
 
-        friend array<T>;
-
     public:
         iterator_(Ptr data, usize index_) : data(data), index(index_) {}
         iterator_& operator ++ () { index += 1; return *this; }
@@ -154,8 +152,6 @@ struct dynamic_array
     private:
         Ptr data;
         usize index;
-
-        friend array<T>;
 
     public:
         iterator_(Ptr data_, usize index_) : data(data_), index(index_) {}

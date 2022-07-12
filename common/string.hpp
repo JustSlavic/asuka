@@ -56,7 +56,7 @@ bool equals(char const *s1, char const *s2) {
 } // namespace cstring
 
 
-b32 equals_to_cstr(string s, char *cstr) {
+b32 equals_to_cstr(string s, char const *cstr) {
     for (usize i = 0; i < s.get_size(); i++)
     {
         if (*cstr == 0) { return false; }
