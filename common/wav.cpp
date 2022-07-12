@@ -56,12 +56,12 @@ wav_file_contents load_wav_file(const char* filename) {
     wav_file_contents result {};
 
     byte_array contents = os::load_entire_file(filename);
-    if (contents.size == 0) {
+    if (contents.get_size() == 0) {
         // @todo: handle error
         return result;
     }
 
-    u8 *data = (u8 *)contents.data;
+    u8 *data = (u8 *)contents.get_data();
 
     RIFF_Header riff_header {};
     WAV_Format wav_format {};

@@ -1045,7 +1045,10 @@ int WINAPI WinMain(
     string acf_string = make_string(test_content);
     acf parsed = parse_acf(&acf_arena, acf_string);
 
-    acf_print(parsed);
+    acf_print_options options;
+    options.multiline = acf_print_options::multiline_t::smart;
+    options.max_elements_in_line = 4;
+    acf_print(parsed, options);
     osOutputDebugString("\n");
 
     return 0;

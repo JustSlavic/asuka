@@ -315,7 +315,7 @@ Bitmap load_png_file_myself(const char *filename) {
 
     byte_array contents = os::load_entire_file(filename);
 
-    u8 *data = (u8 *) contents.data;
+    u8 *data = (u8 *) contents.get_data();
 
     u32 signature1 = *PNG_CONSUME_STRUCT(data, u32);
     u32 signature2 = *PNG_CONSUME_STRUCT(data, u32);
@@ -387,7 +387,7 @@ Bitmap load_png_file(const char* filename) {
 
 #if 1
     byte_array contents = os::load_entire_file(filename);
-    if (contents.data == NULL) {
+    if (contents.is_empty()) {
         // @todo: handle error
         return result;
     }

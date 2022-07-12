@@ -56,61 +56,26 @@ bool equals(char const *s1, char const *s2) {
 } // namespace cstring
 
 
-using byte_string = array<byte>;
-// using string = array<char>;
-// using utf8_string = array<utf8_char>; // @todo: utf8 string
-
-
-b32 is_empty(string s) {
-    return (s.data == 0) || (s.size == 0);
-}
-
-
 b32 equals_to_cstr(string s, char *cstr) {
-    b32 equal = true;
-    while ((s.size > 0) && (*cstr != 0)) {
-        if (*s.data != *cstr) {
-            equal = false;
-            break;
-        }
+    for (usize i = 0; i < s.get_size(); i++)
+    {
+        if (*cstr == 0) { return false; }
+        if (s[i] != *cstr) { return false; }
 
-        s.data += 1;
-        s.size -= 1;
         cstr += 1;
     }
 
-    if (equal && (s.size > 0 || *cstr != 0)) {
-        equal = false;
-    }
-
-    return equal;
-}
-
-
-// What did I do?
-template <typename Allocator, typename T>
-array<T> allocate_string_of_size(Allocator allocator, usize size) {
-    string result {};
-    result.data = memory::allocate(allocator, size, alignof(T));
-    result.size = size;
-
-    return result;
-}
-
-
-// ???
-template <typename Allocator, typename T>
-void free_string(Allocator allocator, array<T> s) {
-    memory::free(allocator, s.data);
+    return (*cstr == 0);
 }
 
 
 // @note: Always be sure that c-string have null termination.
 string from_cstr(char const *str) {
-    string result {};
+    string result = {};
 
     result.data = (char *)str;
     result.size = cstring::size_no0(str);
+    result.capacity = result.size;
 
     return result;
 }

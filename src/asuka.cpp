@@ -1,6 +1,5 @@
 #include "asuka.hpp"
 #include <png.hpp>
-#include <../son2/son.hpp>
 
 
 #define ASUKA_DEBUG_FOLLOWING_CAMERA 1

@@ -56,6 +56,7 @@ enum class acf_type
     object,
     array,
     custom,
+    // type, // @note: this is special type, for trying to make types be values
 };
 
 
@@ -224,15 +225,15 @@ public:
                 return 1;
             case acf_type::object:
             {
-                return object_value.keys.size;
+                return object_value.keys.get_size();
             }
             case acf_type::array:
             {
-                return array_value.size;
+                return array_value.get_size();
             }
             case acf_type::custom:
             {
-                return 1 + custom_value.arguments.size;
+                return 1 + custom_value.arguments.get_size();
             }
         }
 
@@ -254,25 +255,24 @@ public:
             case acf_type::object:
             {
                 usize n = 0;
-                for (int i = 0; i < object_value.keys.size; i++)
+                for (auto& v : object_value.values)
                 {
-                    n += 1; // account for the key
-                    n += object_value.values[i].depth_size();
+                    n += v.depth_size();
                 }
                 return n;
             }
             case acf_type::array:
             {
                 usize n = 0;
-                for (int i = 0; i < array_value.size; i++)
+                for (auto& v : array_value)
                 {
-                    n += array_value[i].depth_size();
+                    n += v.depth_size();
                 }
                 return n;
             }
             case acf_type::custom:
             {
-                usize n = 1 + custom_value.arguments.size;
+                usize n = 1 + custom_value.arguments.get_size();
                 return n;
             }
         }
@@ -295,6 +295,7 @@ struct acf_print_options
     bool print_commas = true;
     int32 indent = 2;
     multiline_t multiline = multiline_t::smart;
+    int32 max_elements_in_line = 3;
 };
 
 
@@ -524,7 +525,7 @@ void print_acf_token(acf_token token)
 
         case acf_token_type::identifier:
         {
-            osOutputDebugString("%.*s", (int) token.span.size, token.span.data);
+            osOutputDebugString("%.*s", (int) token.span.get_size(), token.span.get_data());
         }
         break;
 
@@ -542,13 +543,13 @@ void print_acf_token(acf_token token)
 
         case acf_token_type::string:
         {
-            osOutputDebugString("%.*s", (int) token.span.size, token.span.data);
+            osOutputDebugString("%.*s", (int) token.span.get_size(), token.span.get_data());
         }
         break;
 
         case acf_token_type::comment:
         {
-            osOutputDebugString("%.*s", (int) token.span.size, token.span.data);
+            osOutputDebugString("%.*s", (int) token.span.get_size(), token.span.get_data());
         }
         break;
 
@@ -655,9 +656,9 @@ void initialize_acf_lexer(acf_lexer *lexer, string buffer)
 
 char *get_char_pointer(acf_lexer *lexer)
 {
-    ASSERT(lexer->index < lexer->buffer.size);
+    ASSERT(lexer->index < lexer->buffer.get_size());
 
-    char *result = lexer->buffer.data + lexer->index;
+    char *result = lexer->buffer.get_data() + lexer->index;
     return result;
 }
 
@@ -666,9 +667,9 @@ char get_char(acf_lexer *lexer)
 {
     char result = 0;
 
-    if (lexer->index < lexer->buffer.size)
+    if (lexer->index < lexer->buffer.get_size())
     {
-        result = lexer->buffer.data[lexer->index];
+        result = lexer->buffer[lexer->index];
     }
 
     return result;
@@ -737,17 +738,18 @@ acf_token get_token(acf_lexer *lexer)
                 token.line = lexer->line;
                 token.column = lexer->column;
 
-                token.span.data = get_char_pointer(lexer);
+                char *span_start = get_char_pointer(lexer);
 
                 eat_char(lexer);
                 c = eat_char(lexer);
 
                 consume_while(lexer, [](char c) { return c != '\n' && c != '\r'; } );
 
-                uint64 size = ((uint64)get_char_pointer(lexer) - (uint64)token.span.data);
-                token.span.size = size;
+                char *span_end = get_char_pointer(lexer);
+                usize span_size = ((usize)span_end - (usize)span_start);
 
                 token.type = acf_token_type::comment;
+                token.span = make_string(span_start, span_size);
             }
             else
             {
@@ -761,7 +763,7 @@ acf_token get_token(acf_lexer *lexer)
             token.line = lexer->line;
             token.column = lexer->column;
 
-            token.span.data = get_char_pointer(lexer);
+            char *span_start = get_char_pointer(lexer);
 
             eat_char(lexer);
 
@@ -783,17 +785,18 @@ acf_token get_token(acf_lexer *lexer)
                 }
             }
 
-            uint64 size = ((uint64)get_char_pointer(lexer) - (uint64)token.span.data);
-            token.span.size = size;
+            char *span_end = get_char_pointer(lexer);
+            usize span_size = ((usize)span_end - (usize)span_start);
 
             token.type = acf_token_type::string;
+            token.span = make_string(span_start, span_size);
         }
         else if (is_digit(c) || c == '-' || c == '+')
         {
             token.line = lexer->line;
             token.column = lexer->column;
 
-            token.span.data = get_char_pointer(lexer);
+            char *span_start = get_char_pointer(lexer);
 
             int64 sign = 1;
             int64 integer_value = 0;
@@ -816,25 +819,27 @@ acf_token get_token(acf_lexer *lexer)
                 integer_value += (c - '0');
             }
 
-            uint64 size = ((uint64)get_char_pointer(lexer) - (uint64)token.span.data);
-            token.span.size = size;
+            char *span_end = get_char_pointer(lexer);
+            usize span_size = ((usize)span_end - (usize)span_start);
 
-            token.integer_value = sign * integer_value;
             token.type = acf_token_type::integer;
+            token.integer_value = sign * integer_value;
+            token.span = make_string(span_start, span_size);
         }
         else if (is_valid_identifier_head(c))
         {
             token.line = lexer->line;
             token.column = lexer->column;
 
-            token.span.data = get_char_pointer(lexer);
+            char *span_start = get_char_pointer(lexer);
 
             consume_while(lexer, is_valid_identifier_body);
 
-            uint64 size = ((uint64)get_char_pointer(lexer) - (uint64)token.span.data);
-            token.span.size = size;
+            char *span_end = get_char_pointer(lexer);
+            usize span_size = ((usize)span_end - (usize)span_start);
 
-            // It can be one of the keywords or just an identifier.
+            // @note: Data dependency! Execute only in this order!
+            token.span = make_string(span_start, span_size);
             token.type = get_identifier_type(lexer, token.span);
         }
         else
@@ -843,9 +848,7 @@ acf_token get_token(acf_lexer *lexer)
             token.line = lexer->line;
             token.column = lexer->column;
 
-            token.span.data = get_char_pointer(lexer);
-            token.span.size = 1;
-
+            token.span = make_string(get_char_pointer(lexer), 1);
             eat_char(lexer);
         }
 
@@ -946,7 +949,7 @@ bool parse_key_value_pair(Allocator *allocator, acf_lexer *lexer, string *key, a
             else
             {
                 osOutputDebugString("Could not parse constructor call '%.*s'!\n",
-                    (int) t.span.size, t.span.data);
+                    STRING_PRINT_(t.span));
                 *lexer = checkpoint;
                 return false;
             }
@@ -955,6 +958,9 @@ bool parse_key_value_pair(Allocator *allocator, acf_lexer *lexer, string *key, a
 
         case acf_token_type::string:
         {
+            // @note: This is somewhat dangerous operation, and the strings
+            // should be reallocated in the allocator's memory anyway (for
+            // escape symbols resolution), so I'll leave it like that for now.
             string string_value = t.span;
             string_value.data += 1;
             string_value.size -= 2;
@@ -1046,6 +1052,20 @@ bool parse_object(Allocator *allocator, acf_lexer *lexer, acf *result, bool brac
                 bool success = parse_key_value_pair(allocator, lexer, &key, &value);
                 if (success)
                 {
+                    bool key_already_defined = false;
+                    for (auto& k : keys)
+                    {
+                        if (k == key) {
+                            key_already_defined = true;
+                            break;
+                        }
+                    }
+
+                    if (key_already_defined)
+                    {
+                        osOutputDebugString("Key '%.*s' already defined in this object.\n", STRING_PRINT_(key));
+                    }
+
                     keys.push(key);
                     values.push(value);
                 }
@@ -1183,7 +1203,7 @@ bool parse_array(Allocator *allocator, acf_lexer *lexer, acf *result, bool brack
                 else
                 {
                     osOutputDebugString("Could not parse constructor call '%.*s'!\n",
-                        (int) t.span.size, t.span.data);
+                        STRING_PRINT_(t.span));
                     *lexer = checkpoint;
                     return false;
                 }
@@ -1192,6 +1212,9 @@ bool parse_array(Allocator *allocator, acf_lexer *lexer, acf *result, bool brack
 
             case acf_token_type::string:
             {
+                // @note: This is somewhat dangerous operation, and the strings
+                // should be reallocated in the allocator's memory anyway (for
+                // escape symbols resolution), so I'll leave it like that for now.
                 string string_value = t.span;
                 string_value.data += 1;
                 string_value.size -= 2;
@@ -1416,47 +1439,42 @@ bool parse_constructor_call(Allocator *allocator, acf_lexer *lexer, acf *result)
         for (uint32 argument_index = 0; argument_index < args.argument_count; argument_index++)
         {
             acf_type type = args.arguments[argument_index];
-            switch (type)
+            acf_token t = get_token(lexer);
+
+            if (t.type == acf_token_type::parentheses_close)
             {
-                case acf_type::integer:
-                {
-                    acf_token t = get_token(lexer);
-                    switch (t.type)
-                    {
-                        case acf_token_type::integer:
-                        {
-                            argument_values[argument_index] = acf(t.integer_value);
-                            eat_token(lexer);
-                        }
-                        break;
-
-                        case acf_token_type::parentheses_close:
-                        {
-                            // Unexpected end of arguments.
-                            osOutputDebugString("Argument count mismatch!\n");
-                            *lexer = checkpoint;
-                            return false;
-                        }
-                        break;
-
-                        default:
-                        {
-                            osOutputDebugString("Constructor call expected value of type %s, but got %s.\n",
-                                get_acf_type_string(type),
-                                get_acf_token_type_string(t.type));
-                            *lexer = checkpoint;
-                            return false;
-                        }
-                    }
-                }
-                break;
-
-                default:
-                {
-                    osOutputDebugString("Constructor call expected argument, but got some other type.\n");
-                    *lexer = checkpoint;
-                    return false;
-                }
+                // Unexpected end of arguments.
+                osOutputDebugString("Argument count mismatch!\n");
+                *lexer = checkpoint;
+                return false;
+            }
+            else if ((type == acf_type::null) && (t.type == acf_token_type::keyword_null))
+            {
+                argument_values[argument_index] = acf();
+                eat_token(lexer);
+            }
+            else if ((type == acf_type::boolean) && (t.type == acf_token_type::keyword_true))
+            {
+                argument_values[argument_index] = acf(true);
+                eat_token(lexer);
+            }
+            else if ((type == acf_type::boolean) && (t.type == acf_token_type::keyword_false))
+            {
+                argument_values[argument_index] = acf(false);
+                eat_token(lexer);
+            }
+            else if ((type == acf_type::integer) && (t.type == acf_token_type::integer))
+            {
+                argument_values[argument_index] = acf(t.integer_value);
+                eat_token(lexer);
+            }
+            else
+            {
+                osOutputDebugString("Constructor call expected value of type %s, but got %s.\n",
+                    get_acf_type_string(type),
+                    get_acf_token_type_string(t.type));
+                *lexer = checkpoint;
+                return false;
             }
 
             if (argument_index + 1 < args.argument_count) // Do not support trailing comma in function calls.
@@ -1471,7 +1489,7 @@ bool parse_constructor_call(Allocator *allocator, acf_lexer *lexer, acf *result)
     else
     {
         osOutputDebugString("Referencing an identifier '%.*s', which was not declared before!\n",
-            (int) constructor_name_token.span.size, constructor_name_token.span.data);
+            STRING_PRINT_(constructor_name_token.span));
         *lexer = checkpoint;
         return false;
     }
@@ -1570,26 +1588,30 @@ void acf_print_impl(acf const& value, acf_print_options options, int32 depth = 0
         case acf_type::string:
         {
             auto s = value.get_string();
-            osOutputDebugString("\"%.*s\"", (int) s.size, s.data);
+            osOutputDebugString("\"%.*s\"", STRING_PRINT_(s));
         }
         break;
 
         case acf_type::object:
         {
-            bool in_one_line = (options.multiline == acf_print_options::multiline_t::smart && value.depth_size() <= 6)
+        bool in_one_line = (options.multiline == acf_print_options::multiline_t::smart && value.depth_size() <= options.max_elements_in_line)
                 || options.multiline == acf_print_options::multiline_t::disabled;
 
             osOutputDebugString("{%s", in_one_line ? " " : "\n");
             depth += 1;
 
             auto obj = value.get_object();
-            for (int i = 0; i < obj.keys.size; i++)
+
+            // @todo: make iterators for acf structure
+            //        this loop should be just
+            // for (auto& [k, v] : obj.pairs()) { ... }
+            for (int i = 0; i < obj.keys.get_size(); i++)
             {
                 auto &s = obj.keys[i];
                 auto &v = obj.values[i];
 
                 if (!in_one_line) { osOutputDebugString("%.*s", options.indent * depth, spaces); }
-                osOutputDebugString("%.*s = ", (int) s.size, s.data);
+                osOutputDebugString("%.*s = ", STRING_PRINT_(s));
 
                 acf_print_impl(v, options, depth);
 
@@ -1605,15 +1627,16 @@ void acf_print_impl(acf const& value, acf_print_options options, int32 depth = 0
         
         case acf_type::array:
         {
-            bool in_one_line = (options.multiline == acf_print_options::multiline_t::smart && value.depth_size() <= 6)
+            bool in_one_line = (options.multiline == acf_print_options::multiline_t::smart && value.depth_size() <= options.max_elements_in_line)
                 || options.multiline == acf_print_options::multiline_t::disabled;
 
             osOutputDebugString("[%s", in_one_line ? value.size() > 0 ? " " : "" : "\n");
             depth += 1;
 
             auto arr = value.get_array();
-            for (int i = 0; i < arr.size; i++)
+            for (usize i = 0; i < arr.get_size(); i++)
             {
+                // @todo: make acf::operator[] to get values from an array just with [], and without value.get_array() part
                 auto& v = arr[i];
 
                 if (!in_one_line) { osOutputDebugString("%.*s", options.indent * depth, spaces); }
@@ -1621,7 +1644,7 @@ void acf_print_impl(acf const& value, acf_print_options options, int32 depth = 0
                 acf_print_impl(v, options, depth);
 
                 osOutputDebugString("%s%s",
-                    (options.print_commas && ((i + 1) < arr.size)) ? "," : "",
+                    (options.print_commas && ((i + 1) < arr.get_size())) ? "," : "",
                     in_one_line ? " " : "\n");
             }
 
@@ -1633,12 +1656,23 @@ void acf_print_impl(acf const& value, acf_print_options options, int32 depth = 0
         case acf_type::custom:
         {
             auto custom = value.get_custom();
-            osOutputDebugString("%.*s(", (int) custom.name.size, custom.name.data);
-            for (int i = 0; i < custom.arguments.size; i++)
+            osOutputDebugString("%.*s(", STRING_PRINT_(custom.name));
+
+            if (custom.arguments.get_size() > 0)
             {
-                acf_print(custom.arguments[i]);
-                osOutputDebugString(", ");
+                auto& arg = custom.arguments[0];
+
+                acf_print_impl(arg, options, depth);
             }
+
+            for (usize i = 1; i < custom.arguments.get_size(); i++)
+            {
+                auto& arg = custom.arguments[i];
+
+                osOutputDebugString(", ");
+                acf_print(arg);
+            }
+
             osOutputDebugString(")");
         }
         break;

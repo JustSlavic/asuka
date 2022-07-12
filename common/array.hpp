@@ -30,33 +30,54 @@ struct array
 {
     T *data;
     usize size;
+    usize capacity;
 
-    T& operator [] (int32 index)
+    constexpr T* get_data() { return data; }
+    constexpr T const* get_data() const { return data; }
+    constexpr usize get_size() const { return size; }
+    constexpr bool is_empty() const { return (size == 0); }
+
+    T& at(usize index)
     {
-        ASSERT_MSG(index < size, "Attempt to access memory out of bounds.");
+        ASSERT_MSG(index < capacity, "Attempt to access memory out of bounds.");
+        if (size < index + 1)
+        {
+            size = index + 1;
+        }
 
-        T & result = data[index];
-        return result;
+        return data[index];
     }
 
-    T const& operator [] (int32 index) const
+    T& operator [] (isize index) { return at(index); }
+    T const& operator [] (isize index) const { return at(index); }
+
+    template <typename Ptr, typename Ref>
+    struct iterator_
     {
-        ASSERT_MSG(index < size, "Attempt to access memory out of bounds.");
+    private:
+        Ptr data;
+        usize index;
 
-        T & result = data[index];
-        return result;
-    }
+        friend array<T>;
 
-    STATIC
-    array<T> from_cstr(const char *s) {
-        static_assert(type::is_same<T, char>::value);
+    public:
+        iterator_(Ptr data, usize index_) : data(data), index(index_) {}
+        iterator_& operator ++ () { index += 1; return *this; }
+        iterator_  operator ++ (int) { iterator_ result = *this; index += 1; return result; }
+        bool operator == (iterator_ other) const { return (data == other.data) && (index == other.index); }
+        bool operator != (iterator_ other) const { return !(*this == other); }
+        Ref operator * () const { return data[index]; }
+    };
 
-        array<T> result;
-        result.data = (char *) s;
-        result.size = cstring::size_no0(s);
+    using iterator = iterator_<T *, T &>;
+    using const_iterator = iterator_<T const *, T const &>;
 
-        return result;
-    }
+    const_iterator cbegin() { return const_iterator(data, 0); }
+    const_iterator cend() { return const_iterator(data, size); }
+    const_iterator begin() const { return const_iterator(data, 0); }
+    const_iterator end() const { return const_iterator(data, size); }
+    iterator begin() { return iterator(data, 0); }
+    iterator end() { return iterator(data, size); }
 };
 
 using byte_array = array<memory::byte>;
@@ -74,24 +95,31 @@ struct dynamic_array
     usize capacity;
     Allocator *allocator;
 
-    T& operator [] (int32 index)
+    T& at (usize index)
     {
-        ASSERT_MSG(index < size, "Attempt to access memory out of bounds.");
+        ASSERT_MSG(index < capacity, "Attempt to access memory out of bounds.");
+        if (size < index)
+        {
+            size = index + 1;
+        }
 
         T & result = data[index];
         return result;
     }
 
+    T& operator [] (usize index) { return at(index); }
+    T const& operator [] (usize index) const { return at(index); }
+
     void push(T value) // @todo: check if T&& is going to eliminate excessive copies
     {
-        ASSERT(size <= capacity); // This should always be true;
+        ASSERT(size <= capacity); // This is just an invariant.
 
         if (size == capacity)
         {
             ensure_capacity((capacity + 1) * 2);
         }
 
-        data[size++] = value;
+        at(size++) = value;
     }
 
     void reserve(usize new_capacity)
@@ -119,7 +147,92 @@ struct dynamic_array
         data = new_buffer;
         capacity = new_capacity;
     }
+
+    template <typename Ptr, typename Ref>
+    struct iterator_
+    {
+    private:
+        Ptr data;
+        usize index;
+
+        friend array<T>;
+
+    public:
+        iterator_(Ptr data_, usize index_) : data(data_), index(index_) {}
+        iterator_& operator ++ () { index += 1; return *this; }
+        iterator_  operator ++ (int) { iterator_ result = *this; index += 1; return result; }
+        bool operator == (iterator_ other) const { return (data == other.data) && (index == other.index); }
+        bool operator != (iterator_ other) const { return !(*this == other); }
+        Ref operator * () const { return data[index]; }
+    };
+
+    using iterator = iterator_<T *, T &>;
+    using const_iterator = iterator_<T const *, T const &>;
+
+    const_iterator cbegin() { return const_iterator(data, 0); }
+    const_iterator cend() { return const_iterator(data, size); }
+    const_iterator begin() const { return const_iterator(data, 0); }
+    const_iterator end() const { return const_iterator(data, size); }
+    iterator begin() { return iterator(data, 0); }
+    iterator end() { return iterator(data, size); }
 };
+
+
+template <typename T>
+array<T> make_array(T *data, usize size)
+{
+    array<T> result = {};
+    result.data = data;
+    result.size = size;
+    result.capacity = size;
+
+    return result;
+}
+
+
+template <typename T, typename Allocator>
+array<T> make_array(dynamic_array<T, Allocator> dyn_array)
+{
+    array<T> result = {};
+    result.data = dyn_array.data;
+    result.size = dyn_array.size;
+    result.capacity = dyn_array.capacity;
+
+    return result;
+}
+
+
+string make_string(char *data, usize size)
+{
+    auto result = make_array<char>(data, size);
+    return result;
+}
+
+
+string make_string(byte_array array)
+{
+    string result = {};
+    result.data = (char *) array.data;
+    result.size = array.size;
+    result.capacity = array.capacity;
+
+    return result;
+}
+
+
+template <typename T>
+void copy_array(array<T> source, array<T> dest)
+{
+    if (dest.size < source.size)
+    {
+        return;
+    }
+
+    for (usize i = 0; i < source.size; i++)
+    {
+        dest[i] = source[i];
+    }
+}
 
 
 template <typename T, typename Allocator>
@@ -146,38 +259,12 @@ dynamic_array<T, Allocator> make_dynamic_array(Allocator *alloc, usize size)
 }
 
 
-template <typename T, typename Allocator>
-array<T> make_array(dynamic_array<T, Allocator> dyn_array)
-{
-    array<T> result = {};
-    result.data = dyn_array.data;
-    result.size = dyn_array.size;
-    // result.capacity = dyn_array.capacity;
-
-    return result;
-}
-
-
-template <typename T>
-void copy_array(array<T> source, array<T> dest)
-{
-    if (dest.size < source.size)
-    {
-        return;
-    }
-
-    for (usize i = 0; i < source.size; i++)
-    {
-        dest[i] = source[i];
-    }
-}
-
-
 template <typename T>
 byte_string to_byte_string(array<T> s) {
     byte_string result;
-    result.data = (byte *) s.data;
-    result.size = s.size * sizeof(T);
+    result.data = (byte *) s.data_;
+    result.size = s.size_ * sizeof(T);
+    result.capacity = s.capacity_ * sizeof(T);
 
     return result;
 }
@@ -186,18 +273,9 @@ byte_string to_byte_string(array<T> s) {
 template <typename T>
 array<T> from_byte_string(byte_string s) {
     array<T> result;
-    result.data = (T *) s.data;
-    result.size = s.size / sizeof(T);
-
-    return result;
-}
-
-
-string make_string(byte_array array)
-{
-    string result = {};
-    result.data = (char *) array.data;
-    result.size = array.size;
+    result.data_ = (T *) s.data_;
+    result.size_ = s.size_ / sizeof(T);
+    result.capacity_ = s.capacity_;
 
     return result;
 }
@@ -206,10 +284,10 @@ string make_string(byte_array array)
 template <typename T>
 b32 operator == (array<T> lhs, array<T> rhs)
 {
-    b32 same = (lhs.size == rhs.size);
-    for (usize i = 0; same && (i < lhs.size); i++)
+    b32 same = (lhs.get_size() == rhs.get_size());
+    for (usize i = 0; same && (i < lhs.get_size()); i++)
     {
-        if (lhs.data[i] != rhs.data[i]) same = false;
+        if (lhs[i] != rhs[i]) same = false;
     }
 
     return same;
@@ -228,7 +306,8 @@ array<T> allocate_array_(Allocator *allocator, usize count)
 {
     array<T> result = {};
     result.data = (T *) memory::allocate_(allocator, sizeof(T)*count, alignof(T));
-    result.size = count;
+    result.size = 0;
+    result.capacity = count;
 
     return result;
 }
@@ -238,7 +317,8 @@ array<T> allocate_array(Allocator *allocator, usize count)
 {
     array<T> result = {};
     result.data = (T *) memory::allocate(allocator, sizeof(T)*count, alignof(T));
-    result.size = count;
+    result.size = 0;
+    result.capacity = count;
     
     return result;
 }
@@ -260,3 +340,5 @@ string allocate_string(Allocator allocator, usize count)
 }
 
 #include "string.hpp"
+
+#define STRING_PRINT_(STRING) (int) STRING.size, STRING.data

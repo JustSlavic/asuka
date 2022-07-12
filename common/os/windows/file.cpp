@@ -49,8 +49,7 @@ byte_array load_entire_file(const char* filename) {
         return result;
     }
 
-    result.data = (memory::byte *) Memory;
-    result.size = FileSize.QuadPart;
+    result = make_array((memory::byte *) Memory, FileSize.QuadPart);
     return result;
 }
 
@@ -74,7 +73,7 @@ bool write_file(const char* filename, byte_array file) {
 
     CloseHandle(FileHandle);
 
-    return file.size == BytesWritten;
+    return file.get_size() == BytesWritten;
 }
 
 
