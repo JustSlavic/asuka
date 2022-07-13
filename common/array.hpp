@@ -50,6 +50,7 @@ struct array
 
     T& operator [] (isize index) { return at(index); }
     T const& operator [] (isize index) const { return at(index); }
+    T& push (T t) { return at(size++) = t; }
 
     template <typename Ptr, typename Ref>
     struct iterator_
@@ -85,13 +86,18 @@ using string = array<char>;
 // using utf8_string = array<utf8_char>;
 
 
-template <typename T, typename Allocator>
+template <typename T, typename Allocator = std::allocator>
 struct dynamic_array
 {
     T *data;
     usize size;
     usize capacity;
     Allocator *allocator;
+
+    constexpr T* get_data() { return data; }
+    constexpr T const* get_data() const { return data; }
+    constexpr usize get_size() const { return size; }
+    constexpr bool is_empty() const { return (size == 0); }
 
     T& at (usize index)
     {
@@ -317,6 +323,15 @@ array<T> allocate_array(Allocator *allocator, usize count)
     result.capacity = count;
     
     return result;
+}
+
+template <typename T, typename Allocator>
+void deallocate_array(Allocator *allocator, array<T>& a)
+{
+    memory::deallocate(allocator, a.data);
+    a.data = NULL;
+    a.size = 0;
+    a.capacity = 0;
 }
 
 template <typename Allocator>

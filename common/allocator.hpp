@@ -4,6 +4,8 @@
 #include <defines.hpp>
 #include <os/memory.hpp>
 
+#include <memory/pool_allocator.hpp>
+
 /*
                     Allocators
 
@@ -117,54 +119,6 @@ void *allocate_(freelist_allocator<A> *allocator, usize requested_size, usize al
 
 template <typename A>
 void free(freelist_allocator<A> *allocator, void *memory_to_free);
-
-
-template <usize CHUNK_SIZE>
-struct pool_allocator
-{
-    byte *memory;
-    usize size; // bytes
-    usize used; // bytes
-
-    struct free_memory_chunk
-    {
-        byte *memory;
-        free_memory_chunk *next_chunk;
-    };
-
-    byte *free_memory;
-    free_memory_chunk *free_chunk;
-};
-
-
-template <usize CHUNK_SIZE>
-void initialize(pool_allocator<CHUNK_SIZE> *allocator, void *memory, usize size)
-{
-    allocator->memory = memory;
-    allocator->free_memory = memory;
-    allocator->size = size;
-    allocator->used = 0;
-    allocator->free_block = NULL;
-}
-
-template <usize CHUNK_SIZE>
-void reset(pool_allocator<CHUNK_SIZE> *allocator)
-{
-    allocator->used = 0;
-    allocator->free_block = NULL;
-}
-
-template <usize CHUNK_SIZE>
-void *allocate_(pool_allocator<CHUNK_SIZE> *allocator, usize requested_size, usize alignment)
-{
-
-}
-
-template <usize BLOCK_SIZE>
-void free(pool_allocator<BLOCK_SIZE> *allocator, void *memory_to_free)
-{
-
-}
 
 
 struct heap_allocator

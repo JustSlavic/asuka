@@ -1029,17 +1029,37 @@ int WINAPI WinMain(
     int CmdShow)
 {
 #if 1
-    // char acf_buffer[] = "{ x = y; z = [a, b, c] }";
-
-    // string acf_string = {};
-    // acf_string.data = acf_buffer;
-    // acf_string.size = sizeof(acf_buffer);
-
     usize acf_arena_memory_size = MEGABYTES(1);
     void* acf_arena_memory = malloc(acf_arena_memory_size);
 
+    usize pool_memory_size = 64;
+    void* pool_memory = malloc(pool_memory_size);
+
     memory::arena_allocator acf_arena;
     initialize(&acf_arena, acf_arena_memory, acf_arena_memory_size);
+
+    {
+        memory::pool_allocator<sizeof(int32)> pool;
+        initialize(&pool, pool_memory, pool_memory_size);
+
+        auto array_from_pool_1 = allocate_array<int8>(&pool, 4);
+        auto array_from_pool_2 = allocate_array<int8>(&pool, 4);
+        auto array_from_pool_3 = allocate_array<int8>(&pool, 4);
+
+        for (int i = 0; i < 4; i++)
+        {
+            array_from_pool_1.push((int8) i);
+            array_from_pool_2.push((int8) i);
+            array_from_pool_3.push((int8) i);
+        }
+
+
+        deallocate_array(&pool, array_from_pool_2);
+        deallocate_array(&pool, array_from_pool_3);
+        deallocate_array(&pool, array_from_pool_1);
+
+        int x = 0;
+    }
 
     byte_array test_content = Asuka::os::load_entire_file("../tests/acf/positive/live_test.acf");
     string acf_string = make_string(test_content);
@@ -1049,6 +1069,10 @@ int WINAPI WinMain(
     options.multiline = acf_print_options::multiline_t::smart;
     options.max_elements_in_line = 4;
     acf_print(parsed, options);
+    osOutputDebugString("\n\n============\n\n");
+
+    acf scheme = create_scheme_from_acf_impl(parsed, &acf_arena);
+    acf_print(scheme, options);
     osOutputDebugString("\n");
 
     return 0;
