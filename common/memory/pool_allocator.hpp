@@ -23,17 +23,6 @@ namespace memory
 {
 
 
-constexpr
-isize compile_time_max(isize a, isize b)
-{
-    return (a > b ? a : b);
-}
-
-
-#define CompileTimeMax(A, B) (((A) > (B)) ? (A) : (B))
-
-
-
 template <usize ChunkSize>
 struct pool_allocator
 {
