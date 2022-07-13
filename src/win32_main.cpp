@@ -1061,6 +1061,20 @@ int WINAPI WinMain(
         int x = 0;
     }
 
+    {
+        auto dyn_array = make_dynamic_array<int32>();
+
+        for (int i = 0; i < 10; i++)
+        {
+            dyn_array.push(i);
+        }
+
+        for (int i = 0; i < 10; i++)
+        {
+            dyn_array.push(i);
+        }
+    }
+
     byte_array test_content = Asuka::os::load_entire_file("../tests/acf/positive/live_test.acf");
     string acf_string = make_string(test_content);
     acf parsed = parse_acf(&acf_arena, acf_string);

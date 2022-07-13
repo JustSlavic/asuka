@@ -86,13 +86,26 @@ using string = array<char>;
 // using utf8_string = array<utf8_char>;
 
 
-template <typename T, typename Allocator = std::allocator>
+template <typename T, typename Allocator = memory::mallocator>
 struct dynamic_array
 {
     T *data;
     usize size;
     usize capacity;
     Allocator *allocator;
+
+    ~dynamic_array()
+    {
+        for (usize i = 0; i < size; i++)
+        {
+            data[i].~T();
+        }
+
+        if (data)
+        {
+            memory::deallocate_buffer(allocator, data);
+        }
+    }
 
     constexpr T* get_data() { return data; }
     constexpr T const* get_data() const { return data; }
@@ -242,6 +255,16 @@ dynamic_array<T, Allocator> make_dynamic_array(Allocator *alloc)
 {
     dynamic_array<T, Allocator> result = {};
     result.allocator = alloc;
+
+    return result;
+}
+
+
+template <typename T>
+dynamic_array<T, memory::mallocator> make_dynamic_array()
+{
+    dynamic_array<T, memory::mallocator> result = {};
+    result.allocator = &memory::mallocator_instance;
 
     return result;
 }

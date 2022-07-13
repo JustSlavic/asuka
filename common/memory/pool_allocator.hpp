@@ -50,7 +50,7 @@ void initialize(pool_allocator<ChunkSize> *allocator, void *memory, usize size)
     allocator->memory = (byte *) memory;
     allocator->size   = size;
     allocator->used   = 0;
-    // @todo: test if I should align this pointer
+    // @todo: should I align this pointer?
     allocator->free_list = (chunk_t *) memory;
 
     chunk_t *header = (chunk_t *) &allocator->free_list;
@@ -66,23 +66,21 @@ void initialize(pool_allocator<ChunkSize> *allocator, void *memory, usize size)
 }
 
 template <usize ChunkSize>
-void *allocate(pool_allocator<ChunkSize> *allocator, usize requested_size, usize alignment)
+void *allocate_(pool_allocator<ChunkSize> *allocator, usize requested_size, usize alignment)
 {
     using chunk_t = pool_allocator<ChunkSize>::memory_chunk;
 
-    if (ChunkSize < requested_size)
-    {
-        return NULL;
-    }
-
     byte *result = NULL;
-    chunk_t *header = allocator->free_list;
-    if (allocator->free_list)
+    if (requested_size <= ChunkSize)
     {
-        result = allocator->free_list->memory;
-        allocator->free_list = allocator->free_list->next_chunk;
+        chunk_t *header = allocator->free_list;
+        if (allocator->free_list)
+        {
+            result = allocator->free_list->memory;
+            allocator->free_list = allocator->free_list->next_chunk;
 
-        allocator->used += sizeof(chunk_t);
+            allocator->used += sizeof(chunk_t);
+        }
     }
 
     return result;
@@ -99,5 +97,6 @@ void deallocate(pool_allocator<ChunkSize> *allocator, void *memory_to_free)
 
     allocator->used -= sizeof(chunk_t);
 }
+
 
 } // namespace memory
