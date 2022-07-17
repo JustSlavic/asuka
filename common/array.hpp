@@ -94,19 +94,6 @@ struct dynamic_array
     usize capacity;
     Allocator *allocator;
 
-    ~dynamic_array()
-    {
-        for (usize i = 0; i < size; i++)
-        {
-            data[i].~T();
-        }
-
-        if (data)
-        {
-            memory::deallocate_buffer(allocator, data);
-        }
-    }
-
     constexpr T* get_data() { return data; }
     constexpr T const* get_data() const { return data; }
     constexpr usize get_size() const { return size; }
@@ -281,6 +268,13 @@ dynamic_array<T, Allocator> make_dynamic_array(Allocator *alloc, usize size)
     result.capacity = size;
 
     return result;
+}
+
+
+template <typename T, typename Allocator>
+void deallocate_array(dynamic_array<T, Allocator> arr)
+{
+    memory::deallocate_buffer(arr.allocator, arr.data);
 }
 
 
