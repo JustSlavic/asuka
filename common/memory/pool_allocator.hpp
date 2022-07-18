@@ -35,6 +35,7 @@ struct pool_allocator
         };
     };
 
+    char const *name;
     byte *memory;
     usize size; // bytes
     usize used; // bytes
@@ -43,10 +44,11 @@ struct pool_allocator
 };
 
 template <usize ChunkSize>
-void initialize(pool_allocator<ChunkSize> *allocator, void *memory, usize size)
+void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size, char const *name = "pool")
 {
     using chunk_t = pool_allocator<ChunkSize>::memory_chunk;
 
+    allocator->name = name;
     allocator->memory = (byte *) memory;
     allocator->size   = size;
     allocator->used   = 0;
@@ -66,14 +68,13 @@ void initialize(pool_allocator<ChunkSize> *allocator, void *memory, usize size)
 }
 
 template <usize ChunkSize>
-void *allocate_(pool_allocator<ChunkSize> *allocator, usize requested_size, usize alignment)
+void *allocate__(pool_allocator<ChunkSize> *allocator, usize requested_size, usize alignment, CodeLocation cl)
 {
     using chunk_t = pool_allocator<ChunkSize>::memory_chunk;
 
     byte *result = NULL;
     if (requested_size <= ChunkSize)
     {
-        chunk_t *header = allocator->free_list;
         if (allocator->free_list)
         {
             result = allocator->free_list->memory;
@@ -87,7 +88,7 @@ void *allocate_(pool_allocator<ChunkSize> *allocator, usize requested_size, usiz
 }
 
 template <usize ChunkSize>
-void deallocate(pool_allocator<ChunkSize> *allocator, void *memory_to_free)
+void deallocate__(pool_allocator<ChunkSize> *allocator, void *memory_to_free)
 {
     using chunk_t = pool_allocator<ChunkSize>::memory_chunk;
 

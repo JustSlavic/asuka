@@ -30,7 +30,7 @@ namespace Asuka {
 
 struct UiScene {
     UiElement *root;
-    UiElement storage[256];
+    UiElement storage[32];
     u32 element_count;
 
     UiElement *hovered_element;

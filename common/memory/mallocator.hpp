@@ -16,28 +16,88 @@ namespace memory
 
 
 struct mallocator
-{};
+{
+#if ASUKA_DEBUG
+    char const *name;
+    AllocationLogEntry hash_table[1024];
+    usize allocation_count = 0;
+#endif // ASUKA_DEBUG
+};
 
 
-GLOBAL mallocator mallocator_instance;
+GLOBAL mallocator global_mallocator_instance;
 
+#if ASUKA_DEBUG
 
 INLINE
-void initialize(mallocator *allocator, void *memory, usize size)
+AllocationLogEntry *get_allocation_entry(mallocator *allocator, void *pointer)
 {
+    AllocationLogEntry *result = NULL;
+
+    uint64 hash = (uint64) pointer;
+    for (uint64 offset = 0; offset < ARRAY_COUNT(allocator->hash_table); offset++)
+    {
+        uint64 index = (hash % ARRAY_COUNT(allocator->hash_table)) + offset;
+        AllocationLogEntry *entry = allocator->hash_table + index;
+        if (entry->pointer == pointer || entry->pointer == NULL)
+        {
+            result = entry;
+            break;
+        }
+    }
+    return result;
+}
+
+INLINE
+void push_allocation_entry(mallocator *allocator, AllocationLogEntry entry)
+{
+    AllocationLogEntry *hash_slot = get_allocation_entry(allocator, entry.pointer);
+    *hash_slot = entry;
 }
 
 
 INLINE
-void *allocate_(mallocator *allocator, usize requested_size, usize alignment)
+void pop_allocation_entry(mallocator *allocator, void *pointer)
 {
-    return malloc(requested_size);
+    AllocationLogEntry *hash_slot = get_allocation_entry(allocator, pointer);
+    *hash_slot = null_allocation_entry();
+}
+
+#endif // ASUKA_DEBUG
+
+INLINE
+void initialize__(mallocator *allocator, void *memory, usize size, char const *name = "mallocator")
+{
+#if ASUKA_DEBUG
+    allocator->name = name;
+    set(allocator->hash_table, 0, sizeof(allocator->hash_table));
+    allocator->allocation_count = 0;
+#endif // ASUKA_DEBUG
 }
 
 
 INLINE
-void deallocate(mallocator *allocator, void *memory_to_free)
+void *allocate__(mallocator *allocator, usize requested_size, usize alignment, CodeLocation cl)
 {
+    void *result = malloc(requested_size);
+
+#if ASUKA_DEBUG
+    push_allocation_entry(allocator, {cl, result, requested_size});
+    allocator->allocation_count += 1;
+#endif // ASUKA_DEBUG
+
+    return result;
+}
+
+
+INLINE
+void deallocate__(mallocator *allocator, void *memory_to_free, CodeLocation cl)
+{
+#if ASUKA_DEBUG
+    pop_allocation_entry(allocator, memory_to_free);
+    allocator->allocation_count -= 1;
+#endif // ASUKA_DEBUG
+
     free(memory_to_free);
 }
 

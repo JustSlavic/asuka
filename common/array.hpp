@@ -13,6 +13,8 @@
 template <typename T, usize Size>
 struct static_array
 {
+    using value_t = T;
+
     T data[Size];
 
     T & operator [] (int32 index)
@@ -21,6 +23,12 @@ struct static_array
 
         T & result = data[index];
         return result;
+        {
+
+            {
+
+            }
+        }
     }
 };
 
@@ -28,6 +36,9 @@ struct static_array
 template <typename T>
 struct array
 {
+    using value_t = T; // For arrays
+    using char_t  = T; // For strings
+
     T *data;
     usize size;
     usize capacity;
@@ -89,17 +100,21 @@ using string = array<char>;
 template <typename T, typename Allocator = memory::mallocator>
 struct dynamic_array
 {
-    T *data;
+    using value_t = T; // For arrays
+    using char_t  = T; // For strings
+    using allocator_t = Allocator;
+
+    value_t *data;
     usize size;
     usize capacity;
-    Allocator *allocator;
+    allocator_t *allocator;
 
-    constexpr T* get_data() { return data; }
-    constexpr T const* get_data() const { return data; }
+    constexpr value_t* get_data() { return data; }
+    constexpr value_t const* get_data() const { return data; }
     constexpr usize get_size() const { return size; }
     constexpr bool is_empty() const { return (size == 0); }
 
-    T& at (usize index)
+    value_t& at (usize index)
     {
         ASSERT_MSG(index < capacity, "Attempt to access memory out of bounds.");
         if (size < index)
@@ -107,14 +122,21 @@ struct dynamic_array
             size = index + 1;
         }
 
-        T & result = data[index];
+        value_t & result = data[index];
         return result;
     }
 
-    T& operator [] (usize index) { return at(index); }
-    T const& operator [] (usize index) const { return at(index); }
+    value_t const& at (usize index) const
+    {
+        ASSERT_MSG(index < size, "Attempt to access memory out of bounds.");
+        value_t const& result = data[index];
+        return result;
+    }
 
-    void push(T value) // @todo: check if T&& is going to eliminate excessive copies
+    value_t& operator [] (usize index) { return at(index); }
+    value_t const& operator [] (usize index) const { return at(index); }
+
+    void push(value_t value) // @todo: check if T&& is going to eliminate excessive copies
     {
         ASSERT(size <= capacity); // This is just an invariant.
 
@@ -136,7 +158,7 @@ struct dynamic_array
 
     void ensure_capacity(usize new_capacity)
     {
-        T *new_buffer = memory::allocate_buffer_<T>(allocator, new_capacity);
+        value_t *new_buffer = ALLOCATE_BUFFER(allocator, value_t, new_capacity);
 
         for (int32 i = 0; i < size; i++)
         {
@@ -145,7 +167,7 @@ struct dynamic_array
 
         if (data)
         {
-            deallocate_buffer(allocator, data);
+            DEALLOCATE_BUFFER(allocator, data);
         }
 
         data = new_buffer;
@@ -168,8 +190,8 @@ struct dynamic_array
         Ref operator * () const { return data[index]; }
     };
 
-    using iterator = iterator_<T *, T &>;
-    using const_iterator = iterator_<T const *, T const &>;
+    using iterator = iterator_<value_t *, value_t &>;
+    using const_iterator = iterator_<value_t const *, value_t const &>;
 
     const_iterator cbegin() { return const_iterator(data, 0); }
     const_iterator cend() { return const_iterator(data, size); }
@@ -178,6 +200,10 @@ struct dynamic_array
     iterator begin() { return iterator(data, 0); }
     iterator end() { return iterator(data, size); }
 };
+
+
+template <typename Allocator = memory::mallocator>
+using dynamic_string = dynamic_array<char, Allocator>;
 
 
 template <typename T>
@@ -204,6 +230,24 @@ array<T> make_array(dynamic_array<T, Allocator> dyn_array)
 }
 
 
+template <typename T, typename Allocator>
+array<T> make_copy(array<T> source, Allocator *allocator)
+{
+    array<T> result = allocate_array_<T>(allocator, source.size);
+    copy_array(source, result);
+    return result;
+}
+
+
+template <typename T, typename Allocator>
+dynamic_array<T, Allocator> make_copy(dynamic_array<T, Allocator> source, Allocator *allocator)
+{
+    dynamic_array<T, Allocator> result = make_dynamic_array<T, Allocator>(allocator, source.size);
+    copy_dynamic_array<T, Allocator>(source, result);
+    return result;
+}
+
+
 string make_string(char *data, usize size)
 {
     auto result = make_array<char>(data, size);
@@ -223,7 +267,22 @@ string make_string(byte_array array)
 
 
 template <typename T>
-void copy_array(array<T> source, array<T> dest)
+void copy_array(array<T> source, array<T> &dest)
+{
+    if (dest.capacity < source.size)
+    {
+        return;
+    }
+
+    dest.size = source.size;
+    for (usize i = 0; i < source.size; i++)
+    {
+        dest[i] = source[i];
+    }
+}
+
+template <typename T, typename Allocator>
+void copy_dynamic_array(dynamic_array<T> source, dynamic_array<T> dest)
 {
     if (dest.size < source.size)
     {
@@ -251,7 +310,7 @@ template <typename T>
 dynamic_array<T, memory::mallocator> make_dynamic_array()
 {
     dynamic_array<T, memory::mallocator> result = {};
-    result.allocator = &memory::mallocator_instance;
+    result.allocator = &memory::global_mallocator_instance;
 
     return result;
 }
@@ -263,18 +322,11 @@ dynamic_array<T, Allocator> make_dynamic_array(Allocator *alloc, usize size)
     dynamic_array<T, Allocator> result = {};
     result.allocator = alloc;
 
-    result.data = memory::allocate_buffer_<T>(alloc, size);
-    result.size = size;
+    result.data = ALLOCATE_BUFFER_(alloc, T, size);
+    result.size = 0;
     result.capacity = size;
 
     return result;
-}
-
-
-template <typename T, typename Allocator>
-void deallocate_array(dynamic_array<T, Allocator> arr)
-{
-    memory::deallocate_buffer(arr.allocator, arr.data);
 }
 
 
@@ -324,7 +376,7 @@ template <typename T, typename Allocator>
 array<T> allocate_array_(Allocator *allocator, usize count)
 {
     array<T> result = {};
-    result.data = (T *) memory::allocate_(allocator, sizeof(T)*count, alignof(T));
+    result.data = (T *) ALLOCATE_(allocator, sizeof(T)*count, alignof(T));
     result.size = 0;
     result.capacity = count;
 
@@ -335,7 +387,7 @@ template <typename T, typename Allocator>
 array<T> allocate_array(Allocator *allocator, usize count)
 {
     array<T> result = {};
-    result.data = (T *) memory::allocate(allocator, sizeof(T)*count, alignof(T));
+    result.data = (T *) ALLOCATE(allocator, sizeof(T)*count, alignof(T));
     result.size = 0;
     result.capacity = count;
     
@@ -345,7 +397,7 @@ array<T> allocate_array(Allocator *allocator, usize count)
 template <typename T, typename Allocator>
 void deallocate_array(Allocator *allocator, array<T>& a)
 {
-    memory::deallocate(allocator, a.data);
+    DEALLOCATE(allocator, a.data);
     a.data = NULL;
     a.size = 0;
     a.capacity = 0;
@@ -363,9 +415,33 @@ template <typename Allocator>
 string allocate_string(Allocator allocator, usize count)
 {
     static_assert(type::is_same<array<char>, string>::value);
-    string result = allocate_array<char>(allocator, count);
+    string result = allocate_array<char::fd::ff>(allocator, count);
     return result;
+
 }
+
+template <typename Allocator>
+void deallocate_string(Allocator *allocator, string& s)
+{
+    deallocate_array(allocator, s);
+}
+
+template <typename T, typename Allocator>
+void deallocate_array(dynamic_array<T, Allocator>& arr)
+{
+    memory::deallocate_buffer(arr->allocator, arr->data);
+    arr->data = NULL;
+    arr->size = 0;
+    arr->capacity = 0;
+}
+
+
+template <typename Allocator = memory::mallocator>
+void deallocate_string(dynamic_string<Allocator>& str)
+{
+    deallocate_array<char, Allocator>(str);
+}
+
 
 #include "string.hpp"
 

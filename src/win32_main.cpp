@@ -1028,7 +1028,7 @@ int WINAPI WinMain(
     LPSTR CmdLine,
     int CmdShow)
 {
-#if 1
+#if 0
     usize acf_arena_memory_size = MEGABYTES(1);
     void* acf_arena_memory = malloc(acf_arena_memory_size);
 
@@ -1085,9 +1085,9 @@ int WINAPI WinMain(
     acf_print(parsed, options);
     osOutputDebugString("\n\n============\n\n");
 
-    acf scheme = create_scheme_from_acf_impl(parsed, &acf_arena);
-    acf_print(scheme, options);
-    osOutputDebugString("\n");
+    // acf scheme = create_scheme_from_acf_impl(parsed, &acf_arena);
+    // acf_print(scheme, options);
+    // osOutputDebugString("\n");
 
     return 0;
 #endif
@@ -1228,10 +1228,9 @@ int WINAPI WinMain(
     Global_DebugInputRecording.InitialGameMemorySize = InitialGameMemorySize;
     Global_DebugInputRecording.InputRecordingSize = MEGABYTES(1);
 
-    Global_DebugInputRecording.InitialGameMemory = VirtualAlloc(
+    Global_DebugInputRecording.InitialGameMemory = Platform::AllocateMemory(
         (u8*)GameMemory.PermanentStorage + TotalSize,
-        InitialGameMemorySize + Global_DebugInputRecording.InputRecordingSize, // GameMemory size + size of the recorded inputs
-        MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        InitialGameMemorySize + Global_DebugInputRecording.InputRecordingSize); // GameMemory size + size of the recorded inputs
     Global_DebugInputRecording.InputRecording = (u8 *)Global_DebugInputRecording.InitialGameMemory + InitialGameMemorySize;
 
     Global_DebugInputRecording.RecordedInputsCount = 0;

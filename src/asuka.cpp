@@ -803,15 +803,25 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         memory::arena_allocator *temp_arena = &game_state->temp_arena;
         memory::arena_allocator *ui_arena = &game_state->ui_arena;
 
-        initialize(arena, (u8 *) Memory->PermanentStorage + sizeof(GameState), (Memory->PermanentStorageSize - sizeof(GameState)) / 2);
-        initialize(ui_arena, (u8 *) Memory->PermanentStorage + sizeof(GameState) + (Memory->PermanentStorageSize - sizeof(GameState)) / 2, (Memory->PermanentStorageSize - sizeof(GameState)) / 2);
-        initialize(temp_arena, (u8 *) Memory->TransientStorage, Memory->TransientStorageSize);
+        initialize(
+            arena,
+            (u8 *) Memory->PermanentStorage + sizeof(GameState),
+            (Memory->PermanentStorageSize - sizeof(GameState)) / 2,
+            "world"
+        );
+        initialize(
+            ui_arena,
+            (u8 *) Memory->PermanentStorage + sizeof(GameState)
+                + (Memory->PermanentStorageSize - sizeof(GameState)) / 2,
+            (Memory->PermanentStorageSize - sizeof(GameState)) / 2,
+            "ui"
+        );
 
         f32 tile_side_in_meters = 1.0f;
         i32 chunk_side_in_tiles = 5;
         f32 chunk_side_in_meters = chunk_side_in_tiles * tile_side_in_meters;
 
-        World *world = memory::allocate_struct<World>(arena);
+        World *world = ALLOCATE_STRUCT(arena, World);
         initialize_world(world, tile_side_in_meters, chunk_side_in_meters);
         game_state->world = world;
 
@@ -1003,7 +1013,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // push_filter(hud_child_2, tint_2);
 
 #if UI_EDITOR_ENABLED
-        game_state->ui_editor = memory::allocate_struct<UiEditor>(ui_arena);
+        game_state->ui_editor = ALLOCATE_STRUCT(ui_arena, UiEditor);
         game_state->ui_editor_enabled = false;
 #endif // UI_EDITOR_ENABLED
 
@@ -1077,7 +1087,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     Rectangle3 sim_bounds = rect3::from_min_max(make_vector3(-10, -6, -5), make_vector3(10, 6, 5)); // in meters
 
-    reset(&game_state->temp_arena);
+    initialize(&game_state->temp_arena, (u8 *) Memory->TransientStorage, Memory->TransientStorageSize, "sim_region");
 
     WorldPosition sim_center = game_state->camera_position;
     sim_center.offset.z = 0;
@@ -1375,9 +1385,103 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     ui_draw_scene(game_state->game_hud, Buffer);
 #endif // UI_EDITOR_ENABLED
 
-    // ======================================================== //
+    // ===================== RENDERING MEMORY LAYOUT ===================== //
 
-    // ===================== RENDERING SIGNALING BORDERS ===================== //
+    {
+        uint64 memory_start = (uint64) &game_state;
+        uint64 strip_height = 10;
+
+        auto *allocator_to_draw = &game_state->world_arena;
+
+        uint64 how_many_bytes_i_want_to_see = Buffer->Width * Buffer->Height;
+        int64 size_per_pixel = how_many_bytes_i_want_to_see / (Buffer->Width * Buffer->Height);
+
+        {
+            void* start_p = allocator_to_draw->memory;
+            usize size    = allocator_to_draw->size;
+            Color24 color = Color24::Black;
+
+            int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel;
+
+            for (uint64 i = 0 ; i < ARRAY_COUNT(allocator_to_draw->hash_table); i++)
+            {
+                AllocationLogEntry *entry = allocator_to_draw->hash_table + i;
+                if (entry->pointer == NULL) continue;
+
+                // Let's say I made an allocation within this memory arena.
+                // The pointer for this allocation is
+                void *allocation_pointer = entry->pointer;
+                usize allocation_size = entry->size; // bytes;
+
+                int64 start = (int64)allocation_pointer - (int64)start_p;
+                int64 rest = allocation_size; // in bytes
+
+                while (rest > 0)
+                {
+                    int64 x = (start - (start / buffer_width_in_mapped_bytes) * buffer_width_in_mapped_bytes) / size_per_pixel;
+                    int64 y = ((start / buffer_width_in_mapped_bytes) * strip_height) / size_per_pixel;
+
+                    int64 w;
+                    if (x * size_per_pixel + rest > buffer_width_in_mapped_bytes)
+                    {
+                        w = buffer_width_in_mapped_bytes / size_per_pixel;
+                        rest -= (buffer_width_in_mapped_bytes - x * size_per_pixel);
+                        start += (buffer_width_in_mapped_bytes - x * size_per_pixel);
+                    }
+                    else
+                    {
+                        w = rest / size_per_pixel;
+                        rest -= rest;
+                        start += rest;
+                    }
+
+                    v2 lt = make_vector2(x, y);
+                    v2 wh = make_vector2(w, strip_height);
+                    DrawRectangle(Buffer, lt, lt+wh, color);
+                }
+
+
+                {
+                    color.g += 1.0f / allocator_to_draw->allocation_count;
+                    if (color.g > 1.0f)
+                    {
+                        color.g = 1.0f;
+                    }
+                }
+
+                {
+                    // color.r += 0.1f;
+                    // if (color.r > 1.0f)
+                    // {
+                    //     color.r = 1.0f;
+                    // }
+                }
+
+                {
+                    color.b += 1.0f / allocator_to_draw->allocation_count;
+                    if (color.b > 1.0f)
+                    {
+                        color.b = 1.0f;
+                    }
+                }
+
+                // if (color == Color24::Red)
+                // {
+                //     color = Color24::Blue;
+                // }
+                // else
+                // {
+                //     color = Color24::Red;
+                // }
+            }
+
+        }
+
+        // draw_memory_layout(&game_state, sizeof(GameState), Color24::Blue);
+        // draw_memory_layout(game_state->ui_arena.memory, game_state->ui_arena.size, Color24::Red);
+    }
+
+    // ===================== RENDERING SIGNALING BORDERS ================= //
 
 #if ASUKA_PLAYBACK_LOOP
     Color24 BorderColor {};

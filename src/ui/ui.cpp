@@ -6,7 +6,7 @@ namespace Asuka {
 
 UiScene *ui_allocate_scene(memory::arena_allocator *allocator)
 {
-    UiScene *result = memory::allocate_struct<UiScene>(allocator);
+    UiScene *result = ALLOCATE_STRUCT(allocator, UiScene);
     return result;
 }
 

@@ -11,8 +11,6 @@
 // You should free in manually via your allocator.
 //
 
-namespace Asuka {
-
 namespace cstring {
 
 usize size_no0(const char *str) {
@@ -53,7 +51,6 @@ bool equals(char const *s1, char const *s2) {
     return equal;
 }
 
-} // namespace cstring
 
 
 b32 equals_to_cstr(string s, char const *cstr) {
@@ -70,7 +67,7 @@ b32 equals_to_cstr(string s, char const *cstr) {
 
 
 // @note: Always be sure that c-string have null termination.
-string from_cstr(char const *str) {
+string make_string(char const *str) {
     string result = {};
 
     result.data = (char *)str;
@@ -80,6 +77,7 @@ string from_cstr(char const *str) {
     return result;
 }
 
-} // namespace Asuka
+
+} // namespace cstring
 
 #endif // ASUKA_COMMON_STRING_HPP
