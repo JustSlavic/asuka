@@ -4,11 +4,7 @@
 #include "vector4.hpp"
 
 
-namespace Asuka
-{
-    
-
-struct Matrix4
+struct matrix4
 {
     union
     {
@@ -19,17 +15,14 @@ struct Matrix4
             f32 _31, _32, _33, _34;
             f32 _41, _42, _43, _44;
         };
-        Vector4 row[4];
+        v4 row[4];
         f32 e[4][4];
     };
 
-    STATIC Matrix4 Identity;
+    STATIC matrix4 identity;
 };
 
-using m4 = Matrix4;
-
-
-} // namespace Asuka
+using m4 = matrix4;
 
 
 #if UNITY_BUILD

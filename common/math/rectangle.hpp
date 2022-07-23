@@ -5,19 +5,16 @@
 #include <math/vector2.hpp>
 
 
-namespace Asuka {
-
-
 //
 // Axis aligned rectangle.
 //
 struct Rectangle2
 {
-    Vector2 min;
-    Vector2 max;
+    v2 min;
+    v2 max;
 
     STATIC
-    Rectangle2 from_min_max(Vector2 min, Vector2 max)
+    Rectangle2 from_min_max(v2 min, v2 max)
     {
         Rectangle2 result;
         result.min = min;
@@ -26,7 +23,7 @@ struct Rectangle2
     }
 
     STATIC
-    Rectangle2 from_center_half_dim(Vector2 center, Vector2 half_dimensions)
+    Rectangle2 from_center_half_dim(v2 center, v2 half_dimensions)
     {
         Rectangle2 result;
         result.min = center - half_dimensions;
@@ -35,7 +32,7 @@ struct Rectangle2
     }
 
     STATIC
-    Rectangle2 from_center_dim(Vector2 center, Vector2 dimensions)
+    Rectangle2 from_center_dim(v2 center, v2 dimensions)
     {
         Rectangle2 result = from_center_half_dim(center, 0.5f * dimensions);
         return result;
@@ -62,21 +59,21 @@ f32 get_height(Rectangle2 rect)
 }
 
 INLINE
-Vector2 get_center(Rectangle2 rect)
+v2 get_center(Rectangle2 rect)
 {
-    Vector2 result = 0.5f * (rect.min + rect.max);
+    v2 result = 0.5f * (rect.min + rect.max);
     return result;
 }
 
 INLINE
-Vector2 get_dimensions(Rectangle2 rect)
+v2 get_dimensions(Rectangle2 rect)
 {
-    Vector2 result = rect.max - rect.min;
+    v2 result = rect.max - rect.min;
     return result;
 }
 
 INLINE
-b32 in_rectangle(Rectangle2 rect, Vector2 v)
+b32 in_rectangle(Rectangle2 rect, v2 v)
 {
     b32 result = ((v.x >= rect.min.x) &&
                   (v.x <= rect.max.x) &&
@@ -91,11 +88,11 @@ b32 in_rectangle(Rectangle2 rect, Vector2 v)
 //
 struct Rectangle3
 {
-    Vec3F min;
-    Vec3F max;
+    v3 min;
+    v3 max;
 
     STATIC
-    Rectangle3 from_min_max(Vector3 min, Vector3 max)
+    Rectangle3 from_min_max(v3 min, v3 max)
     {
         Rectangle3 result;
         result.min = min;
@@ -104,7 +101,7 @@ struct Rectangle3
     }
 
     STATIC
-    Rectangle3 from_center_half_dim(Vector3 center, Vector3 half_dimensions)
+    Rectangle3 from_center_half_dim(v3 center, v3 half_dimensions)
     {
         Rectangle3 result;
         result.min = center - half_dimensions;
@@ -113,7 +110,7 @@ struct Rectangle3
     }
 
     STATIC
-    Rectangle3 from_center_dim(Vector3 center, Vector3 dimensions)
+    Rectangle3 from_center_dim(v3 center, v3 dimensions)
     {
         Rectangle3 result = from_center_half_dim(center, 0.5f * dimensions);
         return result;
@@ -145,21 +142,21 @@ f32 get_side_z(Rectangle3 rect)
 }
 
 INLINE
-Vector3 get_center(Rectangle3 rect)
+v3 get_center(Rectangle3 rect)
 {
-    Vector3 result = 0.5f * (rect.min + rect.max);
+    v3 result = 0.5f * (rect.min + rect.max);
     return result;
 }
 
 INLINE
-Vector3 get_dimensions(Rectangle3 rect)
+v3 get_dimensions(Rectangle3 rect)
 {
-    Vector3 result = rect.max - rect.min;
+    v3 result = rect.max - rect.min;
     return result;
 }
 
 INLINE
-b32 in_rectangle(Rectangle3 rect, Vector3 v)
+b32 in_rectangle(Rectangle3 rect, v3 v)
 {
     b32 result = ((v.x >= rect.min.x) &&
                   (v.x <= rect.max.x) &&
@@ -169,9 +166,6 @@ b32 in_rectangle(Rectangle3 rect, Vector3 v)
                   (v.z <= rect.max.z));
     return result;
 }
-
-
-} // namespace Asuka
 
 
 #endif // ASUKA_COMMON_MATH_RECTANGLE_HPP

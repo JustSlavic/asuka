@@ -28,7 +28,7 @@ WorldPosition null_position()
 }
 
 
-WorldPosition world_position(World *world, i32 chunk_x, i32 chunk_y, i32 chunk_z, Vec3F offset)
+WorldPosition world_position(World *world, i32 chunk_x, i32 chunk_y, i32 chunk_z, v3 offset)
 {
     WorldPosition result;
     result.chunk = { chunk_x, chunk_y, chunk_z };
@@ -310,7 +310,7 @@ b32 is_canonical(float32 offset, float32 dim)
 }
 
 
-b32 is_canonical(Vec3F p, Vec3F chunk_dim)
+b32 is_canonical(v3 p, v3 chunk_dim)
 {
     b32 result = is_canonical(p.x, chunk_dim.x) &&
                  is_canonical(p.y, chunk_dim.y) &&
@@ -320,7 +320,7 @@ b32 is_canonical(Vec3F p, Vec3F chunk_dim)
 }
 
 
-b32 is_canonical(WorldPosition p, Vec3F chunk_dim)
+b32 is_canonical(WorldPosition p, v3 chunk_dim)
 {
     b32 result = is_canonical(p.offset, chunk_dim);
 
@@ -328,11 +328,11 @@ b32 is_canonical(WorldPosition p, Vec3F chunk_dim)
 }
 
 
-WorldPosition canonicalize_position(WorldPosition p, Vec3F chunk_dim)
+WorldPosition canonicalize_position(WorldPosition p, v3 chunk_dim)
 {
     WorldPosition result = p;
 
-    Vec3I chunk_offset = round_to_vector3i(hadamard_div(p.offset, chunk_dim));
+    v3i chunk_offset = round_to_vector3i(hadamard_div(p.offset, chunk_dim));
 
     result.chunk += chunk_offset;
     result.offset -= hadamard(make_vector3(chunk_offset), chunk_dim);

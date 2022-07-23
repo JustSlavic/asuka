@@ -30,8 +30,8 @@ enum Tile {
 
 
 struct WorldPosition {
-    Vec3I chunk;
-    Vec3F offset;
+    v3i chunk;
+    v3  offset;
 };
 
 
@@ -57,7 +57,7 @@ struct Chunk {
 
 struct World {
     f32 tile_side_in_meters;
-    Vec3F chunk_dim;
+    v3 chunk_dim;
 
     // @note: Size of the array should be power of two for now.
     Chunk chunks_hash_table[32];
@@ -77,7 +77,7 @@ void change_entity_location(World *world, u32 storage_index, StoredEntity *entit
 b32 is_canonical(World *world, WorldPosition p);
 b32 is_equal(WorldPosition p1, WorldPosition p2);
 
-WorldPosition canonicalize_position(WorldPosition p, Vec3F chunk_dim);
+WorldPosition canonicalize_position(WorldPosition p, v3 chunk_dim);
 WorldPosition map_into_world_space(World *world, WorldPosition camera_position, f32 offset_x, f32 offset_y, f32 offset_z);
 
 } // namespace Game

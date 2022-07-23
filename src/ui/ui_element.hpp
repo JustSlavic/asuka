@@ -39,7 +39,7 @@ enum UiFilterType
 
 struct UiFilterBlur
 {
-    Vector2 radius;
+    v2 radius;
 };
 
 struct UiFilterShadow
@@ -50,8 +50,8 @@ struct UiFilterShadow
 
 struct UiFilterTint
 {
-    Vec4F multiply;
-    Vec4F add;
+    v4 multiply;
+    v4 add;
 };
 
 struct UiFilter
@@ -76,7 +76,7 @@ enum UiElementType
 
 struct UiShape
 {
-    Vec2F size;     // @note: in Local coordinates
+    v2 size;     // @note: in Local coordinates
     Color32 color;  // Natural element's color, but not be present for UiBitmaps, for example
 
     // @debug: Diagonal squares
@@ -95,9 +95,9 @@ struct UiGroup
 struct UiElement
 {
     UiElementType type;
-    Vec2F position; // @note: in Parent coordinates
-    Vec2F pivot;    // @note: in Local coordinates
-    Vec2F scale;    // @note: default should be (1, 1) equivalent to "no scale"
+    v2 position; // @note: in Parent coordinates
+    v2 pivot;    // @note: in Local coordinates
+    v2 scale;    // @note: default should be (1, 1) equivalent to "no scale"
 
     union
     {
@@ -143,7 +143,7 @@ UiElement *allocate_ui_group(Allocator *allocator)
 
 Rectangle2 get_bounding_box(UiElement *element);
 void push_filter(UiShape *element, UiFilter *filter);
-Matrix4 get_transform(UiElement *element);
+matrix4 get_transform(UiElement *element);
 
 
 } // namespace Asuka

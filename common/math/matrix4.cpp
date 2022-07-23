@@ -1,9 +1,7 @@
 #include "matrix4.hpp"
 
-namespace Asuka
-{
 
-Matrix4 Matrix4::Identity =
+matrix4 matrix4::identity =
 {
     1.0f, 0.0f, 0.0f, 0.0f,
     0.0f, 1.0f, 0.0f, 0.0f,
@@ -11,4 +9,3 @@ Matrix4 Matrix4::Identity =
     0.0f, 0.0f, 0.0f, 1.0f,
 };
 
-} // namespace Asuka

@@ -133,17 +133,17 @@ struct ControllerInput
         };
     };
 
-    Vector2 LeftStickStarted;
-    Vector2 LeftStickEnded;
+    v2 LeftStickStarted;
+    v2 LeftStickEnded;
 
-    Vector2 RightStickStarted;
-    Vector2 RightStickEnded;
+    v2 RightStickStarted;
+    v2 RightStickEnded;
 
-    float32 TriggerLeftStarted;
-    float32 TriggerLeftEnded;
+    f32 TriggerLeftStarted;
+    f32 TriggerLeftEnded;
 
-    float32 TriggerRightStarted;
-    float32 TriggerRightEnded;
+    f32 TriggerRightStarted;
+    f32 TriggerRightEnded;
 };
 
 
@@ -188,9 +188,9 @@ struct KeyboardState
 
 struct MouseState {
     // Coordinates in client area coordinate space
-    Vec2I position;
-    Vec2I previous_position;
-    int32 wheel;
+    v2i position;
+    v2i previous_position;
+    i32 wheel;
 
     union {
         ButtonState buttons[5];

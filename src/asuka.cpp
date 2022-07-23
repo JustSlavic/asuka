@@ -25,11 +25,11 @@ void DrawBitmap(
     f32 c_alpha = 1.0f)
 {
     // @note: Top-down coordinate system.
-    Vector2i tl = round_to_v2i(make_vector2(left, top));
-    Vector2i br = tl + round_to_v2i(make_vector2(image->width, image->height));
+    v2i tl = round_to_v2i(make_vector2(left, top));
+    v2i br = tl + round_to_v2i(make_vector2(image->width, image->height));
 
-    Vector2i image_tl = make_vector2i(0, 0);
-    Vector2i image_br = make_vector2i(image->width, image->height);
+    v2i image_tl = make_vector2i(0, 0);
+    v2i image_br = make_vector2i(image->width, image->height);
 
     if (tl.x < 0) {
         image_tl.x = -tl.x;
@@ -46,10 +46,10 @@ void DrawBitmap(
         br.y = buffer->Height;
     }
 
-    Vector2i dimensions = br - tl;
-    Vector2i image_dims = image_br - image_tl;
+    v2i dimensions = br - tl;
+    v2i image_dims = image_br - image_tl;
 
-    Vector2i dims {
+    v2i dims {
         (dimensions.x < image_dims.x) ? dimensions.x : image_dims.x,
         (dimensions.y < image_dims.y) ? dimensions.y : image_dims.y,
     };
@@ -125,15 +125,15 @@ void DrawRectangle(
     Color24 color,
     b32 stroke = false)
 {
-    Vector2i tl = round_to_v2i(top_left);
-    Vector2i br = round_to_v2i(bottom_right);
+    v2i tl = round_to_v2i(top_left);
+    v2i br = round_to_v2i(bottom_right);
 
     if (tl.x < 0) tl.x = 0;
     if (tl.y < 0) tl.y = 0;
     if (br.x > buffer->Width)  br.x = buffer->Width;
     if (br.y > buffer->Height) br.y = buffer->Height;
 
-    Vector2i dimensions = br - tl;
+    v2i dimensions = br - tl;
 
     u8* Row = (u8*)buffer->Memory + tl.y*buffer->Pitch + tl.x*buffer->BytesPerPixel;
 
@@ -197,10 +197,10 @@ void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buf
             Rectangle2 aabb = get_bounding_box(ui_element);
             for (i32 i = 0; i < n; i++)
             {
-                Vec2F diagonal = (aabb.max - aabb.min) / f32(n);
+                v2 diagonal = (aabb.max - aabb.min) / f32(n);
 
-                Vec2F lt = aabb.min + diagonal * f32(i);
-                Vec2F rb = lt + diagonal;
+                v2 lt = aabb.min + diagonal * f32(i);
+                v2 rb = lt + diagonal;
 
                 Color32 color = ui_element->shape.color;
 
@@ -263,7 +263,7 @@ void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buf
 
         case UI_ELEMENT_GROUP:
         {
-            Matrix4 transform = Matrix4::Identity;
+            matrix4 transform = matrix4::identity;
             for (u32 child_index = 0; child_index < ui_element->group.children_count; child_index++)
             {
                 auto child = ui_element->group.children[child_index];
@@ -625,7 +625,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
             destination = position + velocity * remaining_dt;
 
             f32 new_distance_to_move = length(destination - position);
-            ASSERT(Asuka::is_equal(new_distance_to_move, entity->distance_limit));
+            ASSERT(::is_equal(new_distance_to_move, entity->distance_limit));
             distance_to_move = entity->distance_limit;
         }
 
@@ -1138,7 +1138,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     // Background grass
     // DrawBitmap(Buffer, { 0, 0 }, { (f32)Buffer->Width, (f32)Buffer->Height }, &game_state->grass_texture);
 
-#if 0
+#if 1
     // ===================== RENDERING ENTITIES ===================== //
     VisiblePieceGroup group {};
     group.pixels_per_meter = pixels_per_meter;
@@ -1270,7 +1270,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 }
 
                 f32 a = 2.0f;
-                f32 t = a * sin(3.0f * entity->tBob);
+                f32 t = a * math::sin(3.0f * entity->tBob);
                 f32 h = 2.0f / (2.0f + a + t);
 
                 auto *shadow = &game_state->shadow_texture;
@@ -1424,10 +1424,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #endif
     // ===================== RENDERING MEMORY LAYOUT ===================== //
 
-#define ASUKA_DRAW_MEMORY_LAYOUT 1
+#define ASUKA_DRAW_MEMORY_LAYOUT 0
 #define DRAW_WORLD_ARENA         0
-#define DRAW_EXPERIMENTAL_POOL   0
-#define DRAW_MALLOCATOR_MEMORY   1
+#define DRAW_EXPERIMENTAL_POOL   1
+#define DRAW_MALLOCATOR_MEMORY   0
 
 #if ASUKA_DEBUG && ASUKA_DRAW_MEMORY_LAYOUT
 #if DRAW_WORLD_ARENA

@@ -39,11 +39,11 @@ void push_filter(UiElement *element, UiFilter *filter)
 }
 
 
-Matrix4 get_transform(UiElement *element)
+matrix4 get_transform(UiElement *element)
 {
-    Matrix4 transform = Matrix4::Identity;
+    matrix4 transform = matrix4::identity;
 
-    // @todo: make 'Matrix4 scale(Matrix, Vec4F)' function
+    // @todo: make 'matrix4 scale(Matrix, Vec4F)' function
     transform._11 = element->scale.x;
     transform._22 = element->scale.y;
 
