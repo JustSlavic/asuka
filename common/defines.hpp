@@ -2,24 +2,38 @@
 #define ASUKA_COMMON_DEFINES_HPP
 
 /*
-    ANSI Graphics for schemes in comments:
+    ANSI Graphics for schemes in comments: https://en.wikipedia.org/wiki/Box-drawing_character
 
     ← ↑ → ↓
 
-    ─ │ ┌┐┍┑┎┒┏┓
-    ━ ┃ └┘┕┙┖┚┗┛
-    ╌ ╎ ├┤┝┥┞┦┟┧ ┠┨┡┩┢┪┣┫
-    ╍ ╏ ┮┯┭┬ ┰┲┳┱
-    ┄ ┆ ┶┷┵┴ ┸┺┻┹
-    ┅ ┇ ╆╅  ╈┿╉ ┼┾╋
-    ┈ ┊ ╄╃  ╇┽╊ ╀╁╂
+    ─ │ ┌ ┐ ┍ ┑ ┎ ┒ ┏ ┓
+
+    ━ ┃ └ ┘ ┕ ┙ ┖ ┚ ┗ ┛
+
+    ╌ ╎ ├ ┤ ┝ ┥ ┞ ┦ ┟ ┧ ┠ ┨ ┡ ┩ ┢ ┪ ┣ ┫
+
+    ╍ ╏ ┮ ┯ ┭ ┬ ┰ ┲ ┳ ┱
+
+    ┄ ┆ ┶ ┷ ┵ ┴ ┸ ┺ ┻ ┹
+
+    ┅ ┇ ╆ ╅ ╈ ┿ ╉ ┼ ┾ ╋
+
+    ┈ ┊ ╄ ╃ ╇ ┽ ╊ ╀ ╁ ╂
+
     ┉ ┋
-    ═ ║ ╒╕ ╓╖ ╔╗
-    ╶ ╷ ╘╛ ╙╜ ╚╝
-    ╴ ╵ ╞╡ ╟╢ ╠╣
+
+    ═ ║ ╒ ╕ ╓ ╖ ╔ ╗
+
+    ╶ ╷ ╘ ╛ ╙ ╜ ╚ ╝
+
+    ╴ ╵ ╞ ╡ ╟ ╢ ╠ ╣
+
     ╺ ╻ ╤ ╥ ╦
+
     ╸ ╹ ╧ ╨ ╩ ╪ ╫ ╬
+
     ╼ ╽ ╭╮
+
     ╾ ╿ ╯╰  ╱╲ ╳
 
 ▕
@@ -101,9 +115,11 @@ typedef double float64;
 #define ASUKA_DLL_EXPORT
 #endif // ASUKA_DLL_BUILD
 
-#define WRITE_BARRIER _WriteBarrier()
-#define READ_BARRIER _ReadBarrier()
-#define READ_WRITE_BARRIER _ReadWriteBarrier()
+#define READ_BARRIER       do { _ReadBarrier(); _mm_lfence(); } while(0)
+#define WRITE_BARRIER      do { _WriteBarrier(); _mm_sfence(); } while(0)
+#define READ_WRITE_BARRIER do { _ReadWriteBarrier(); _mm_mfence(); } while(0)
+
+#define INTERLOCKED_COMPARE_EXCHANGE InterlockedCompareExchange
 
 #endif // ASUKA_COMPILER_MICROSOFT
 
@@ -228,6 +244,7 @@ typedef float  f32;
 typedef double f64;
 
 #define loop while(true)
+#define when loop if
 
 template <typename Callback>
 struct Defer {
@@ -246,7 +263,6 @@ struct CONCAT2(NAME, _Flags) { \
 }
 
 #define TOGGLE(X) { (X) = !(X); } void(0)
-#define NULL 0
 
 struct CodeLocation
 {

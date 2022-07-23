@@ -1000,18 +1000,71 @@ void Win32_DebugCatStrings(
 }
 
 
-f32 my_sin(f32 x)
+
+struct WorkQueueEntry
 {
-    f32 result = x - x * x * x / 6 + x * x * x * x * x / 120 - x * x * x * x * x * x * x / 5040;
-    return result;
+    char const *Str;
+};
+
+GLOBAL UInt32 volatile FinishedWorkCount;
+GLOBAL UInt32 volatile NextEntryToDo;
+GLOBAL UInt32 volatile WorkCount;
+GLOBAL WorkQueueEntry WorkQueue[32];
+
+void PushIntoWorkQueue(HANDLE SemaphoreHandle, char const *Str)
+{
+    WorkQueueEntry *Entry = WorkQueue + WorkCount;
+    Entry->Str = Str;
+
+    osOutputDebugString("PushString \"%s\"!\n", Str);
+
+    WRITE_BARRIER;
+
+    ++WorkCount;
+
+    ReleaseSemaphore(SemaphoreHandle, 1, NULL);
 }
 
+struct ThreadTestArgument
+{
+    DWORD ThreadId;
+    HANDLE WorkQueueSemaphoreHandle;
+};
+
+b32 DoWorkerWork(ThreadTestArgument *Arg)
+{
+    if (NextEntryToDo < WorkCount)
+    {
+        int EntryIndex = InterlockedIncrement((LONG volatile *) &NextEntryToDo) - 1;
+        READ_BARRIER;
+        WorkQueueEntry *Entry = WorkQueue + EntryIndex;
+
+        char Buffer[256];
+        wsprintf(Buffer, "Thread %u: \"%s\"\n", Arg->ThreadId, Entry->Str);
+        OutputDebugStringA(Buffer);
+
+        Sleep(1000);
+
+        InterlockedIncrement((LONG volatile *) &FinishedWorkCount);
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
 
 THREAD_FUNCTION(ThreadTest)
 {
-    for (int i = 0; i < 10; i++)
+    ThreadTestArgument *Arg = (ThreadTestArgument *) Parameter;
+    while (true)
     {
-        osOutputDebugString("%d\n", i);
+        if (DoWorkerWork(Arg) == false)
+        {
+            osOutputDebugString("Thread %u: Going to sleep.\n", Arg->ThreadId);
+            WaitForSingleObjectEx(Arg->WorkQueueSemaphoreHandle, INFINITE, FALSE);
+            osOutputDebugString("Thread %u: Wake up!\n", Arg->ThreadId);
+        }
     }
 
     return 0;
@@ -1028,6 +1081,61 @@ int WINAPI WinMain(
     LPSTR CmdLine,
     int CmdShow)
 {
+#if 1
+
+    UInt32 const InitialCount = 0;
+    UInt32 const ThreadCount = 4;
+
+    HANDLE SemaphoreHandle = CreateSemaphoreEx(
+        0,
+        InitialCount,
+        ThreadCount,
+        0,
+        0,
+        SEMAPHORE_ALL_ACCESS
+    );
+
+    ThreadTestArgument MainThreadInfo = {};
+    MainThreadInfo.ThreadId = 0;
+
+    ThreadTestArgument ThreadArgs[ThreadCount];
+
+    for (int32 ThreadIndex = 0; ThreadIndex < ThreadCount; ThreadIndex++)
+    {
+        auto *ThreadArg = ThreadArgs + ThreadIndex;
+        ThreadArg->ThreadId = ThreadIndex + 1; // 0 is for MainThread
+        ThreadArg->WorkQueueSemaphoreHandle = SemaphoreHandle;
+
+        Platform::Thread Thread = Platform::CreateThread(ThreadTest, ThreadArg);
+        DetatchThread(Thread);
+    }
+
+    PushIntoWorkQueue(SemaphoreHandle, "A 0 Banana!");
+    PushIntoWorkQueue(SemaphoreHandle, "A 1 Coffee!");
+    PushIntoWorkQueue(SemaphoreHandle, "A 2 Apples!");
+    PushIntoWorkQueue(SemaphoreHandle, "A 3 Ghosts!");
+    PushIntoWorkQueue(SemaphoreHandle, "A 4 Double!");
+    PushIntoWorkQueue(SemaphoreHandle, "A 5 Stands!");
+    PushIntoWorkQueue(SemaphoreHandle, "A 6 Window!");
+    PushIntoWorkQueue(SemaphoreHandle, "A 7 Camera!");
+    PushIntoWorkQueue(SemaphoreHandle, "A 8 Memory!");
+
+    PushIntoWorkQueue(SemaphoreHandle, "B 0 Banana!");
+    PushIntoWorkQueue(SemaphoreHandle, "B 1 Coffee!");
+    PushIntoWorkQueue(SemaphoreHandle, "B 2 Apples!");
+    PushIntoWorkQueue(SemaphoreHandle, "B 3 Ghosts!");
+    PushIntoWorkQueue(SemaphoreHandle, "B 4 Double!");
+    PushIntoWorkQueue(SemaphoreHandle, "B 5 Stands!");
+    PushIntoWorkQueue(SemaphoreHandle, "B 6 Window!");
+    PushIntoWorkQueue(SemaphoreHandle, "B 7 Camera!");
+    PushIntoWorkQueue(SemaphoreHandle, "B 8 Memory!");
+
+    // while (FinishedWorkCount < WorkCount)
+    // {
+    //     DoWorkerWork(&MainThreadInfo);
+    // }
+#endif
+
 #if 0
     usize acf_arena_memory_size = MEGABYTES(1);
     void* acf_arena_memory = malloc(acf_arena_memory_size);
@@ -1091,7 +1199,6 @@ int WINAPI WinMain(
 
     return 0;
 #endif
-
 
 #if 0
     u32 dct = GetDoubleClickTime();
@@ -1218,9 +1325,12 @@ int WINAPI WinMain(
     GameMemory.PermanentStorageSize = MEGABYTES(256);
     GameMemory.TransientStorageSize = GIGABYTES(1);
 
-    u64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
+    usize TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
     GameMemory.PermanentStorage = Platform::AllocateMemory(BaseAddress, TotalSize);
     GameMemory.TransientStorage = (u8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
+
+    GameMemory.CustomHeapStorageSize = MEGABYTES(1);
+    GameMemory.CustomHeapStorage = Platform::AllocateMemory((void *) TERABYTES(2), GameMemory.CustomHeapStorageSize);
 
 #if ASUKA_PLAYBACK_LOOP
     u64 InitialGameMemorySize = GameMemory.PermanentStorageSize;

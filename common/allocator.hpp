@@ -10,36 +10,35 @@
 #include <memory/arena_allocator.hpp>
 #include <memory/pool_allocator.hpp>
 
+
 /*
-                    Allocators
+                                 Allocators
 
     This module implements various allocator strategies.
     Following allocators are implemented:
-      - page allocator
-      - arena allocator
+      - arena (linear) allocator
+      - pool allocator
+      - mallocator
     Yet to be implemented
       - stack allocator
-      - pool allocator
       - heap allocator (needs rewrite)
 
-    All allocators should implement common interface, like 'traits' do.
-    Functions:
-        void initialize(Allocator *allocator, void *memory, usize size);
-        void reset(Allocator *allocator);
-        void *allocate_(Allocator *allocator, usize requested_size, usize alignment);
-        void free(Allocator *allocator, void *memory_to_free);
+    All allocators should provide functions to use withing this file:
 
-        void *allocate<Allocator>(usize, usize);
+      - initialize__ gives memory to the allocator and initializes it;
+      - allocate__ allocates memory of given size withing the initialized memory buffer;
+      - deallocate__ frees allocated memory.
 
-    There are also macros to help to use those:
-      - allocate_struct_(ARENA, TYPE)
-      - allocate_struct(ARENA, TYPE)
-
-      - allocate_array_(ARENA, TYPE, SIZE)
-      - allocate_array(ARENA, TYPE, SIZE)
-
-
+    You should not call these functions directly, but rather use macroses, to
+    ensure that all meta-information about location of the call in the source
+    file is stored within the allocation to later debug capabilities.
 */
+
+
+#ifdef ASUKA_ASAN
+extern "C" void __asan_poison_memory_region(void *, size_t);
+extern "C" void __asan_unpoison_memory_region(void *, size_t);
+#endif // ASUKA_ASAN
 
 
 namespace memory {
@@ -74,7 +73,7 @@ void initialize(Allocator *allocator, void *memory, usize size, char const *name
     {
         initialize__(allocator, memory, size);
     }
-    osOutputDebugString("Initialize allocator %s: %p of size %llu\n", allocator->name, memory, size);
+    // osOutputDebugString("Initialize allocator %s: %p of size %llu\n", allocator->name, memory, size);
 }
 
 
@@ -82,14 +81,14 @@ template <typename Allocator>
 void *allocate_(Allocator *allocator, usize requested_size, usize alignment, CodeLocation cl)
 {
     void *result = allocate__(allocator, requested_size, alignment, cl);
-    if (cl.function)
-    {
-        osOutputDebugString("Allocation (%s): %p of size %llu at %s:%d (%s)\n", allocator->name, result, requested_size, cl.filename, cl.line, cl.function);
-    }
-    else
-    {
-        osOutputDebugString("Allocation: %p of size %llu at %s:%d\n", result, requested_size, cl.filename, cl.line);
-    }
+    // if (cl.function)
+    // {
+    //     osOutputDebugString("Allocation (%s): %p of size %llu at %s:%d (%s)\n", allocator->name, result, requested_size, cl.filename, cl.line, cl.function);
+    // }
+    // else
+    // {
+    //     osOutputDebugString("Allocation: %p of size %llu at %s:%d\n", result, requested_size, cl.filename, cl.line);
+    // }
     return result;
 }
 
@@ -109,7 +108,7 @@ void *allocate(Allocator *allocator, usize requested_size, usize alignment, Code
 template <typename Allocator>
 void deallocate(Allocator *allocator, void *memory_to_free, CodeLocation cl)
 {
-    osOutputDebugString("Deallocaion: %p\n", memory_to_free);
+    // osOutputDebugString("Deallocaion: %p\n", memory_to_free);
     deallocate__(allocator, memory_to_free, cl);
 }
 

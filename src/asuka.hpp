@@ -301,11 +301,14 @@ struct SoundOutputBuffer {
 
 
 struct Memory {
-    UInt64 PermanentStorageSize;
+    usize PermanentStorageSize;
     void *PermanentStorage;
 
-    UInt64 TransientStorageSize;
+    usize TransientStorageSize;
     void *TransientStorage;
+
+    usize CustomHeapStorageSize;
+    void *CustomHeapStorage;
 
     b32 IsInitialized;
 };
@@ -340,6 +343,7 @@ struct PlayerRequest {
 
 struct MoveSpec {
     v3 acceleration;
+    b32 jump;
 };
 
 
@@ -390,6 +394,12 @@ struct GameState {
     u32 test_current_sound_cursor;
 
     UiScene *game_hud;
+
+    using experimental_pool_t = memory::pool_allocator<20 * sizeof(int)>;
+    experimental_pool_t experimental_pool;
+
+    memory::mallocator experimental_mallocator;
+    void *start_p;
 
 #if UI_EDITOR_ENABLED
     UiEditor *ui_editor;

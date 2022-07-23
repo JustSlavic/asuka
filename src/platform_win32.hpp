@@ -25,6 +25,7 @@
 
 // Standrad headers
 #include <stdio.h>
+#include <intrin.h>
 
 // Windows
 #include <windows.h>
@@ -39,7 +40,7 @@
 #define DRAW_DEBUG_SOUND_CURSORS (ASUKA_DEBUG && 0)
 #define DEBUG_WINDOW_ON_TOP (ASUKA_DEBUG && 0)
 
-#define THREAD_FUNCTION(NAME) DWORD NAME(LPVOID Parameters)
+#define THREAD_FUNCTION(NAME) DWORD NAME(LPVOID Parameter)
 
 
 namespace Platform {
@@ -56,14 +57,14 @@ struct Thread
 
 
 INLINE
-Thread CreateThread(ThreadFunction *Function)
+Thread CreateThread(ThreadFunction *Function, LPVOID Parameter = NULL)
 {
     Thread Result = {};
     Result.Handle = ::CreateThread(
         NULL,             // ThreadAttributes
         0,                // StackSize
         Function,         // StartAddress
-        NULL,             // Parameter
+        Parameter,        // Parameter
         0,                // CreationFlags
         &Result.Id);      // pThreadId
 
@@ -75,6 +76,13 @@ INLINE
 void JoinThread(Thread ChildThread, DWORD Milliseconds = INFINITE)
 {
     WaitForSingleObject(ChildThread.Handle, Milliseconds);
+    CloseHandle(ChildThread.Handle);
+}
+
+
+INLINE
+void DetatchThread(Thread ChildThread)
+{
     CloseHandle(ChildThread.Handle);
 }
 

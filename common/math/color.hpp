@@ -57,31 +57,32 @@ inline bool operator != (Color24 lhs, Color24 rhs) {
 
 
 template <typename R, typename G, typename B>
-Color24 color24(R r, G g, B b)
+Color24 make_color24(R r, G g, B b)
 {
-    Color24 result = { f32(r), f32(g), f32(b) };
+    Color24 result{ float32(r), float32(g), float32(b) };
     return result;
 }
 
 
-template <typename R, typename G, typename B, typename A = f32>
-Color32 color32(R r, G g, B b, A a = 0)
+template <typename R, typename G, typename B>
+Color24 make_rgb(R r, G g, B b)
 {
-    Color32 result = { f32(r), f32(g), f32(b), f32(a) };
+    return make_color24<R, G, B>(r, g, b);
+}
+
+
+template <typename R, typename G, typename B, typename A>
+Color32 make_color32(R r, G g, B b, A a)
+{
+    Color32 result{ float32(r), float32(g), float32(b), float32(a) };
     return result;
 }
 
 
-INLINE
-Color24 rgb(f32 r, f32 g, f32 b) {
-    Color24 result{ r, g, b };
-    return result;
-}
-
-INLINE
-Color32 rgba(f32 r, f32 g, f32 b, f32 a) {
-    Color32 result{ r, g, b, a };
-    return result;
+template <typename R, typename G, typename B, typename A>
+Color32 make_rgba(R r, G g, B b, A a)
+{
+    return make_color32<R, G, B, A>(r, g, b, a);
 }
 
 } // namespace Asuka

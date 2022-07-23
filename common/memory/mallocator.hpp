@@ -19,7 +19,7 @@ struct mallocator
 {
 #if ASUKA_DEBUG
     char const *name;
-    AllocationLogEntry hash_table[1024];
+    AllocationLogEntry hash_table[2048];
     usize allocation_count = 0;
 #endif // ASUKA_DEBUG
 };
@@ -37,7 +37,7 @@ AllocationLogEntry *get_allocation_entry(mallocator *allocator, void *pointer)
     uint64 hash = (uint64) pointer;
     for (uint64 offset = 0; offset < ARRAY_COUNT(allocator->hash_table); offset++)
     {
-        uint64 index = (hash % ARRAY_COUNT(allocator->hash_table)) + offset;
+        uint64 index = (hash + offset) % ARRAY_COUNT(allocator->hash_table);
         AllocationLogEntry *entry = allocator->hash_table + index;
         if (entry->pointer == pointer || entry->pointer == NULL)
         {
@@ -51,7 +51,22 @@ AllocationLogEntry *get_allocation_entry(mallocator *allocator, void *pointer)
 INLINE
 void push_allocation_entry(mallocator *allocator, AllocationLogEntry entry)
 {
-    AllocationLogEntry *hash_slot = get_allocation_entry(allocator, entry.pointer);
+    ASSERT(allocator->allocation_count < ARRAY_COUNT(allocator->hash_table));
+
+    AllocationLogEntry *hash_slot = NULL;
+    uint64 hash = (uint64) entry.pointer;
+    for (uint64 offset = 0; offset < ARRAY_COUNT(allocator->hash_table); offset++)
+    {
+        uint64 index = (hash + offset) % ARRAY_COUNT(allocator->hash_table);
+        AllocationLogEntry *slot = allocator->hash_table + index;
+        if (slot->pointer == NULL)
+        {
+            hash_slot = slot;
+            break;
+        }
+    }
+
+    ASSERT(hash_slot);
     *hash_slot = entry;
 }
 
@@ -59,7 +74,20 @@ void push_allocation_entry(mallocator *allocator, AllocationLogEntry entry)
 INLINE
 void pop_allocation_entry(mallocator *allocator, void *pointer)
 {
-    AllocationLogEntry *hash_slot = get_allocation_entry(allocator, pointer);
+    AllocationLogEntry *hash_slot = NULL;
+    uint64 hash = (uint64) pointer;
+    for (uint64 offset = 0; offset < ARRAY_COUNT(allocator->hash_table); offset++)
+    {
+        uint64 index = (hash + offset) % ARRAY_COUNT(allocator->hash_table);
+        AllocationLogEntry *entry = allocator->hash_table + index;
+        if (entry->pointer == pointer)
+        {
+            hash_slot = entry;
+            break;
+        }
+    }
+
+    ASSERT(hash_slot->pointer);
     *hash_slot = null_allocation_entry();
 }
 

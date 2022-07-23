@@ -380,7 +380,7 @@ void push_rectangle(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_met
 INTERNAL
 void push_asset(VisiblePieceGroup *group, Bitmap *bitmap, v3 offset_in_meters, f32 alpha = 1.0f)
 {
-    push_piece(group, offset_in_meters, make_vector2(0, 0), bitmap, rgba(0, 0, 0, alpha));
+    push_piece(group, offset_in_meters, make_vector2(0, 0), bitmap, make_rgba(0, 0, 0, alpha));
 }
 
 
@@ -397,9 +397,9 @@ void draw_hitpoints(SimEntity *entity, VisiblePieceGroup *group)
         HealthPoint hp = entity->health[health_index];
 
         if (hp.fill > 0) {
-            push_rectangle(group, make_vector3(offset_x, offset_y, 0), make_vector2(health_width), rgba(0.0f, 1.0f, 0.0f, 1.0f));
+            push_rectangle(group, make_vector3(offset_x, offset_y, 0), make_vector2(health_width), make_rgba(0.0f, 1.0f, 0.0f, 1.0f));
         } else {
-            push_rectangle(group, make_vector3(offset_x, offset_y, 0), make_vector2(health_width), rgba(1.0f, 0.0f, 0.0f, 1.0f));
+            push_rectangle(group, make_vector3(offset_x, offset_y, 0), make_vector2(health_width), make_rgba(1.0f, 0.0f, 0.0f, 1.0f));
         }
 
         offset_x += health_spacing;
@@ -578,10 +578,34 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
         @note:
     */
     // @todo: include this into common collision logic
-    if (destination.z < 0)
+    if (!spec.jump)
     {
-        destination.z = 0;
-        velocity.z = 0;
+        if (destination.z < 0)
+        {
+            /*
+                (p.x, p.y, p.z) ----- (q.x, q.y, 0) ----- (d.x, d.y, d.z)
+                q = p + v*t1
+                A <- (0, 0, 0) -- any point on the plane Oz
+                n <- (0, 0, 1) -- normal of the plane Oz
+
+                dot((q - A), n) == 0
+                dot(q, n) == 0
+                dot(p + v*t1, n) == 0
+                dot(p, n) + dot(v, n) * t1 == 0
+                p.z + v.z * t1 == 0
+                t1 == - p.z / v.z
+
+                => q = p + v * (p)
+            */
+
+            f32 t1 = - position.z / velocity.z;
+            dt -= t1;
+
+            v3 q = position + velocity * t1;
+
+            destination = q;
+            velocity.z = 0;
+        }
     }
 
     // @todo: restructure this code when you will implement more sofisticated collision code
@@ -804,6 +828,13 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         memory::arena_allocator *ui_arena = &game_state->ui_arena;
 
         initialize(
+            &game_state->experimental_pool,
+            Memory->CustomHeapStorage,
+            Memory->CustomHeapStorageSize,
+            "experimental"
+        );
+
+        initialize(
             arena,
             (u8 *) Memory->PermanentStorage + sizeof(GameState),
             (Memory->PermanentStorageSize - sizeof(GameState)) / 2,
@@ -984,7 +1015,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         hud_child_2_1->scale = make_vector2(1, 1);
         hud_child_2_1->position = make_vector2(200, 10);
         hud_child_2_1->shape.size = make_vector2(25, 100);
-        hud_child_2_1->shape.color = color32(0.6, 0.3, 0.8);
+        hud_child_2_1->shape.color = make_color32(0.6, 0.3, 0.8, 1.0);
         push_child(&hud_child_2->group, hud_child_2_1);
 
         auto hud_child_2_2 = allocate_ui_shape(ui_arena);
@@ -992,7 +1023,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         hud_child_2_2->scale = make_vector2(1, 1);
         hud_child_2_2->position = make_vector2(225, 110);
         hud_child_2_2->shape.size = make_vector2(25, 100);
-        hud_child_2_2->shape.color = color32(0.6, 0.3, 0.8);
+        hud_child_2_2->shape.color = make_color32(0.6, 0.3, 0.8, 1.0);
         push_child(&hud_child_2->group, hud_child_2_2);
 
         // push_child(game_state->game_hud->root, hud_child_2);
@@ -1099,11 +1130,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     // Render pink background to see pixels I didn't drew.
     // DrawRectangle(Buffer, make_vector2(0, 0), make_vector2(Buffer->Width, Buffer->Height), rgb(1.f, 0.f, 1.f));
-    DrawRectangle(Buffer, make_vector2(0, 0), make_vector2(Buffer->Width, Buffer->Height), rgb(0.5, 0.5, 0.5));
+    DrawRectangle(Buffer, make_vector2(0, 0), make_vector2(Buffer->Width, Buffer->Height), make_rgb(0.5, 0.5, 0.5));
 
     // Background grass
     // DrawBitmap(Buffer, { 0, 0 }, { (f32)Buffer->Width, (f32)Buffer->Height }, &game_state->grass_texture);
 
+#if 0
     // ===================== RENDERING ENTITIES ===================== //
     VisiblePieceGroup group {};
     group.pixels_per_meter = pixels_per_meter;
@@ -1145,6 +1177,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                         {
                             // @bug @fix: Sometimes after hitting the ground strange jittering happens
                             spec.acceleration.z += 200.0f;
+                            spec.jump = true;
                         }
 
                         spec.acceleration += gravity;
@@ -1247,7 +1280,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
             case ENTITY_TYPE_MONSTER:
             {
-                #if 0
+#if 1
                 auto *head = &game_state->monster_head;
                 auto *left_arm  = &game_state->monster_left_arm;
                 auto *right_arm = &game_state->monster_right_arm;
@@ -1257,7 +1290,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 push_asset(&group, right_arm, make_vector3(-3.0f, 2.5f, 0));
 
                 draw_hitpoints(entity, &group);
-                #endif
+#endif
             }
             break;
 
@@ -1326,7 +1359,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // @note: this draw hitboxes
         draw_empty_rectangle_in_meters(Buffer,
             Rectangle2::from_center_dim(entity->position.xy, entity->hitbox.xy),
-            2, rgb(1, 1, 0), entity->position.xy, pixels_per_meter);
+            2, make_rgb(1, 1, 0), entity->position.xy, pixels_per_meter);
 
         for (u32 asset_index = 0; asset_index < group.count; asset_index++) {
             auto *asset = &group.assets[asset_index];
@@ -1359,10 +1392,11 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         // draw_empty_rectangle_in_meters(Buffer, debug_rect_to_draw, 2, rgb(0, 1, 0), make_vector2(0, 0), pixels_per_meter);
     }
 #endif
+#endif
 
     // ===================== RENDERING UI ===================== //
 
-
+#if 0
 #if UI_EDITOR_ENABLED
     if (game_state->ui_editor_enabled)
     {
@@ -1384,28 +1418,61 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     ui_update_scene(game_state->game_hud, Input);
     ui_draw_scene(game_state->game_hud, Buffer);
 #endif // UI_EDITOR_ENABLED
-
+#endif
     // ===================== RENDERING MEMORY LAYOUT ===================== //
 
+#define ASUKA_DRAW_MEMORY_LAYOUT 1
+#define DRAW_WORLD_ARENA         0
+#define DRAW_EXPERIMENTAL_POOL   0
+#define DRAW_MALLOCATOR_MEMORY   1
+
+#if ASUKA_DEBUG && ASUKA_DRAW_MEMORY_LAYOUT
+#if DRAW_WORLD_ARENA
     {
-        uint64 memory_start = (uint64) &game_state;
-        uint64 strip_height = 10;
+        uint64 strip_height = 20;
 
         auto *allocator_to_draw = &game_state->world_arena;
 
         uint64 how_many_bytes_i_want_to_see = Buffer->Width * Buffer->Height;
         int64 size_per_pixel = how_many_bytes_i_want_to_see / (Buffer->Width * Buffer->Height);
 
+        // PERSIST int *allocations[1024];
+        // PERSIST u32 allocations_count = 0;
+
+        // f32 const chance = 0.05f;
+        // f32 roll = uniform_real(0, 1);
+        // if (roll < chance)
+        // {
+        //     u32 int_count = rand() % (20 - 5) + 5;
+        //     int *p = ALLOCATE_BUFFER(allocator_to_draw, int, int_count);
+        //     ASSERT(p);
+        //     allocations[allocations_count++] = p;
+        // }
+        // else
+        // {
+        //     if (allocations_count > 0)
+        //     {
+        //         f32 const dealloc_chance = 0.03f;
+        //         roll = uniform_real(0, 1);
+        //         if (roll < dealloc_chance)
+        //         {
+        //             u32 index_to_deallocate = rand() % allocations_count;
+        //             void *p = allocations[index_to_deallocate];
+        //             ASSERT(p);
+        //             DEALLOCATE_BUFFER(allocator_to_draw, p);
+        //             allocations[index_to_deallocate] = allocations[--allocations_count];
+        //         }
+        //     }
+        // }
+
         {
             void* start_p = allocator_to_draw->memory;
-            usize size    = allocator_to_draw->size;
-            Color24 color = Color24::Black;
 
             int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel;
 
-            for (uint64 i = 0 ; i < ARRAY_COUNT(allocator_to_draw->hash_table); i++)
+            for (uint64 hash_entry_index = 0 ; hash_entry_index < ARRAY_COUNT(allocator_to_draw->hash_table); hash_entry_index++)
             {
-                AllocationLogEntry *entry = allocator_to_draw->hash_table + i;
+                AllocationLogEntry *entry = allocator_to_draw->hash_table + hash_entry_index;
                 if (entry->pointer == NULL) continue;
 
                 // Let's say I made an allocation within this memory arena.
@@ -1437,49 +1504,255 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
                     v2 lt = make_vector2(x, y);
                     v2 wh = make_vector2(w, strip_height);
+
+                    Color24 color = {};
+                    color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                    color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+
                     DrawRectangle(Buffer, lt, lt+wh, color);
                 }
-
-
-                {
-                    color.g += 1.0f / allocator_to_draw->allocation_count;
-                    if (color.g > 1.0f)
-                    {
-                        color.g = 1.0f;
-                    }
-                }
-
-                {
-                    // color.r += 0.1f;
-                    // if (color.r > 1.0f)
-                    // {
-                    //     color.r = 1.0f;
-                    // }
-                }
-
-                {
-                    color.b += 1.0f / allocator_to_draw->allocation_count;
-                    if (color.b > 1.0f)
-                    {
-                        color.b = 1.0f;
-                    }
-                }
-
-                // if (color == Color24::Red)
-                // {
-                //     color = Color24::Blue;
-                // }
-                // else
-                // {
-                //     color = Color24::Red;
-                // }
             }
+        }
+    }
+#endif // DRAW_WORLD_ARENA
+#if DRAW_EXPERIMENTAL_POOL
+    {
+        u64 how_many_bytes_i_want_to_see = MEGABYTES(1);
+        u32 strip_height         = 10; // px
+        u32 size_per_pixel_width = 2;  // bytes
 
+        auto *allocator_to_draw = &game_state->experimental_pool;
+
+        // uint64 how_many_bytes_i_want_to_see = 2 * (Buffer->Width * Buffer->Height);
+        // int64 size_per_pixel = how_many_bytes_i_want_to_see / (Buffer->Width * Buffer->Height);
+
+        PERSIST int *allocations[1024];
+        PERSIST u32 allocations_count = 0;
+
+        f32 const chance = 0.05f;
+        f32 roll = uniform_real(0, 1);
+        if (roll < chance)
+        {
+            u32 int_count = rand() % (20 - 5) + 5;
+            int *p = ALLOCATE_BUFFER(allocator_to_draw, int, int_count);
+            ASSERT(p);
+            allocations[allocations_count++] = p;
+        }
+        else
+        {
+            if (allocations_count > 0)
+            {
+                f32 const dealloc_chance = 0.03f;
+                roll = uniform_real(0, 1);
+                if (roll < dealloc_chance)
+                {
+                    u32 index_to_deallocate = rand() % allocations_count;
+                    void *p = allocations[index_to_deallocate];
+                    ASSERT(p);
+                    DEALLOCATE_BUFFER(allocator_to_draw, p);
+                    allocations[index_to_deallocate] = allocations[--allocations_count];
+                }
+            }
         }
 
-        // draw_memory_layout(&game_state, sizeof(GameState), Color24::Blue);
-        // draw_memory_layout(game_state->ui_arena.memory, game_state->ui_arena.size, Color24::Red);
+        {
+            void* start_p = allocator_to_draw->memory;
+            Color24 color = Color24::Black;
+
+            int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel_width;
+
+            for (uint64 hash_entry_index = 0 ; hash_entry_index < ARRAY_COUNT(allocator_to_draw->hash_table); hash_entry_index++)
+            {
+                AllocationLogEntry *entry = allocator_to_draw->hash_table + hash_entry_index;
+                if (entry->pointer == NULL) continue;
+
+                // Let's say I made an allocation within this memory arena.
+                // The pointer for this allocation is
+                void *allocation_pointer = entry->pointer;
+                usize allocation_size = entry->size; // bytes;
+
+                int64 start = (int64)allocation_pointer - (int64)start_p;
+                int64 rest = allocation_size; // in bytes
+
+                while (rest > 0)
+                {
+                    int64 x = (start - (start / buffer_width_in_mapped_bytes) * buffer_width_in_mapped_bytes) / size_per_pixel_width;
+                    int64 y = ((start / buffer_width_in_mapped_bytes) * strip_height);
+
+                    int64 w;
+                    if (x * size_per_pixel_width + rest > buffer_width_in_mapped_bytes)
+                    {
+                        w = buffer_width_in_mapped_bytes / size_per_pixel_width;
+                        rest -= (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
+                        start += (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
+                    }
+                    else
+                    {
+                        w = rest / size_per_pixel_width;
+                        rest -= rest;
+                        start += rest;
+                    }
+
+                    v2 lt = make_vector2(x, y);
+                    v2 wh = make_vector2(w, strip_height);
+
+                    Color24 random_color = {};
+                    random_color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                    random_color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+
+                    DrawRectangle(Buffer, lt, lt+wh, random_color);
+                }
+            }
+        }
+
+        // Draw Buckets of pool allocator
+        {
+            void* start_p = allocator_to_draw->memory;
+            int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel_width;
+            u32 line_width = 1;
+            Color24 color = make_rgb( 0.0, 0.2, 0.2 );
+
+            using chunk_t = typename GameState::experimental_pool_t::memory_chunk;
+
+            chunk_t *first_chunk = (chunk_t *) allocator_to_draw->memory;
+
+            for (usize chunk_index = 0; chunk_index < allocator_to_draw->size / sizeof(chunk_t); chunk_index++)
+            {
+                chunk_t *chunk = first_chunk + chunk_index;
+
+                void *allocation_pointer = chunk;
+
+                int64 start = (int64)allocation_pointer - (int64)start_p;
+                int64 rest = sizeof(chunk_t);
+
+                while (rest > 0)
+                {
+                    int64 x = (start - (start / buffer_width_in_mapped_bytes) * buffer_width_in_mapped_bytes) / size_per_pixel_width;
+                    int64 y = ((start / buffer_width_in_mapped_bytes) * strip_height);
+
+                    int64 w;
+                    if (x * size_per_pixel_width + rest > buffer_width_in_mapped_bytes)
+                    {
+                        w = buffer_width_in_mapped_bytes / size_per_pixel_width;
+                        rest -= (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
+                        start += (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
+                    }
+                    else
+                    {
+                        w = rest / size_per_pixel_width;
+                        rest -= rest;
+                        start += rest;
+                    }
+
+                    v2 tl = make_vector2(x, y);
+                    v2 wh = make_vector2(w, strip_height);
+                    DrawRectangle(Buffer, tl, tl + make_vector2(wh.x, line_width), color);
+                    DrawRectangle(Buffer, tl + make_vector2(wh.x - line_width, 0), tl + wh, color);
+                }
+            }
+        }
     }
+#endif // DRAW_EXPERIMENTAL_POOL
+#if DRAW_MALLOCATOR_MEMORY
+    {
+        u32 strip_height         = 8; // px
+        u32 size_per_pixel_width = 20;  // bytes
+
+        auto *allocator_to_draw = &game_state->experimental_mallocator;
+
+        PERSIST int *allocations[2048];
+        PERSIST u32 allocations_count = 0;
+
+        int *last_allocation = 0;
+
+        f32 const chance = 0.8f;
+        f32 roll = uniform_real(0, 1);
+
+        if ((roll < chance) && (allocations_count < ARRAY_COUNT(allocations)))
+        {
+            u32 int_count = rand() % 290 + 10;
+            int *p = ALLOCATE_BUFFER(allocator_to_draw, int, int_count);
+            ASSERT(p);
+            allocations[allocations_count++] = p;
+            last_allocation = p;
+        }
+        else
+        {
+            if (allocations_count > 0)
+            {
+                u32 index_to_deallocate = rand() % allocations_count;
+                void *p = allocations[index_to_deallocate];
+                ASSERT(p);
+                DEALLOCATE_BUFFER(allocator_to_draw, p);
+                allocations[index_to_deallocate] = allocations[allocations_count - 1];
+                allocations[allocations_count - 1] = 0;
+                allocations_count--;
+            }
+        }
+
+        if (allocations_count > 0)
+        {
+            if (game_state->start_p == NULL) game_state->start_p = allocations[0];
+            for (uint32 i = 0; i < allocations_count; i++)
+            {
+                if (allocations[i] < game_state->start_p) game_state->start_p = allocations[i];
+            }
+
+            usize size = GIGABYTES(1); // Actually we don't know what it is
+
+            int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel_width;
+
+            for (uint64 hash_entry_index = 0 ; hash_entry_index < ARRAY_COUNT(allocator_to_draw->hash_table); hash_entry_index++)
+            {
+                AllocationLogEntry *entry = allocator_to_draw->hash_table + hash_entry_index;
+                if (entry->pointer == NULL) continue;
+
+                // Let's say I made an allocation within this memory arena.
+                // The pointer for this allocation is
+                void *allocation_pointer = entry->pointer;
+                usize allocation_size = entry->size; // bytes;
+
+                int64 start = (int64)allocation_pointer - (int64)game_state->start_p;
+                int64 rest = allocation_size; // in bytes
+
+                while (rest > 0)
+                {
+                    int64 x = (start - (start / buffer_width_in_mapped_bytes) * buffer_width_in_mapped_bytes) / size_per_pixel_width;
+                    int64 y = ((start / buffer_width_in_mapped_bytes) * strip_height);
+
+                    int64 w;
+                    if (x * size_per_pixel_width + rest > buffer_width_in_mapped_bytes)
+                    {
+                        w = buffer_width_in_mapped_bytes / size_per_pixel_width;
+                        rest -= (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
+                        start += (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
+                    }
+                    else
+                    {
+                        w = rest / size_per_pixel_width;
+                        rest -= rest;
+                        start += rest;
+                    }
+
+                    v2 lt = make_vector2(x, y);
+                    v2 wh = make_vector2(w, strip_height);
+
+                    Color24 color = {};
+                    color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                    color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+
+                    if (allocation_pointer == last_allocation)
+                    {
+                        color = Color24::Red;
+                    }
+
+                    DrawRectangle(Buffer, lt, lt+wh, color);
+                }
+            }
+        }
+    }
+#endif
+#endif // ASUKA_DEBUG && ASUKA_DRAW_MEMORY_LAYOUT
 
     // ===================== RENDERING SIGNALING BORDERS ================= //
 
@@ -1495,12 +1768,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
         case PLAYBACK_LOOP_RECORDING: {
             BorderVisible = true;
-            BorderColor = rgb(1.0f, 244.0f / 255.0f, 43.0f / 255.0f);
+            BorderColor = make_rgb(1.0f, 244.0f / 255.0f, 43.0f / 255.0f);
             break;
         }
         case PLAYBACK_LOOP_PLAYBACK: {
             BorderVisible = true;
-            BorderColor = rgb(29.0f / 255.0f, 166.0f / 255.0f, 8.0f / 255.0f);
+            BorderColor = make_rgb(29.0f / 255.0f, 166.0f / 255.0f, 8.0f / 255.0f);
             break;
         }
     }
@@ -1510,7 +1783,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     }
     else if (game_state->ui_editor_enabled)
     {
-        DrawBorder(Buffer, 2, color24(0, 0, 0));
+        DrawBorder(Buffer, 2, make_color24(0, 0, 0));
     }
 
 #endif // ASUKA_PLAYBACK_LOOP
