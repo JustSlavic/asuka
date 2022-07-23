@@ -99,7 +99,9 @@ void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size
 void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size)
 #endif // ASUKA_DEBUG
 {
-    using chunk_t = pool_allocator<ChunkSize>::memory_chunk;
+    ASSERT_MSG(memory, "Initializing allocator with NULL!\n");
+
+    using chunk_t = typename pool_allocator<ChunkSize>::memory_chunk;
 
     auto aligned = get_aligned_pointer(memory, 8); // @todo: what is MAX_ALIGN should be?
 
@@ -137,7 +139,7 @@ void *allocate__(pool_allocator<ChunkSize> *allocator, usize requested_size, usi
 void *allocate__(pool_allocator<ChunkSize> *allocator, usize requested_size, usize alignment)
 #endif // ASUKA_DEBUG
 {
-    using chunk_t = pool_allocator<ChunkSize>::memory_chunk;
+    using chunk_t = typename pool_allocator<ChunkSize>::memory_chunk;
 
     byte *result = NULL;
     if (requested_size <= ChunkSize)
@@ -168,7 +170,7 @@ void deallocate__(pool_allocator<ChunkSize> *allocator, void *memory_to_free, Co
 void deallocate__(pool_allocator<ChunkSize> *allocator, void *memory_to_free)
 #endif
 {
-    using chunk_t = pool_allocator<ChunkSize>::memory_chunk;
+    using chunk_t = typename pool_allocator<ChunkSize>::memory_chunk;
 
     chunk_t *chunk = (chunk_t *) memory_to_free;
     chunk->next_chunk = allocator->free_list;

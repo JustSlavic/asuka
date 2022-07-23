@@ -59,7 +59,7 @@
 */
 
 
-struct Thread
+struct ThreadContext
 {
     u64 thread_id;
 };
@@ -139,11 +139,11 @@ struct ControllerInput
     Vector2 RightStickStarted;
     Vector2 RightStickEnded;
 
-    Float32 TriggerLeftStarted;
-    Float32 TriggerLeftEnded;
+    float32 TriggerLeftStarted;
+    float32 TriggerLeftEnded;
 
-    Float32 TriggerRightStarted;
-    Float32 TriggerRightEnded;
+    float32 TriggerRightStarted;
+    float32 TriggerRightEnded;
 };
 
 
@@ -154,7 +154,7 @@ struct KeyboardState
     {
         // @todo: Consider making key position in the array equal to VK_Keycode from Win32 API?
         // for easy access.
-        ButtonState buttons[15];
+        ButtonState buttons[19];
         struct
         {
             ButtonState Ctrl;
@@ -176,6 +176,11 @@ struct KeyboardState
             ButtonState Z;
 
             ButtonState Delete;
+
+            ButtonState ArrowLeft;
+            ButtonState ArrowRight;
+            ButtonState ArrowUp;
+            ButtonState ArrowDown;
         };
     };
 };
@@ -185,7 +190,7 @@ struct MouseState {
     // Coordinates in client area coordinate space
     Vec2I position;
     Vec2I previous_position;
-    Int32 wheel;
+    int32 wheel;
 
     union {
         ButtonState buttons[5];
@@ -227,7 +232,7 @@ struct Input
     };
 
     // Probably should go to a game no in controller input?
-    Float32 dt;
+    float32 dt;
 
 #if ASUKA_PLAYBACK_LOOP
     Debug_PlaybackLoopState PlaybackLoopState;
@@ -253,23 +258,23 @@ ControllerInput *GetGamepadInput(Input *Input, i32 GamepadIndex)
 }
 
 INLINE
-UInt32 GetPressCount(ButtonState button)
+uint32 GetPressCount(ButtonState button)
 {
-    UInt32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
+    uint32 result = (button.HalfTransitionCount + (button.EndedDown > 0)) / 2;
     return result;
 }
 
 INLINE
-UInt32 GetReleaseCount(ButtonState button)
+uint32 GetReleaseCount(ButtonState button)
 {
-    UInt32 result = (button.HalfTransitionCount - (button.EndedDown > 0) + 1) / 2;
+    uint32 result = (button.HalfTransitionCount - (button.EndedDown > 0) + 1) / 2;
     return result;
 }
 
 INLINE
-UInt32 GetHoldCount(ButtonState button)
+uint32 GetHoldCount(ButtonState button)
 {
-    UInt32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
+    uint32 result = (button.HalfTransitionCount + (button.EndedDown > 0) + 1) / 2;
     return result;
 }
 
@@ -286,17 +291,17 @@ struct StoredEntity {
 struct OffscreenBuffer {
     // Pixels are always 32-bits wide Little Endian, Memory Order BBGGRRxx
     void *Memory;
-    Int32 Width;
-    Int32 Height;
-    Int32 Pitch;
-    Int32 BytesPerPixel;
+    int32 Width;
+    int32 Height;
+    int32 Pitch;
+    int32 BytesPerPixel;
 };
 
 
 struct SoundOutputBuffer {
     sound_sample_t *Samples;
-    Int32 SampleCount;
-    Int32 SamplesPerSecond;
+    int32 SampleCount;
+    int32 SamplesPerSecond;
 };
 
 
@@ -431,10 +436,10 @@ StoredEntity *get_stored_entity(GameState *game_state, u32 index) {
 #define GAME_INITIALIZE_MEMORY(NAME) void NAME(Game::Memory *memory);
 typedef GAME_INITIALIZE_MEMORY(Game_InitializeMemoryT);
 
-#define GAME_UPDATE_AND_RENDER(NAME) void NAME(Thread *thread, Game::Memory *Memory, Game::Input *Input, Game::OffscreenBuffer *Buffer)
+#define GAME_UPDATE_AND_RENDER(NAME) void NAME(ThreadContext *thread, Game::Memory *Memory, Game::Input *Input, Game::OffscreenBuffer *Buffer)
 typedef GAME_UPDATE_AND_RENDER(Game_UpdateAndRenderT);
 
-#define GAME_OUTPUT_SOUND(NAME) void NAME(Thread *thread, Game::Memory *Memory, Game::SoundOutputBuffer* SoundBuffer)
+#define GAME_OUTPUT_SOUND(NAME) void NAME(ThreadContext *thread, Game::Memory *Memory, Game::SoundOutputBuffer* SoundBuffer)
 typedef GAME_OUTPUT_SOUND(Game_OutputSoundT);
 
 extern "C" {
@@ -455,6 +460,6 @@ ASUKA_DLL_EXPORT GAME_OUTPUT_SOUND(Game_OutputSound);
 #endif
 
 #if !ASUKA_DLL && !ASUKA_DLL_BUILD
-#include <Asuka.cpp>
+#include <asuka.cpp>
 #else
 #endif

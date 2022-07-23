@@ -22,11 +22,11 @@ struct Vector3
     };
 
     INLINE
-    T operator [] (Int32 index)
+    T operator [] (int32 index)
     {
         ASSERT(index < ARRAY_COUNT(e));
 
-        T result = data[index];
+        T result = e[index];
         return result;
     }
 };
@@ -127,9 +127,9 @@ using vector3i = Internal::Vector3<i32>;
 using vector3u = Internal::Vector3<u32>;
 
 // @todo: remove typedefs below
-using Vec3F = Internal::Vector3<Float32>;
-using Vec3I = Internal::Vector3<Int32>;
-using Vec3U = Internal::Vector3<UInt32>;
+using Vec3F = Internal::Vector3<float32>;
+using Vec3I = Internal::Vector3<int32>;
+using Vec3U = Internal::Vector3<uint32>;
 
 using v3  = Vector3;
 using v3i = Vector3i;
@@ -235,14 +235,14 @@ Vector3 clamp (Vector3 a, f32 min, f32 max)
 }
 
 INLINE
-Vector3 lerp (Vector3 a, Vector3 b, Float32 t)
+Vector3 lerp (Vector3 a, Vector3 b, float32 t)
 {
     Vector3 result = { lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t) };
     return result;
 }
 
 INLINE
-f32 length² (Vector3 a)
+f32 length2 (Vector3 a)
 {
     f32 result = dot(a, a);
     return result;
@@ -251,7 +251,7 @@ f32 length² (Vector3 a)
 INLINE
 f32 length(Vector3 a)
 {
-    f32 result = sqrt(length²(a));
+    f32 result = sqrt(length2(a));
     return result;
 }
 

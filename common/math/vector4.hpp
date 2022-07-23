@@ -25,11 +25,11 @@ struct Vector4
     };
 
     INLINE
-    T operator [] (Int32 index)
+    T operator [] (int32 index)
     {
         ASSERT(index < ARRAY_COUNT(e));
 
-        T result = data[index];
+        T result = e[index];
         return result;
     }
 };
@@ -245,14 +245,14 @@ Vector4 clamp (Vector4 a, f32 min, f32 max)
 }
 
 INLINE
-Vector4 lerp (Vector4 a, Vector4 b, Float32 t)
+Vector4 lerp (Vector4 a, Vector4 b, float32 t)
 {
     Vector4 result = { lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t), lerp(a.w, b.w, t) };
     return result;
 }
 
 INLINE
-f32 length² (Vector4 a)
+f32 length2 (Vector4 a)
 {
     f32 result = dot(a, a);
     return result;
@@ -261,7 +261,7 @@ f32 length² (Vector4 a)
 INLINE
 f32 length (Vector4 a)
 {
-    f32 result = sqrt(length²(a));
+    f32 result = sqrt(length2(a));
     return result;
 }
 

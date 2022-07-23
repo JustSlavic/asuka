@@ -67,10 +67,12 @@ void initialize(Allocator *allocator, void *memory, usize size, char const *name
 {
     if (name)
     {
+#if ASUKA_DEBUG
         initialize__(allocator, memory, size, name);
     }
     else
     {
+#endif
         initialize__(allocator, memory, size);
     }
     // osOutputDebugString("Initialize allocator %s: %p of size %llu\n", allocator->name, memory, size);
@@ -80,7 +82,11 @@ void initialize(Allocator *allocator, void *memory, usize size, char const *name
 template <typename Allocator>
 void *allocate_(Allocator *allocator, usize requested_size, usize alignment, CodeLocation cl)
 {
+#if ASUKA_DEBUG
     void *result = allocate__(allocator, requested_size, alignment, cl);
+#else // ASUKA_DEBUG
+    void *result = allocate__(allocator, requested_size, alignment);
+#endif // ASUKA_DEBUG
     // if (cl.function)
     // {
     //     osOutputDebugString("Allocation (%s): %p of size %llu at %s:%d (%s)\n", allocator->name, result, requested_size, cl.filename, cl.line, cl.function);

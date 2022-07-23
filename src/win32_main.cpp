@@ -1356,8 +1356,8 @@ int WINAPI WinMain(
     Running = true;
     int FrameCounter = 0;
 
-    Thread GameThread {};
-    Thread SoundThread {};
+    Platform::Thread GameThread {};
+    Platform::Thread SoundThread {};
 
 #if 0
     Platform::Thread SoundThread_ = Platform::CreateThread(ThreadTest);

@@ -80,7 +80,7 @@ struct UiShape
     Color32 color;  // Natural element's color, but not be present for UiBitmaps, for example
 
     // @debug: Diagonal squares
-    Int32 n;
+    int32 n;
 
     // @debug Button
     b32 is_pressed;
@@ -141,7 +141,7 @@ UiElement *allocate_ui_group(Allocator *allocator)
     return ui_element;
 }
 
-Rectangle2 get_bounding_box(UiShape *element);
+Rectangle2 get_bounding_box(UiElement *element);
 void push_filter(UiShape *element, UiFilter *filter);
 Matrix4 get_transform(UiElement *element);
 

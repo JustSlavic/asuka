@@ -70,46 +70,52 @@
 
 #ifdef ASUKA_COMPILER_MICROSOFT
 
+#define LITTLE_ENDIAN 1234
+#define BIG_ENDIAN    4321
+
 typedef __int8  i8;
 typedef __int16 i16;
 typedef __int32 i32;
 typedef __int64 i64;
-
-typedef unsigned __int8  u8;
-typedef unsigned __int16 u16;
-typedef unsigned __int32 u32;
-typedef unsigned __int64 u64;
-
-typedef __int8  Int8;
-typedef __int16 Int16;
-typedef __int32 Int32;
-typedef __int64 Int64;
-
-typedef unsigned __int8  UInt8;
-typedef unsigned __int16 UInt16;
-typedef unsigned __int32 UInt32;
-typedef unsigned __int64 UInt64;
-
-typedef float  Float32;
-typedef double Float64;
 
 typedef __int8  int8;
 typedef __int16 int16;
 typedef __int32 int32;
 typedef __int64 int64;
 
+typedef __int8  Int8;
+typedef __int16 Int16;
+typedef __int32 Int32;
+typedef __int64 Int64;
+
+typedef unsigned __int8  u8;
+typedef unsigned __int16 u16;
+typedef unsigned __int32 u32;
+typedef unsigned __int64 u64;
+
 typedef unsigned __int8  uint8;
 typedef unsigned __int16 uint16;
 typedef unsigned __int32 uint32;
 typedef unsigned __int64 uint64;
 
+typedef unsigned __int8  UInt8;
+typedef unsigned __int16 UInt16;
+typedef unsigned __int32 UInt32;
+typedef unsigned __int64 UInt64;
+
+typedef float  f32;
+typedef double f64;
+
 typedef float  float32;
 typedef double float64;
+
+typedef float  Float32;
+typedef double Float64;
 
 #define ASUKA_DEBUG_BREAK __debugbreak
 #define FORCE_INLINE __forceinline
 
-#if defined(ASUKA_DLL_BUILD)
+#if ASUKA_DLL_BUILD == 1
 #define ASUKA_DLL_EXPORT  __declspec(dllexport)
 #else
 #define ASUKA_DLL_EXPORT
@@ -125,20 +131,36 @@ typedef double float64;
 
 #ifdef ASUKA_COMPILER_GNU
 
-typedef unsigned char      u8;
-typedef unsigned short     u16;
-typedef unsigned int       u32;
-typedef unsigned long long u64;
-
 typedef signed char        i8;
 typedef signed short       i16;
 typedef signed int         i32;
 typedef signed long long   i64;
 
+typedef signed char        int8;
+typedef signed short       int16;
+typedef signed int         int32;
+typedef signed long long   int64;
+
+typedef unsigned char      u8;
+typedef unsigned short     u16;
+typedef unsigned int       u32;
+typedef unsigned long long u64;
+
+typedef unsigned char      uint8;
+typedef unsigned short     uint16;
+typedef unsigned int       uint32;
+typedef unsigned long long uint64;
+
+typedef float  f32;
+typedef double f64;
+
+typedef float  float32;
+typedef double float64;
+
 #define ASUKA_DEBUG_BREAK __builtin_trap
 #define FORCE_INLINE __attribute__((always_inline))
 
-#if defined(ASUKA_DLL_BUILD)
+#if ASUKA_DLL_BUILD
 #define ASUKA_DLL_EXPORT __attribute__((dllexport))
 #else
 #define ASUKA_DLL_EXPORT
@@ -146,7 +168,7 @@ typedef signed long long   i64;
 
 #endif // ASUKA_COMPILER_GNU
 
-#ifdef ASUKA_DEBUG
+#if ASUKA_DEBUG
 #define ASSERT(COND)           if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
 #define ASSERT_MSG(COND, ...)  if (COND) {} else { ASUKA_DEBUG_BREAK(); } void(0)
 #else // ASUKA_DEBUG
@@ -176,6 +198,14 @@ typedef signed long long   i64;
 #endif // ASUKA_OS_WINDOWS
 
 #ifdef ASUKA_OS_LINUX
+
+#define VA_ARGS(...) , ##__VA_ARGS__
+
+#define osOutputDebugString(MSG, ...) \
+{  \
+    fprintf(stdout, MSG, ##__VA_ARGS__); \
+} void(0)
+
 #endif // ASUKA_OS_LINUX
 
 #ifdef ASUKA_OS_MACOS
@@ -205,7 +235,7 @@ typedef signed long long   i64;
 #define TERABYTES(VALUE) (GIGABYTES((u64)(VALUE))*1024)
 
 #define EPSILON  (1e-5f)
-#define EPSILON² (EPSILON*EPSILON)
+#define EPSILON2 (EPSILON*EPSILON)
 
 #define INT8_MIN   (0x80)
 #define INT16_MIN  (0x8000)
@@ -233,15 +263,14 @@ typedef signed long long   i64;
 typedef i16 sound_sample_t;
 typedef u64 hash_t;
 
-typedef u32    b32;
-typedef size_t usize;
-typedef i64    isize;
-typedef u64    uintptr;
-typedef i64    intptr;
-typedef i64    ptrdiff;
+typedef u32 b32;
+typedef u32 bool32;
 
-typedef float  f32;
-typedef double f64;
+typedef u64 usize;
+typedef i64 isize;
+typedef u64 uintptr;
+typedef i64 intptr;
+typedef i64 ptrdiff;
 
 #define loop while(true)
 #define when loop if

@@ -32,6 +32,10 @@
                         "shell_cmd": "call $folder\\build\\main.exe",
                         "working_dir": "$folder\\data",
                     },
+                    "linux": {
+                        "shell_cmd": "$folder/build/main",
+                        "working_dir": "$folder/data",
+                    },
                 },
                 {
                     "name": "Run in RemedyBG",

@@ -3,6 +3,7 @@
 #include <defines.hpp>
 #include <byte.hpp>
 #include <type.hpp>
+#include <allocator.hpp>
 
 //
 // @note: Arrays are non-owners of data. They are just spans of values (when copied, data shares between instances).
@@ -97,7 +98,7 @@ using string = array<char>;
 // using utf8_string = array<utf8_char>;
 
 
-template <typename T, typename Allocator = memory::mallocator>
+template <typename T, typename Allocator>
 struct dynamic_array
 {
     using value_t = T; // For arrays
@@ -202,7 +203,7 @@ struct dynamic_array
 };
 
 
-template <typename Allocator = memory::mallocator>
+template <typename Allocator>
 using dynamic_string = dynamic_array<char, Allocator>;
 
 
@@ -226,24 +227,6 @@ array<T> make_array(dynamic_array<T, Allocator> dyn_array)
     result.size = dyn_array.size;
     result.capacity = dyn_array.capacity;
 
-    return result;
-}
-
-
-template <typename T, typename Allocator>
-array<T> make_copy(array<T> source, Allocator *allocator)
-{
-    array<T> result = allocate_array_<T>(allocator, source.size);
-    copy_array(source, result);
-    return result;
-}
-
-
-template <typename T, typename Allocator>
-dynamic_array<T, Allocator> make_copy(dynamic_array<T, Allocator> source, Allocator *allocator)
-{
-    dynamic_array<T, Allocator> result = make_dynamic_array<T, Allocator>(allocator, source.size);
-    copy_dynamic_array<T, Allocator>(source, result);
     return result;
 }
 
@@ -282,7 +265,7 @@ void copy_array(array<T> source, array<T> &dest)
 }
 
 template <typename T, typename Allocator>
-void copy_dynamic_array(dynamic_array<T> source, dynamic_array<T> dest)
+void copy_dynamic_array(dynamic_array<T, Allocator> source, dynamic_array<T, Allocator> dest)
 {
     if (dest.size < source.size)
     {
@@ -333,7 +316,7 @@ dynamic_array<T, Allocator> make_dynamic_array(Allocator *alloc, usize size)
 template <typename T>
 byte_string to_byte_string(array<T> s) {
     byte_string result;
-    result.data = (byte *) s.data_;
+    result.data = (memory::byte *) s.data_;
     result.size = s.size_ * sizeof(T);
     result.capacity = s.capacity_ * sizeof(T);
 
@@ -344,9 +327,9 @@ byte_string to_byte_string(array<T> s) {
 template <typename T>
 array<T> from_byte_string(byte_string s) {
     array<T> result;
-    result.data_ = (T *) s.data_;
-    result.size_ = s.size_ / sizeof(T);
-    result.capacity_ = s.capacity_;
+    result.data = (T *) s.data;
+    result.size = s.size / sizeof(T);
+    result.capacity = s.capacity;
 
     return result;
 }
@@ -415,7 +398,7 @@ template <typename Allocator>
 string allocate_string(Allocator allocator, usize count)
 {
     static_assert(type::is_same<array<char>, string>::value);
-    string result = allocate_array<char::fd::ff>(allocator, count);
+    string result = allocate_array<char>(allocator, count);
     return result;
 
 }
@@ -440,6 +423,24 @@ template <typename Allocator = memory::mallocator>
 void deallocate_string(dynamic_string<Allocator>& str)
 {
     deallocate_array<char, Allocator>(str);
+}
+
+
+template <typename T, typename Allocator>
+array<T> make_copy(array<T> source, Allocator *allocator)
+{
+    array<T> result = allocate_array_<T>(allocator, source.size);
+    copy_array(source, result);
+    return result;
+}
+
+
+template <typename T, typename Allocator>
+dynamic_array<T, Allocator> make_copy(dynamic_array<T, Allocator> source, Allocator *allocator)
+{
+    dynamic_array<T, Allocator> result = make_dynamic_array<T, Allocator>(allocator, source.size);
+    copy_dynamic_array<T, Allocator>(source, result);
+    return result;
 }
 
 

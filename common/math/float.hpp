@@ -5,7 +5,7 @@
 #include <math.h>
 
 #define EPSILON  (1e-5f)
-#define EPSILON² (EPSILON*EPSILON)
+#define EPSILON2 (EPSILON*EPSILON)
 #define PI 3.14159265358979323846f
 #define INF HUGE_VALF
 

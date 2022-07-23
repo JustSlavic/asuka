@@ -199,7 +199,7 @@ f32 dot (Vector2 a, Vector2 b) {
 }
 
 INLINE
-f32 length² (Vector2 a)
+f32 length2 (Vector2 a)
 {
     f32 result = dot(a, a);
     return result;
@@ -208,7 +208,7 @@ f32 length² (Vector2 a)
 INLINE
 f32 length (Vector2 a)
 {
-    f32 result = sqrt(length²(a));
+    f32 result = sqrt(length2(a));
     return result;
 }
 
@@ -271,7 +271,7 @@ enum intersection_type {
 // Projects 'a' onto 'b'
 Vector2 project(Vector2 a, Vector2 b)
 {
-    Vector2 result = b * dot(a, b) / length²(b);
+    Vector2 result = b * dot(a, b) / length2(b);
     return result;
 }
 
@@ -331,7 +331,7 @@ intersection_result segment_segment_intersection(Vector2 p0, Vector2 p1, Vector2
 
     // t < 0 checks for  X<-p0-->p1 situation
     // t > 0 requires us to check whether it's p0-->p1->X situation
-    if ((t + EPSILON < 0) || (t > 0 && length²(intersection - p0) - EPSILON > length²(r))) {
+    if ((t + EPSILON < 0) || (t > 0 && length2(intersection - p0) - EPSILON > length2(r))) {
         result = { INTERSECTION_OUT_BOUNDS, intersection };
         return result;
     }
@@ -339,8 +339,8 @@ intersection_result segment_segment_intersection(Vector2 p0, Vector2 p1, Vector2
     // dot(intersection - q0, q1 - q0) < 0           checks for X<-q0-->q1 situation
     f32 vector_alignment = dot(intersection - q0, q1 - q0);
     // (intersection - q0).length_2() > s.length_2() checks for q0-->q1->X situation
-    f32 vector_iq0_length = length²(intersection - q0);
-    f32 vector_s_length = length²(s);
+    f32 vector_iq0_length = length2(intersection - q0);
+    f32 vector_s_length = length2(s);
     if ((vector_alignment + EPSILON < 0) || (vector_iq0_length - EPSILON > vector_s_length)) {
         result = { INTERSECTION_OUT_BOUNDS, intersection };
         return result;

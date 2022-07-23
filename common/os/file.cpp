@@ -10,7 +10,6 @@
 #endif
 
 
-namespace Asuka {
 namespace os {
 
 //
@@ -27,4 +26,3 @@ bool write_file(const char* filename, byte_array contents) {
 
 
 } // namespace os
-} // namespace Asuka

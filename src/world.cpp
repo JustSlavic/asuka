@@ -303,7 +303,7 @@ void change_entity_location(World *world, u32 storage_index, StoredEntity *entit
 }
 
 
-b32 is_canonical(Float32 offset, Float32 dim)
+b32 is_canonical(float32 offset, float32 dim)
 {
     b32 result = (offset >= -0.5f * dim) && (offset <= 0.5f * dim);
     return result;

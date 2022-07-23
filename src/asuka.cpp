@@ -668,7 +668,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
 
                     if (res.found == INTERSECTION_COLLINEAR)
                     {
-                        if ((length²(destination - position) < length²(closest_destination - position))
+                        if ((length2(destination - position) < length2(closest_destination - position))
                             && is(entity, ENTITY_FLAG_COLLIDABLE)
                             && is(test_entity, ENTITY_FLAG_COLLIDABLE))
                         {
@@ -683,7 +683,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
                         hit_entity = test_entity;
 
                         // @note: Update only closest point.
-                        if ((length²(res.intersection - position.xy) < length²(closest_destination.xy - position.xy))
+                        if ((length2(res.intersection - position.xy) < length2(closest_destination.xy - position.xy))
                             && is(entity, ENTITY_FLAG_COLLIDABLE)
                             && is(test_entity, ENTITY_FLAG_COLLIDABLE))
                         {
@@ -729,7 +729,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
         }
 
         // How much we have left to move?
-        if (length(destination - position) < EPSILON²)
+        if (length(destination - position) < EPSILON2)
         {
             break;
         }
@@ -840,6 +840,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             (Memory->PermanentStorageSize - sizeof(GameState)) / 2,
             "world"
         );
+
         initialize(
             ui_arena,
             (u8 *) Memory->PermanentStorage + sizeof(GameState)
@@ -1061,9 +1062,11 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     if (GetPressCount(Input->keyboard.F1))
     {
+#if UI_EDITOR_ENABLED
         TOGGLE(game_state->ui_editor_enabled);
         STATIC int i = 0;
         osOutputDebugString("i = %d\n", i++);
+#endif // UI_EDITOR_ENABLED
     }
 
     // Game Input
@@ -1241,7 +1244,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     SimEntity *test_entity = get_sim_entity(sim_region, index);
 
                     if (test_entity->type == ENTITY_TYPE_PLAYER) {
-                        f32 distance_squared = length²(test_entity->position - entity->position);
+                        f32 distance_squared = length2(test_entity->position - entity->position);
                         if (distance_squared < closest_distance_squared) {
                             closest_distance_squared = distance_squared;
                             closest_entity = test_entity;
@@ -1655,8 +1658,24 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #endif // DRAW_EXPERIMENTAL_POOL
 #if DRAW_MALLOCATOR_MEMORY
     {
-        u32 strip_height         = 8; // px
-        u32 size_per_pixel_width = 20;  // bytes
+        PERSIST b32 printed = 0;
+        PERSIST i32 strip_user_offset    = 0;  // in strip count
+        u32 strip_height         = 2;  // px
+        u32 size_per_pixel_width = 20; // bytes
+
+        if (GetPressCount(Input->keyboard.ArrowDown) > 0)
+        {
+            strip_user_offset += 1;
+            printed = 0;
+        }
+        if (GetPressCount(Input->keyboard.ArrowUp) > 0)
+        {
+            strip_user_offset -= 1;
+            printed = 0;
+        }
+
+        // if (!printed) osOutputDebugString("strip offset: %d\n", strip_user_offset);
+        printed = 1;
 
         auto *allocator_to_draw = &game_state->experimental_mallocator;
 
@@ -1720,6 +1739,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                     int64 x = (start - (start / buffer_width_in_mapped_bytes) * buffer_width_in_mapped_bytes) / size_per_pixel_width;
                     int64 y = ((start / buffer_width_in_mapped_bytes) * strip_height);
 
+                    y -= strip_user_offset * strip_height;
+
                     int64 w;
                     if (x * size_per_pixel_width + rest > buffer_width_in_mapped_bytes)
                     {
@@ -1781,10 +1802,12 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     if (BorderVisible) {
         DrawBorder(Buffer, BorderWidth, BorderColor);
     }
+#if UI_EDITOR_ENABLED
     else if (game_state->ui_editor_enabled)
     {
         DrawBorder(Buffer, 2, make_color24(0, 0, 0));
     }
+#endif // UI_EDITOR_ENABLED
 
 #endif // ASUKA_PLAYBACK_LOOP
 

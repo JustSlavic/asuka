@@ -72,4 +72,8 @@ b32 operator < (duration d1, duration d2)
 #include "windows/time.hpp"
 #endif
 
+#if ASUKA_OS_LINUX
+#include "linux/time.hpp"
+#endif
+
 #endif // ASUKA_COMMON_OS_TIME_HPP
