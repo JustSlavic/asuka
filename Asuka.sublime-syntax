@@ -63,6 +63,12 @@ contexts:
     - match: \b({{operator_keywords}})\b
       scope: keyword.operator.word.c++
 
+      # Multithreading synchronization keywords and macros
+    - match: '\bvolatile\b'
+      scope: storage.modifier.c++ storage.modifier.volatile.c++
+    - match: '\b(READ_BARRIER|WRITE_BARRIER|READ_WRITE_BARRIER)\b'
+      scope: keyword.synchronization.asuka.c++
+
   strings:
     - match: '(L|u|U)?(")'
       captures:
@@ -176,7 +182,8 @@ contexts:
   function-call:
     - match: '([[:alpha:]_][[:alnum:]_²]*)\s*(?:(\<)\s*(?:({{identifier}})\s*(?:(,)\s*({{identifier}}))*)(\>))?\s*(?=\()'
       captures:
-        1: meta.function-call.c++
+        # 1: meta.function-call.c++
+        1: variable.function.c++
         2: punctuation.separation.generic.begin.c++
         # 3: entity.name.class
         4: punctuation.separation.c++

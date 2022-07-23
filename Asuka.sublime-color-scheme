@@ -20,7 +20,7 @@
         "orange2": "hsl(32, 85%, 55%)",
         "orange3": "hsl(40, 94%, 68%)",
         "pink": "hsl(300, 30%, 68%)",
-        "red": "hsl(357, 79%, 65%)",
+        "red": "hsl(358, 100%, 65%)",
         "red2": "hsl(13, 93%, 66%)",
         "white": "hsl(0, 0%, 100%)",
         "white2": "hsl(0, 0%, 97%)",
@@ -87,7 +87,7 @@
         },
         // {
         //     "name":       "Keyword",
-        //     "scope":      "keyword.control",
+        //     "scope":      "keyword",
         //     "foreground": "var(orange)"
         // },
         {
@@ -107,7 +107,7 @@
         },
         {
             "name":       "Function name",
-            "scope":      "variable.function, meta.function-call, meta.function, entity.name.function",
+            "scope":      "variable.function, entity.name.function",
             "foreground": "#719DD7"
         },
         {
@@ -119,6 +119,11 @@
             "name":       "Operator",
             "scope":      "keyword.operator, punctuation.definition.string",
             "foreground": "#709B9D"
+        },
+        {
+            "name": "Multithreading synchronization",
+            "scope": "storage.modifier.volatile, keyword.synchronization.asuka",
+            "foreground": "var(red)"
         },
         // {
         //     "name":       "Type",
