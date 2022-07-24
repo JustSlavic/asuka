@@ -1064,8 +1064,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     {
 #if UI_EDITOR_ENABLED
         TOGGLE(game_state->ui_editor_enabled);
-        STATIC int i = 0;
-        osOutputDebugString("i = %d\n", i++);
 #endif // UI_EDITOR_ENABLED
     }
 
@@ -1399,7 +1397,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     // ===================== RENDERING UI ===================== //
 
-#if 0
+#if 1
 #if UI_EDITOR_ENABLED
     if (game_state->ui_editor_enabled)
     {

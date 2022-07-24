@@ -13,12 +13,13 @@ GLOBAL LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
 GLOBAL bool Global_CursorIsVisible;
 GLOBAL WINDOWPLACEMENT Global_WindowPosition = { sizeof(Global_WindowPosition) };
 GLOBAL bool Global_IsFullscreen;
-GLOBAL Asuka::Vec2I Global_ResolutionPresets[12] = {
+GLOBAL v2i Global_ResolutionPresets[12] = {
     { 800, 600 },
     { 960, 540 }, // Test Resolution
     { 1024, 768 },
     { 1152, 864 },
     { 1280, 1024 },
+    { 1280, 720 }, // Convinient 16x9
     { 1440, 900 },
     { 1600, 900 },
     { 1600, 1200 },
@@ -1691,7 +1692,7 @@ int WINAPI WinMain(
 
             memset(WindowText, 0, sizeof(WindowText));
             // sprintf(WindowText, "MouseP (%d, %d)", NewInput->mouse.position.x, NewInput->mouse.position.y);
-            sprintf(WindowText, "%f ms/f; FPS: %f\n", MilliSecondsElapsed, FPS);
+            sprintf(WindowText, "%f ms/f; FPS: %f", MilliSecondsElapsed, FPS);
 
             SetWindowText(Window, WindowText);
         }

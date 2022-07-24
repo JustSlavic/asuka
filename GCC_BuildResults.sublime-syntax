@@ -1,0 +1,42 @@
+%YAML 1.2
+---
+name: Asuka_BuildResults
+scope: asuka
+contexts:
+  main:
+    - match: '\['
+      scope: asuka.punctuation
+      push: brackets
+
+    - match: '‘'
+      scope: asuka.string.begin
+      push: gcc_backtick
+
+    - match: '^([\w\/\.\_]+)(\:)(\d+)(\:)(\d+)(\:)'
+      captures:
+        1: string
+        2: punctuation
+        3: constant
+        4: punctuation
+        5: constant
+        6: punctuation
+
+    - match: '(error)(\:?)'
+      captures:
+        1: error
+        2: punctuation
+
+    - match: 'warning'
+      scope: warning
+
+  brackets:
+    - meta_scope: asuka.win32_build.brackets asuka.string
+    - match: '\]'
+      scope: punctuation
+      pop: true
+
+  gcc_backtick:
+    - meta_scope: asuka.string
+    - match: '’'
+      scope: string.end
+      pop: true

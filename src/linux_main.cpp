@@ -18,10 +18,38 @@
 #endif
 
 #define KEYCODE_ESC                  9
+#define KEYCODE_W                    25
+#define KEYCODE_A                    38
+#define KEYCODE_S                    39
+#define KEYCODE_D                    40
+#define KEYCODE_Z                    52
+#define KEYCODE_SPACE                65
+#define KEYCODE_F1                   67
+#define KEYCODE_F2                   68
+#define KEYCODE_F3                   69
+#define KEYCODE_F4                   70
+#define KEYCODE_F5                   71
+#define KEYCODE_F6                   72
+#define KEYCODE_F7                   73
+#define KEYCODE_F8                   74
+#define KEYCODE_F9                   75
+#define KEYCODE_F10                  76
+#define KEYCODE_F11                  95
+#define KEYCODE_F12                  96
+#define KEYCODE_UP                   111
 #define KEYCODE_LEFT                 113
 #define KEYCODE_RIGHT                114
-#define KEYCODE_UP                   111
 #define KEYCODE_DOWN                 116
+#define KEYCODE_CTRL                 37
+#define KEYCODE_SHIFT                50
+
+#define MOUSE_LMB                    1
+#define MOUSE_MMB                    2
+#define MOUSE_RMB                    3
+#define MOUSE_WHEEL_UP               4
+#define MOUSE_WHEEL_DOWN             5
+#define MOUSE_MB_1                   8
+#define MOUSE_MB_2                   9
 
 #define GAMEPAD_EVENT_BUTTON         0x01    /* button pressed/released */
 #define GAMEPAD_EVENT_AXIS           0x02    /* joystick moved */
@@ -36,6 +64,21 @@
 
 
 GLOBAL bool global_running;
+GLOBAL v2i  global_resolution_presets[12] =
+{
+    { 800, 600 },
+    { 960, 540 }, // Test Resolution
+    { 1024, 768 },
+    { 1152, 864 },
+    { 1280, 1024 },
+    { 1440, 900 },
+    { 1600, 900 },
+    { 1600, 1200 },
+    { 1680, 1050 },
+    { 1920, 1080 },
+    { 1920, 1200 },
+    { 2560, 1440 },
+};
 GLOBAL const char* global_gamepad_device_paths[] = {
     "/dev/input/js0",
     "/dev/input/js1",
@@ -62,12 +105,49 @@ struct linux_sound_output {
 };
 #endif
 
-struct linux_gamepad {
-    int fd;
+struct input_event {
+    timeval timestamp;
+    unsigned short type;
+    unsigned short code;
+    unsigned int value;
+};
+
+struct linux_mouse
+{
+    int32 fd;
+};
+
+INTERNAL
+bool32 linux_mouse_connect(linux_mouse *mouse, const char *device_path)
+{
+    int32 fd = open(device_path, O_RDONLY | O_NONBLOCK);
+    if (fd == -1) return false;
+
+    mouse->fd = fd;
+    return true;
+}
+
+struct linux_mouse_event
+{
+    input_event event;
+};
+
+INTERNAL
+bool32 linux_mouse_next_event(linux_mouse* mouse, linux_mouse_event* event)
+{
+    int64 bytes = read(mouse->fd, event, sizeof(linux_mouse_event));
+    // note: bytes == -1 when read is not successful
+    return bytes > 0;
+}
+
+struct linux_gamepad
+{
+    int32 fd;
 };
 
 
-struct linux_gamepad_event {
+struct linux_gamepad_event
+{
     uint32 time;   /* event timestamp in milliseconds */
     int16  value;  /* value */
     uint8  type;   /* event type */
@@ -127,14 +207,14 @@ bool32 linux_gamepad_next_event(linux_gamepad* gamepad, linux_gamepad_event* eve
 
 
 INTERNAL
-void linux_process_controller_button(Game::ButtonState* Button, int16 Value) {
+void linux_gamepad_process_button(Game::ButtonState* Button, int16 Value) {
     Button->HalfTransitionCount += 1;
     Button->EndedDown = (Value == 1);
 }
 
 
 INTERNAL
-float32 linux_controller_process_stick(int16 value, int16 deadzone) {
+float32 linux_gamepad_process_stick(int16 value, int16 deadzone) {
     if (value < -deadzone) {
         return ((float32)value + (float32)deadzone) / (32767.f - (float32)deadzone);
     } else if (value > deadzone) {
@@ -184,44 +264,26 @@ void linux_gamepad_process_events(linux_gamepad* device, Game::ControllerInput* 
             }
         } else if (event.type & GAMEPAD_EVENT_BUTTON) {
             switch (event.number) {
-                case 0: linux_process_controller_button(&Controller->A, event.value); break;
-                case 1: linux_process_controller_button(&Controller->B, event.value); break;
-                case 2: linux_process_controller_button(&Controller->X, event.value); break;
-                case 3: linux_process_controller_button(&Controller->Y, event.value); break;
-                case 4: linux_process_controller_button(&Controller->ShoulderLeft, event.value); break;
-                case 5: linux_process_controller_button(&Controller->ShoulderRight, event.value); break;
-                case 6: linux_process_controller_button(&Controller->Back, event.value); break;
-                case 7: linux_process_controller_button(&Controller->Start, event.value); break;
-                // case 8: linux_process_controller_button(&Controller->XBox, event.value); printf("XBOX %s", event.value ? "PRESS" : "RELEASE"); break;
-                case 9: linux_process_controller_button(&Controller->StickLeft, event.value); break;
-                case 10: linux_process_controller_button(&Controller->StickRight, event.value);break;
+                case 0: linux_gamepad_process_button(&Controller->A, event.value); break;
+                case 1: linux_gamepad_process_button(&Controller->B, event.value); break;
+                case 2: linux_gamepad_process_button(&Controller->X, event.value); break;
+                case 3: linux_gamepad_process_button(&Controller->Y, event.value); break;
+                case 4: linux_gamepad_process_button(&Controller->ShoulderLeft, event.value); break;
+                case 5: linux_gamepad_process_button(&Controller->ShoulderRight, event.value); break;
+                case 6: linux_gamepad_process_button(&Controller->Back, event.value); break;
+                case 7: linux_gamepad_process_button(&Controller->Start, event.value); break;
+                // case 8: linux_gamepad_process_button(&Controller->XBox, event.value); printf("XBOX %s", event.value ? "PRESS" : "RELEASE"); break;
+                case 9: linux_gamepad_process_button(&Controller->StickLeft, event.value); break;
+                case 10: linux_gamepad_process_button(&Controller->StickRight, event.value);break;
             }
         } else if (event.type & GAMEPAD_EVENT_AXIS) {
             switch (event.number) {
-                case 0: {
-                    Controller->LeftStickEnded.x = linux_controller_process_stick(event.value, GAMEPAD_LEFT_THUMB_DEADZONE);
-                    break;
-                }
-                case 1: {
-                    Controller->LeftStickEnded.y = linux_controller_process_stick(-event.value, GAMEPAD_LEFT_THUMB_DEADZONE);
-                    break;
-                }
-                case 2: {
-                    Controller->TriggerLeftEnded = linux_process_controller_trigger(event.value, GAMEPAD_TRIGGER_DEADZONE);
-                    break;
-                }
-                case 3: {
-                    Controller->RightStickEnded.x = linux_controller_process_stick(event.value, GAMEPAD_RIGHT_THUMB_DEADZONE);
-                    break;
-                }
-                case 4: {
-                    Controller->RightStickEnded.y = linux_controller_process_stick(-event.value, GAMEPAD_RIGHT_THUMB_DEADZONE);
-                    break;
-                }
-                case 5: {
-                    Controller->TriggerRightEnded = linux_process_controller_trigger(event.value, GAMEPAD_TRIGGER_DEADZONE);
-                    break;
-                }
+                case 0: Controller->LeftStickEnded.x = linux_gamepad_process_stick(event.value, GAMEPAD_LEFT_THUMB_DEADZONE);    break;
+                case 1: Controller->LeftStickEnded.y = linux_gamepad_process_stick(-event.value, GAMEPAD_LEFT_THUMB_DEADZONE);   break;
+                case 2: Controller->TriggerLeftEnded = linux_process_controller_trigger(event.value, GAMEPAD_TRIGGER_DEADZONE);  break;
+                case 3: Controller->RightStickEnded.x = linux_gamepad_process_stick(event.value, GAMEPAD_RIGHT_THUMB_DEADZONE);  break;
+                case 4: Controller->RightStickEnded.y = linux_gamepad_process_stick(-event.value, GAMEPAD_RIGHT_THUMB_DEADZONE); break;
+                case 5: Controller->TriggerRightEnded = linux_process_controller_trigger(event.value, GAMEPAD_TRIGGER_DEADZONE); break;
                 case 6: printf("Dpad X %d\n", event.value); break;
                 case 7: printf("Dpad Y %d\n", event.value); break;
             }
@@ -346,9 +408,11 @@ static void linux_send_sound_buffer(snd_pcm_t* sound_device, linux_sound_output*
 }
 #endif // SOUND_ALSA
 
-int32 main(int32 argc, char** argv) {
+int32 main(int32 argc, char** argv)
+{
     Display* display = XOpenDisplay(NULL);
-    if (display == NULL) {
+    if (display == NULL)
+    {
         printf("Cannot open display\n");
         return 1;
     }
@@ -361,21 +425,31 @@ int32 main(int32 argc, char** argv) {
     uint32 game_update_hz = monitor_refresh_hz / 2;
     float32 target_seconds_per_frame = 1.0f / (float32) game_update_hz;
 
-    uint32 window_width = 1280;
-    uint32 window_height = 720;
+
+    const i32 resolution_index = 1;
+    STATIC_ASSERT_MSG(resolution_index < ARRAY_COUNT(global_resolution_presets), "Resolution Index is too high");
+    v2i resolution = global_resolution_presets[resolution_index];
+
     Window window = XCreateSimpleWindow(
         display,
         RootWindow(display, screen),
         0, // WIN_X,
         0, // WIN_Y,
-        window_width,
-        window_height,
+        resolution.x,
+        resolution.y,
         1, // WIN_BORDER,
         BlackPixel(display, screen),
         WhitePixel(display, screen));
 
     linux_screen_buffer screen_buffer {};
-    linux_resize_screen_buffer(&screen_buffer, window_width, window_height);
+    linux_resize_screen_buffer(&screen_buffer, resolution.x, resolution.y);
+
+    // linux_mouse mouse;
+
+    // bool32 success = linux_mouse_connect(&mouse, "/dev/input/mouse0");
+    // printf("mouse connection %s\n", success ? "successfull" : "failure");
+
+    // return 0;
 
 #if SOUND_ALSA
     linux_sound_output sound_output = linux_init_alsa(48000, 2);
@@ -423,7 +497,8 @@ int32 main(int32 argc, char** argv) {
     game_memory.CustomHeapStorageSize = MEGABYTES(10);
     game_memory.CustomHeapStorage = memory::allocate_pages((void *)TERABYTES(2), game_memory.CustomHeapStorageSize);
 
-    Game::Input Input {};
+    Game::Input Input = {};
+    Input.dt = target_seconds_per_frame;
 
     global_running = true;
     os::timepoint last_counter = os::get_wall_clock();
@@ -436,9 +511,28 @@ int32 main(int32 argc, char** argv) {
 
     linux_gamepad gamepad_devices[ARRAY_COUNT(global_gamepad_device_paths)] {};
 
-    while (global_running) {
+    while (global_running)
+    {
+        auto *mouse = &Input.mouse;
+        mouse->previous_position = mouse->position;
+        for (i32 button_index = 0; button_index < ARRAY_COUNT(mouse->buttons); button_index++)
+        {
+            mouse->buttons[button_index].HalfTransitionCount = 0;
+        }
+        auto *keyboard = &Input.keyboard;
+        for (i32 key_index = 0; key_index < ARRAY_COUNT(keyboard->buttons); key_index++)
+        {
+            keyboard->buttons[key_index].HalfTransitionCount = 0;
+        }
+        auto *keyboard_controller = &Input.KeyboardInput;
+        for (int32 button_index = 0; button_index < ARRAY_COUNT(keyboard_controller->Buttons); button_index++)
+        {
+            keyboard_controller->Buttons[button_index].HalfTransitionCount = 0;
+        }
+
+        // @todo: clear up half transition count for other controllers.
         for (int gamepad_index = 0; gamepad_index < ARRAY_COUNT(gamepad_devices); gamepad_index++) {
-            Game::ControllerInput *GamepadInput = GetGamepadInput(&Input, gamepad_index);// GGame_ControllerInput* Controller = &Input.Controllers[gamepad_index];
+            auto *gamepad_input = GetGamepadInput(&Input, gamepad_index);// GGame_ControllerInput* Controller = &Input.Controllers[gamepad_index];
             linux_gamepad* device = &gamepad_devices[gamepad_index];
 
             if (!linux_gamepad_connected(device)) {
@@ -456,110 +550,184 @@ int32 main(int32 argc, char** argv) {
                     linux_gamepad_disconnect(device);
                     // printf("Gamepad %d plugged off\n", gamepad_index);
                 } else {
+                    // Clear out HalfTransitionCount at the start of the frame.
+                    for (int32 button_index = 0; button_index < ARRAY_COUNT(gamepad_input->Buttons); button_index++)
+                    {
+                        gamepad_input->Buttons[button_index].HalfTransitionCount = 0;
+                    }
+
                     // 2. If gamepad is alive, read events from it:
-                    linux_gamepad_process_events(device, GamepadInput);
+                    linux_gamepad_process_events(device, gamepad_input);
                 }
             }
         }
 
-        auto *keyboard = &Input.keyboard;
-
-        for (i32 key_index = 0; key_index < ARRAY_COUNT(keyboard->buttons); key_index++)
-        {
-            Game::ButtonState *button = keyboard->buttons + key_index;
-            button->HalfTransitionCount = 0;
-        }
-
         XEvent event;
-        while (XPending(display)) {
+        while (XPending(display))
+        {
             XNextEvent(display, &event);
-            switch (event.type) {
-                case MotionNotify:
-                    break;
 
-                case KeyPress:
-                case KeyRelease:
+            //
+            // @note: X11 key-repeat BS:
+            // The X-Server always sends you repeated keys. It's bad, because I want
+            // to be precise when player hits/releases the keyboard key.
+            // The event stream looks like this:
+            //
+            //    ... [real-press] ... [repeat-release]-[repeat-press]  [repeat-release]-[repeat-press]  [real-release] ...
+            //
+            // Repeat events always go in pairs: RELEASE-PRESS, and always have the same timestamp.
+            // I detect that in the code below, and just skip them.
+            //
+            XEvent next_event;
+            if (XPending(display))
+            {
+                // @note: XPeekEvent is blocking call. XPending makes sure I call XPeekEvent only when
+                // there are events present in the queue.
+                XPeekEvent(display, &next_event);
+                if ((event.type == KeyRelease) && (next_event.type == KeyPress))
                 {
-                    auto e = event.xkey;
-
-                    // @todo: fix sticky buttons
-                    printf("type:::::::::%d\n", event.type);
-                    // printf("keycode press: %d\n", e.keycode);
-
-                    if (e.keycode == KEYCODE_ESC)
+                    if (event.xkey.time == next_event.xkey.time)
                     {
-                        global_running = false;
+                        XNextEvent(display, &next_event); // Poll next event from the queue
+                        continue; // Skip
                     }
-                    else if (e.keycode == KEYCODE_LEFT)
-                    {
-                        linux_process_key_event(&keyboard->ArrowLeft, true);
-                    }
-                    else if (e.keycode == KEYCODE_RIGHT)
-                    {
-                        linux_process_key_event(&keyboard->ArrowRight, true);
-                    }
-                    else if (e.keycode == KEYCODE_UP)
-                    {
-                        linux_process_key_event(&keyboard->ArrowUp, true);
-                    }
-                    else if (e.keycode == KEYCODE_DOWN)
-                    {
-                        linux_process_key_event(&keyboard->ArrowDown, true);
-                    }
-                // }
-                // break;
+                }
+            }
 
-                // case KeyRelease:
-                // {
-                //     auto e = event.xkey;
-
-                    // printf("keycode release: %d\n", e.keycode);
-                    // print_binary(e.state);
-                    // printf("\n");
-                    // printf(
-                    //     "[ B1 B2 B3 B4 B5 Shift Lock Control M1 M2 M3 M4 M5 ]\n"
-                    //     "[ %2d %2d %2d %2d %2d %5d %4d %7d %2d %2d %2d %2d %2d ]\n",
-                    //     (e.state & Button1Mask) > 0, // LMB
-                    //     (e.state & Button2Mask) > 0, // MMB
-                    //     (e.state & Button3Mask) > 0, // RMB
-                    //     (e.state & Button4Mask) > 0, //
-                    //     (e.state & Button5Mask) > 0, //
-                    //     (e.state & ShiftMask) > 0,   // Shift
-                    //     (e.state & LockMask) > 0,    // CapsLock
-                    //     (e.state & ControlMask) > 0, //
-                    //     (e.state & Mod1Mask) > 0,    //
-                    //     (e.state & Mod2Mask) > 0,    // NumLock
-                    //     (e.state & Mod3Mask) > 0,    //
-                    //     (e.state & Mod4Mask) > 0,    // Win/Super Key
-                    //     (e.state & Mod5Mask) > 0);   //
-
-                    // if (e.keycode == KEYCODE_ESC)
-                    // {
-                    //     global_running = false;
-                    // }
-                    // else if (e.keycode == KEYCODE_LEFT)
-                    // {
-                    //     linux_process_key_event(&keyboard->ArrowLeft, false);
-                    // }
-                    // else if (e.keycode == KEYCODE_RIGHT)
-                    // {
-                    //     linux_process_key_event(&keyboard->ArrowRight, false);
-                    // }
-                    // else if (e.keycode == KEYCODE_UP)
-                    // {
-                    //     linux_process_key_event(&keyboard->ArrowUp, false);
-                    // }
-                    // else if (e.keycode == KEYCODE_DOWN)
-                    // {
-                    //     linux_process_key_event(&keyboard->ArrowDown, false);
-                    // }
+            switch (event.type)
+            {
+                case MotionNotify:
+                {
+                    mouse->position = make_vector2i(event.xmotion.x, event.xmotion.y);
                 }
                 break;
 
                 case ButtonPress:
-                    break;
                 case ButtonRelease:
-                    break;
+                {
+                    b32 is_down = (event.type == ButtonPress);
+
+                    if (event.xbutton.button == MOUSE_LMB)
+                    {
+                        linux_process_key_event(&mouse->LMB, is_down);
+                    }
+                    else if (event.xbutton.button == MOUSE_MMB)
+                    {
+                        linux_process_key_event(&mouse->MMB, is_down);
+                    }
+                    else if (event.xbutton.button == MOUSE_RMB)
+                    {
+                        linux_process_key_event(&mouse->RMB, is_down);
+                    }
+                }
+                break;
+
+                case KeyPress:
+                case KeyRelease:
+                {
+                    b32 is_down = (event.type == KeyPress);
+                    printf("%s (%d): vkcode: %d [%ld]\n", is_down ? "PRESS  " : "RELEASE", event.type, event.xkey.keycode, event.xkey.time);
+
+                    if (event.xkey.keycode == KEYCODE_ESC)
+                    {
+                        global_running = false;
+                    }
+                    else if (event.xkey.keycode == KEYCODE_SPACE)
+                    {
+                        linux_gamepad_process_button(&keyboard_controller->Start, is_down);
+                        // linux_process_key_event(&keyboard->Space, is_down);
+                    }
+                    else if (event.xkey.keycode == KEYCODE_W)
+                    {
+                        if (is_down) {
+                            keyboard_controller->LeftStickEnded.y = clamp(keyboard_controller->LeftStickEnded.y + 1, -1, 1);
+                        } else {
+                            keyboard_controller->LeftStickEnded.y = clamp(keyboard_controller->LeftStickEnded.y - 1, -1, 1);
+                        }
+                    }
+                    else if (event.xkey.keycode == KEYCODE_A)
+                    {
+                        if (is_down) {
+                            keyboard_controller->LeftStickEnded.x = clamp(keyboard_controller->LeftStickEnded.x - 1, -1, 1);
+                        } else {
+                            keyboard_controller->LeftStickEnded.x = clamp(keyboard_controller->LeftStickEnded.x + 1, -1, 1);
+                        }
+                    }
+                    else if (event.xkey.keycode == KEYCODE_S)
+                    {
+                        if (is_down) {
+                            keyboard_controller->LeftStickEnded.y = clamp(keyboard_controller->LeftStickEnded.y - 1, -1, 1);
+                        } else {
+                            keyboard_controller->LeftStickEnded.y = clamp(keyboard_controller->LeftStickEnded.y + 1, -1, 1);
+                        }
+                    }
+                    else if (event.xkey.keycode == KEYCODE_D)
+                    {
+                        if (is_down) {
+                            keyboard_controller->LeftStickEnded.x = clamp(keyboard_controller->LeftStickEnded.x + 1, -1, 1);
+                        } else {
+                            keyboard_controller->LeftStickEnded.x = clamp(keyboard_controller->LeftStickEnded.x - 1, -1, 1);
+                        }
+                    }
+                    else if (event.xkey.keycode == KEYCODE_LEFT)
+                    {
+                        linux_process_key_event(&keyboard->ArrowLeft, is_down);
+                        linux_gamepad_process_button(&keyboard_controller->X, is_down);
+                    }
+                    else if (event.xkey.keycode == KEYCODE_RIGHT)
+                    {
+                        linux_process_key_event(&keyboard->ArrowRight, is_down);
+                        linux_gamepad_process_button(&keyboard_controller->B, is_down);
+                    }
+                    else if (event.xkey.keycode == KEYCODE_UP)
+                    {
+                        linux_process_key_event(&keyboard->ArrowUp, is_down);
+                        linux_gamepad_process_button(&keyboard_controller->Y, is_down);
+                    }
+                    else if (event.xkey.keycode == KEYCODE_DOWN)
+                    {
+                        linux_process_key_event(&keyboard->ArrowDown, is_down);
+                        linux_gamepad_process_button(&keyboard_controller->A, is_down);
+                    }
+                    else if (event.xkey.keycode == KEYCODE_F1)
+                    {
+                        linux_process_key_event(&keyboard->F1, is_down);
+                    }
+                    else if (event.xkey.keycode == KEYCODE_CTRL)
+                    {
+                        linux_process_key_event(&keyboard->Ctrl, is_down);
+                    }
+                    else if (event.xkey.keycode == KEYCODE_SHIFT)
+                    {
+                        linux_process_key_event(&keyboard->Shift, is_down);
+                    }
+                    else if (event.xkey.keycode == KEYCODE_Z)
+                    {
+                        linux_process_key_event(&keyboard->Z, is_down);
+                    }
+                }
+                break;
+
+                // printf("keycode release: %d\n", e.keycode);
+                // print_binary(e.state);
+                // printf("\n");
+                // printf(
+                //     "[ B1 B2 B3 B4 B5 Shift Lock Control M1 M2 M3 M4 M5 ]\n"
+                //     "[ %2d %2d %2d %2d %2d %5d %4d %7d %2d %2d %2d %2d %2d ]\n",
+                //     (e.state & Button1Mask) > 0, // LMB
+                //     (e.state & Button2Mask) > 0, // MMB
+                //     (e.state & Button3Mask) > 0, // RMB
+                //     (e.state & Button4Mask) > 0, //
+                //     (e.state & Button5Mask) > 0, //
+                //     (e.state & ShiftMask) > 0,   // Shift
+                //     (e.state & LockMask) > 0,    // CapsLock
+                //     (e.state & ControlMask) > 0, //
+                //     (e.state & Mod1Mask) > 0,    //
+                //     (e.state & Mod2Mask) > 0,    // NumLock
+                //     (e.state & Mod3Mask) > 0,    //
+                //     (e.state & Mod4Mask) > 0,    // Win/Super Key
+                //     (e.state & Mod5Mask) > 0);   //
+
                 case ClientMessage:
                     global_running = false;
                     break;
@@ -697,6 +865,14 @@ int32 main(int32 argc, char** argv) {
 
         // printf("milliseconds elapsed: %5.2f\n", microseconds_elapsed / 1000.f);
 
+        {
+            f32 milliseconds_elapsed = microseconds_elapsed_for_frame.us / 1000.0f;
+            f32 fps = 1000000.0f / microseconds_elapsed_for_frame.us;
+
+            char window_text[256];
+            sprintf(window_text, "%f ms/f; fps: %f", milliseconds_elapsed, fps);
+            XStoreName(display, window, window_text);
+        }
     }
 
     XDestroyWindow(display, window);
