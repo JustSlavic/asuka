@@ -3,7 +3,6 @@
 
 #include <defines.hpp>
 
-namespace Asuka {
 
 struct wav_file_contents {
     i32 samples_per_second;
@@ -15,7 +14,6 @@ struct wav_file_contents {
 
 wav_file_contents load_wav_file(const char* filename);
 
-} // namespace Asuka
 
 #ifdef UNITY_BUILD
 #include "wav.cpp"

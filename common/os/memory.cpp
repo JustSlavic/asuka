@@ -24,8 +24,9 @@ void* allocate_pages(void* base_address, u64 size) {
     return internal::allocate_pages(base_address, size);
 }
 
-void free_pages(void* memory) {
-    return internal::free_pages(memory);
+void free_pages(void* memory, usize size)
+{
+    return internal::free_pages(memory, size);
 }
 
 void set(void *memory, u8 value, usize size) {

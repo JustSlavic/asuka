@@ -5,49 +5,25 @@ namespace memory {
 namespace internal {
 
 
-static void *allocations[1024] {};
-static usize allocations_sizes[1024] {};
-int allocations_count = 0;
-
-void* allocate_pages(void* base_address, uint64 size) {
+void* allocate_pages(void* base_address, usize size)
+{
     void* memory = mmap(base_address, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (memory == MAP_FAILED) {
         return 0;
     }
 
-    allocations[allocations_count] = memory;
-    allocations_sizes[allocations_count] = size;
-    allocations_count += 1;
-
     return memory;
 }
 
-void* allocate_pages(uint64 size) {
-    void* memory = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (memory == MAP_FAILED) {
-        return 0;
-    }
-
-    allocations[allocations_count] = memory;
-    allocations_sizes[allocations_count] = size;
-    allocations_count += 1;
-
+void* allocate_pages(usize size)
+{
+    void *memory = allocate_pages(0, size);
     return memory;
 }
 
 void free_pages(void* memory, usize size) {
     int ec = munmap(memory, size);
     ASSERT(ec == 0);
-}
-
-void free_pages(void *memory) {
-    for (int i = 0; i < allocations_count; i++) {
-        if (allocations[i] == memory) {
-            free_pages(memory, allocations_sizes[i]);
-            allocations_count -= 1;
-            return;
-        }
-    }
 }
 
 // const char* get_allocate_pages_error() {

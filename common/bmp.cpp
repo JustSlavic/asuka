@@ -1,4 +1,6 @@
 #include "bmp.hpp"
+#include <array.hpp>
+#include <os/file.hpp>
 
 
 #pragma pack(push, 1)
@@ -51,7 +53,7 @@ enum {
 Bitmap load_bmp_file(const char* filename) {
     Bitmap result {};
 
-    asuka::string contents = os::load_entire_file(filename);
+    byte_array contents = os::load_entire_file(filename);
     if (contents.data == NULL) {
         // @todo: handle error
         return result;

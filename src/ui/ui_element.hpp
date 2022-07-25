@@ -1,9 +1,7 @@
 #pragma once
 
+#include <allocator.hpp>
 #include <math.hpp>
-
-
-namespace Asuka {
 
 
 /*
@@ -145,8 +143,6 @@ Rectangle2 get_bounding_box(UiElement *element);
 void push_filter(UiShape *element, UiFilter *filter);
 matrix4 get_transform(UiElement *element);
 
-
-} // namespace Asuka
 
 #if UNITY_BUILD
 #include "ui_element.cpp"

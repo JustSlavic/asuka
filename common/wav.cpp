@@ -2,9 +2,6 @@
 #include "os/file.hpp"
 
 
-namespace Asuka {
-
-
 struct RIFF_Header {
     u32 ChunkID;
     u32 ChunkSize;
@@ -52,7 +49,8 @@ u8 *consume_memory(u8 **data, u64 size) {
     (TYPE *)consume_memory(&POINTER, sizeof(TYPE)); void(0)
 
 
-wav_file_contents load_wav_file(const char* filename) {
+wav_file_contents load_wav_file(const char* filename)
+{
     wav_file_contents result {};
 
     byte_array contents = os::load_entire_file(filename);
@@ -110,5 +108,3 @@ wav_file_contents load_wav_file(const char* filename) {
     return result;
 }
 
-
-} // namespace Asuka

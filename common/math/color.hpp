@@ -5,9 +5,6 @@
 #include "float.hpp"
 
 
-namespace Asuka {
-
-
 struct Color24 {
     struct { f32 r; f32 g; f32 b; };
 
@@ -84,8 +81,6 @@ Color32 make_rgba(R r, G g, B b, A a)
 {
     return make_color32<R, G, B, A>(r, g, b, a);
 }
-
-} // namespace Asuka
 
 
 #if UNITY_BUILD

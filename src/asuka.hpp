@@ -251,7 +251,7 @@ ControllerInput *GetControllerInput(Input *Input, InputIndex ControllerIndex)
 
 
 INLINE
-ControllerInput *GetGamepadInput(Input *Input, i32 GamepadIndex)
+ControllerInput *GetGamepadInput(Input *Input, u32 GamepadIndex)
 {
     ASSERT(GamepadIndex < ARRAY_COUNT(Input->GamepadInputs));
     return &Input->GamepadInputs[GamepadIndex];
@@ -448,6 +448,7 @@ ASUKA_DLL_EXPORT GAME_UPDATE_AND_RENDER(Game_UpdateAndRender);
 ASUKA_DLL_EXPORT GAME_OUTPUT_SOUND(Game_OutputSound);
 }
 
+#if UNITY_BUILD
 #if (ASUKA_DLL && ASUKA_DLL_BUILD) || (!ASUKA_DLL_BUILD)
 #include <world.cpp>
 #include <sim_region.cpp>
@@ -457,9 +458,10 @@ ASUKA_DLL_EXPORT GAME_OUTPUT_SOUND(Game_OutputSound);
 #include <ui/ui_editor.cpp>
 #endif // UI_EDITOR_ENABLED
 
-#endif
+#endif //
 
 #if !ASUKA_DLL && !ASUKA_DLL_BUILD
 #include <asuka.cpp>
 #else
 #endif
+#endif // UNITY_BUILD

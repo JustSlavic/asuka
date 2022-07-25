@@ -39,7 +39,7 @@ byte_array load_entire_file(const char* filename)
         }
         else
         {
-            memory::free_pages(memory);
+            memory::free_pages(memory, size + 1);
         }
     }
 
@@ -47,7 +47,8 @@ byte_array load_entire_file(const char* filename)
 }
 
 
-bool write_file(const char* filename, byte_array file) {
+bool write_file(const char* filename, byte_array file)
+{
     NOT_IMPLEMENTED();
     return false;
 }

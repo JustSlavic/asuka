@@ -1,8 +1,42 @@
+#include "asuka.hpp"
+#include "ui.hpp"
 #include "ui_editor.hpp"
+#include "ui_element.hpp"
 
 
-namespace Asuka
+UiEditorAction ui_action(UiEditorActionType type)
 {
+    UiEditorAction action = {};
+    action.type = type;
+
+    return action;
+}
+
+UiEditorAction ui_action()
+{
+    UiEditorAction result = ui_action(UI_ACTION_NONE);
+    return result;
+}
+
+UiEditorAction *get_action(UiEditor *editor, isize index)
+{
+    // Wrapping to the positive modulo
+    index = (index % ARRAY_COUNT(editor->history) + ARRAY_COUNT(editor->history)) % ARRAY_COUNT(editor->history);
+    UiEditorAction *result = editor->history + index;
+    return result;
+}
+
+UiEditorAction *get_current_action(UiEditor *editor)
+{
+    UiEditorAction *result = &editor->current_action;
+    return result;
+}
+
+UiEditorAction *get_last_action(UiEditor *editor)
+{
+    UiEditorAction *result = get_action(editor, editor->action_end_index - 1);
+    return result;
+}
 
 
 struct UiEditorUpdateResult
@@ -96,6 +130,8 @@ void undo_action(UiEditor *editor)
     auto last_action = get_last_action(editor);
     switch (last_action->type)
     {
+        case UI_ACTION_NONE: break;
+
         case UI_ACTION_MOVE:
         {
             last_action->move.ui_element->position = last_action->move.old_position;
@@ -124,6 +160,8 @@ void redo_action(UiEditor *editor)
     auto next_action = get_action(editor, editor->action_end_index);
     switch (next_action->type)
     {
+        case UI_ACTION_NONE: break;
+
         case UI_ACTION_MOVE:
         {
             next_action->move.ui_element->position = next_action->move.new_position;
@@ -204,5 +242,3 @@ void ui_update_editor(UiEditor *editor, UiScene *scene, Game::Input *input)
     }
 }
 
-
-} // namespace Asuka

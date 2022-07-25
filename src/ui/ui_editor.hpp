@@ -2,13 +2,14 @@
 
 #include "ui_element.hpp"
 
+
 /*
     @todo:
     - Actions recording for Undo/Redo
 */
 
-namespace Asuka {
-
+struct UiScene;
+namespace Game { struct Input; }
 
 using UiPosition = decltype(UiElement::position);
 
@@ -43,20 +44,8 @@ struct UiEditorAction
 };
 
 
-UiEditorAction ui_action(UiEditorActionType type)
-{
-    UiEditorAction action = {};
-    action.type = type;
-
-    return action;
-}
-
-
-UiEditorAction ui_action()
-{
-    UiEditorAction result = ui_action(UI_ACTION_NONE);
-    return result;
-}
+UiEditorAction ui_action(UiEditorActionType type);
+UiEditorAction ui_action();
 
 
 struct UiEditor
@@ -75,30 +64,7 @@ struct UiEditor
 };
 
 
-INLINE
-UiEditorAction *get_action(UiEditor *editor, isize index)
-{
-    // Wrapping to the positive modulo
-    index = (index % ARRAY_COUNT(editor->history) + ARRAY_COUNT(editor->history)) % ARRAY_COUNT(editor->history);
-    UiEditorAction *result = editor->history + index;
-    return result;
-}
-
-
-INLINE
-UiEditorAction *get_current_action(UiEditor *editor)
-{
-    UiEditorAction *result = &editor->current_action;
-    return result;
-}
-
-
-INLINE
-UiEditorAction *get_last_action(UiEditor *editor)
-{
-    UiEditorAction *result = get_action(editor, editor->action_end_index - 1);
-    return result;
-}
-
-
-} // namespace Asuka
+UiEditorAction *get_action(UiEditor *editor, isize index);
+UiEditorAction *get_current_action(UiEditor *editor);
+UiEditorAction *get_last_action(UiEditor *editor);
+void ui_update_editor(UiEditor *editor, UiScene *scene, Game::Input *input);

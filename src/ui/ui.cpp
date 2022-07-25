@@ -1,7 +1,5 @@
 #include "ui.hpp"
-
-
-namespace Asuka {
+#include "asuka.hpp"
 
 
 UiScene *ui_allocate_scene(memory::arena_allocator *allocator)
@@ -115,4 +113,3 @@ void ui_update_scene(UiScene *scene, Game::Input *input)
     ui_update_element(scene, scene->root, input);
 }
 
-} // namespace Asuka

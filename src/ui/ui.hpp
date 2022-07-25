@@ -3,9 +3,6 @@
 #include <allocator.hpp>
 #include "ui_element.hpp"
 
-
-namespace Asuka {
-
 /*
     @todo: All things what I want to make for UI:
 
@@ -25,8 +22,9 @@ namespace Asuka {
     - Events!
     - Custom responses to Events
     - Animation
-
 */
+
+namespace Game { struct Input; }
 
 struct UiScene {
     UiElement *root;
@@ -44,4 +42,7 @@ struct UiScene {
 };
 
 
-} // namespace Asuka
+UiScene *ui_allocate_scene(memory::arena_allocator *allocator);
+void ui_update_scene(UiScene *scene, Game::Input *input);
+void push_child(UiGroup *group, UiElement *child);
+

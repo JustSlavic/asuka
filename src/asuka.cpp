@@ -1,5 +1,7 @@
 #include "asuka.hpp"
+#include <wav.hpp>
 #include <png.hpp>
+#include "ui/ui.hpp"
 
 
 #define ASUKA_DEBUG_FOLLOWING_CAMERA 1
@@ -428,8 +430,8 @@ EntityResult add_entity(GameState *game_state, WorldPosition position = null_pos
     memory::set(result.entity, 0, sizeof(StoredEntity));
     result.entity->world_position = null_position();
     result.entity->sim.storage_index = result.index;
-    result.entity->sim.distance_limit = INF;
-    result.entity->sim.time_limit = INF;
+    result.entity->sim.distance_limit = infinity();
+    result.entity->sim.time_limit = infinity();
 
     change_entity_location(game_state->world, result.index, result.entity, &position, &game_state->world_arena);
 
@@ -654,7 +656,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
                 v2{ test_entity->position.x - minkowski_test_width, test_entity->position.y - minkowski_test_height },
             };
 
-            for (i32 vertex_idx = 0; vertex_idx < ARRAY_COUNT(vertices); vertex_idx++)
+            for (u32 vertex_idx = 0; vertex_idx < ARRAY_COUNT(vertices); vertex_idx++)
             {
                 v2 w0 = vertices[vertex_idx];
                 v2 w1 = vertices[(vertex_idx + 1) % ARRAY_COUNT(vertices)];
@@ -784,7 +786,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
 #if IN_CODE_TEXTURES
 #else
-        game_state->test_wav_file = Asuka::load_wav_file("piano2.wav");
+        game_state->test_wav_file = load_wav_file("piano2.wav");
         game_state->test_current_sound_cursor = 0;
 #endif
 
@@ -1064,6 +1066,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     {
 #if UI_EDITOR_ENABLED
         TOGGLE(game_state->ui_editor_enabled);
+        STATIC int i = 0;
+        osOutputDebugString("i = %d\n", i++);
 #endif // UI_EDITOR_ENABLED
     }
 
@@ -1263,8 +1267,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 spec.acceleration += friction;
 
                 entity->tBob += dt;
-                if (entity->tBob > 2 * PI) {
-                    entity->tBob -= 2 * PI;
+                if (entity->tBob > 2 * pi()) {
+                    entity->tBob -= 2 * pi();
                 }
 
                 f32 a = 2.0f;

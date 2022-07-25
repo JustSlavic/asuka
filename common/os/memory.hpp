@@ -50,7 +50,7 @@ AlignPointerResult get_aligned_pointer(void *pointer, usize alignment)
 
 void *allocate_pages(u64 size);
 void *allocate_pages(void *base_address, u64 size);
-void  free_pages(void *memory);
+void  free_pages(void *memory, usize size);
 
 void set(void *memory, u8 value, usize size);
 void copy(void *destination, void *source, usize size);

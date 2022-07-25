@@ -190,8 +190,9 @@ void decode_idat_chunk(u8 *data, usize size, Bitmap *result) {
 
             u16 NLEN = *(u16*)zlib_data;
             zlib_data += 2;
-
+#pragma GCC diagnostic ignored "-Wsign-compare"
             ASSERT(LEN == ~NLEN);
+#pragma GCC diagnostic pop
             // Test this on something.
         } else {
             if (BTYPE == 2) { // Compressed with dynamic Huffman code

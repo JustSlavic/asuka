@@ -2,10 +2,9 @@
 
 #include <defines.hpp>
 #include <allocator.hpp>
+#include <math/vector3.hpp>
 
 namespace Game {
-
-using namespace Asuka;
 
 /*
 
@@ -77,7 +76,10 @@ void change_entity_location(World *world, u32 storage_index, StoredEntity *entit
 b32 is_canonical(World *world, WorldPosition p);
 b32 is_equal(WorldPosition p1, WorldPosition p2);
 
+Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, memory::arena_allocator *arena = NULL);
+Chunk *get_chunk(World *world, WorldPosition position, memory::arena_allocator *arena = NULL);
+
 WorldPosition canonicalize_position(WorldPosition p, v3 chunk_dim);
-WorldPosition map_into_world_space(World *world, WorldPosition camera_position, f32 offset_x, f32 offset_y, f32 offset_z);
+WorldPosition map_into_world_space(World *world, WorldPosition camera_position, v3 offset);
 
 } // namespace Game

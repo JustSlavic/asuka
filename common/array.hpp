@@ -24,12 +24,6 @@ struct static_array
 
         T & result = data[index];
         return result;
-        {
-
-            {
-
-            }
-        }
     }
 };
 
@@ -231,22 +225,8 @@ array<T> make_array(dynamic_array<T, Allocator> dyn_array)
 }
 
 
-string make_string(char *data, usize size)
-{
-    auto result = make_array<char>(data, size);
-    return result;
-}
-
-
-string make_string(byte_array array)
-{
-    string result = {};
-    result.data = (char *) array.data;
-    result.size = array.size;
-    result.capacity = array.capacity;
-
-    return result;
-}
+string make_string(char *data, usize size);
+string make_string(byte_array array);
 
 
 template <typename T>

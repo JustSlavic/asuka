@@ -1,4 +1,5 @@
 #include "sim_region.hpp"
+#include "asuka.hpp"
 
 
 namespace Game {

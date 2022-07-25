@@ -1,3 +1,6 @@
+#include "world.hpp"
+#include "asuka.hpp"
+
 #define INVALID_CHUNK_POSITION INT32_MAX
 
 
@@ -47,8 +50,7 @@ b32 is_valid(WorldPosition p)
 }
 
 
-INTERNAL INLINE
-Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, memory::arena_allocator *arena = NULL)
+Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, memory::arena_allocator *arena)
 {
     // @todo: MAKE BETTER HASH FUNCTION!!!
     hash_t hash = chunk_x * 3 + chunk_y * 13 + chunk_z * 53;
@@ -94,8 +96,7 @@ Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, memory::ar
 }
 
 
-INLINE INTERNAL
-Chunk *get_chunk(World *world, WorldPosition position, memory::arena_allocator *arena = NULL)
+Chunk *get_chunk(World *world, WorldPosition position, memory::arena_allocator *arena)
 {
     Chunk *result = get_chunk(world, position.chunk.x, position.chunk.y, position.chunk.z, arena);
     return result;
@@ -198,11 +199,6 @@ void sanity_check(World *world, u32 storage_index, u32 expected)
 {
     u32 count = 0;
 
-    u32 first_hash_entry_index = 0;
-    Chunk *first_chunk = 0;
-    EntityBlock *first_block = 0;
-    u32 first_idx = 0;
-
     for (u32 hash_entry_index = 0; hash_entry_index < ARRAY_COUNT(world->chunks_hash_table); hash_entry_index++)
     {
         for (Chunk *chunk = world->chunks_hash_table + hash_entry_index; chunk; chunk = chunk->next_in_hashtable)
@@ -214,14 +210,6 @@ void sanity_check(World *world, u32 storage_index, u32 expected)
                     u32 entity_index = block->entities[idx];
                     if (entity_index == storage_index)
                     {
-                        if (count == 0)
-                        {
-                            first_hash_entry_index = hash_entry_index;
-                            first_chunk = chunk;
-                            first_block = block;
-                            first_idx = idx;
-                        }
-
                         if (count > 0)
                         {
                             osOutputDebugString("Found duplicate\n");

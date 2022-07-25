@@ -4,9 +4,7 @@
 #include <defines.hpp>
 #include <os/memory.hpp>
 
-#ifdef ASUKA_MALLOCATOR
 #include <memory/mallocator.hpp>
-#endif // ASUKA_MALLOCATOR
 #include <memory/arena_allocator.hpp>
 #include <memory/pool_allocator.hpp>
 

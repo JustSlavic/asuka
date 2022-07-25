@@ -10,6 +10,8 @@
 //
 
 #include <defines.hpp>
+#include <code_location.hpp>
+#include <stdlib.h>
 
 namespace memory
 {

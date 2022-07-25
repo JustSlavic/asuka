@@ -1,10 +1,6 @@
 #include "ui_element.hpp"
 
 
-namespace Asuka
-{
-
-
 Rectangle2 get_bounding_box(UiElement *element)
 {
     Rectangle2 result = {};
@@ -50,4 +46,3 @@ matrix4 get_transform(UiElement *element)
     return transform;
 }
 
-} // namespace Asuka

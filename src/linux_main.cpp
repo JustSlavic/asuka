@@ -297,7 +297,7 @@ void linux_gamepad_process_events(linux_gamepad* device, Game::ControllerInput* 
 INTERNAL
 void linux_resize_screen_buffer(linux_screen_buffer* buffer, uint32 width, uint32 height) {
     if (buffer->memory) {
-        memory::free_pages(buffer->memory);
+        memory::free_pages(buffer->memory, buffer->width * buffer->height * buffer->bytes_per_pixel);
         buffer->memory = NULL;
     }
 
@@ -515,23 +515,23 @@ int32 main(int32 argc, char** argv)
     {
         auto *mouse = &Input.mouse;
         mouse->previous_position = mouse->position;
-        for (i32 button_index = 0; button_index < ARRAY_COUNT(mouse->buttons); button_index++)
+        for (u32 button_index = 0; button_index < ARRAY_COUNT(mouse->buttons); button_index++)
         {
             mouse->buttons[button_index].HalfTransitionCount = 0;
         }
         auto *keyboard = &Input.keyboard;
-        for (i32 key_index = 0; key_index < ARRAY_COUNT(keyboard->buttons); key_index++)
+        for (u32 key_index = 0; key_index < ARRAY_COUNT(keyboard->buttons); key_index++)
         {
             keyboard->buttons[key_index].HalfTransitionCount = 0;
         }
         auto *keyboard_controller = &Input.KeyboardInput;
-        for (int32 button_index = 0; button_index < ARRAY_COUNT(keyboard_controller->Buttons); button_index++)
+        for (uint32 button_index = 0; button_index < ARRAY_COUNT(keyboard_controller->Buttons); button_index++)
         {
             keyboard_controller->Buttons[button_index].HalfTransitionCount = 0;
         }
 
         // @todo: clear up half transition count for other controllers.
-        for (int gamepad_index = 0; gamepad_index < ARRAY_COUNT(gamepad_devices); gamepad_index++) {
+        for (uint32 gamepad_index = 0; gamepad_index < ARRAY_COUNT(gamepad_devices); gamepad_index++) {
             auto *gamepad_input = GetGamepadInput(&Input, gamepad_index);// GGame_ControllerInput* Controller = &Input.Controllers[gamepad_index];
             linux_gamepad* device = &gamepad_devices[gamepad_index];
 
@@ -551,7 +551,7 @@ int32 main(int32 argc, char** argv)
                     // printf("Gamepad %d plugged off\n", gamepad_index);
                 } else {
                     // Clear out HalfTransitionCount at the start of the frame.
-                    for (int32 button_index = 0; button_index < ARRAY_COUNT(gamepad_input->Buttons); button_index++)
+                    for (uint32 button_index = 0; button_index < ARRAY_COUNT(gamepad_input->Buttons); button_index++)
                     {
                         gamepad_input->Buttons[button_index].HalfTransitionCount = 0;
                     }
