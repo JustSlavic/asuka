@@ -5,7 +5,6 @@
 
 #include <defines.hpp>
 
-namespace Asuka {
 namespace os {
 namespace internal {
 
@@ -79,4 +78,3 @@ bool write_file(const char* filename, byte_array file) {
 
 } // internal
 } // os
-} // namespace Asuka

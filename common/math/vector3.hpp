@@ -235,7 +235,7 @@ f32 length2 (v3 a)
 INLINE
 f32 length(v3 a)
 {
-    f32 result = sqrt(length2(a));
+    f32 result = square_root(length2(a));
     return result;
 }
 

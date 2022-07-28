@@ -13,7 +13,7 @@ GLOBAL LPDIRECTSOUNDBUFFER Global_SecondaryBuffer;
 GLOBAL bool Global_CursorIsVisible;
 GLOBAL WINDOWPLACEMENT Global_WindowPosition = { sizeof(Global_WindowPosition) };
 GLOBAL bool Global_IsFullscreen;
-GLOBAL v2i Global_ResolutionPresets[12] = {
+GLOBAL v2i Global_ResolutionPresets[13] = {
     { 800, 600 },
     { 960, 540 }, // Test Resolution
     { 1024, 768 },
@@ -602,7 +602,17 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                     {
                         case VK_ESCAPE:
                         {
-                            Running = false;
+                            if (IsDown)
+                            {
+                                if (Global_IsFullscreen)
+                                {
+                                    Win32_ToggleFullscreen(Message.hwnd);
+                                }
+                                else
+                                {
+                                    Running = false;
+                                }
+                            }
                             Win32_ProcessKeyEvent(&Controller->Back, IsDown);
                         }
                         break;
@@ -616,9 +626,9 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                         case 'W':
                         {
                             if (IsDown) {
-                                Controller->LeftStickEnded.y = Asuka::clamp(Controller->LeftStickEnded.y + 1, -1, 1);
+                                Controller->LeftStickEnded.y = clamp(Controller->LeftStickEnded.y + 1, -1, 1);
                             } else {
-                                Controller->LeftStickEnded.y = Asuka::clamp(Controller->LeftStickEnded.y - 1, -1, 1);
+                                Controller->LeftStickEnded.y = clamp(Controller->LeftStickEnded.y - 1, -1, 1);
                             }
                         }
                         break;
@@ -626,9 +636,9 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                         case 'A':
                         {
                             if (IsDown) {
-                                Controller->LeftStickEnded.x = Asuka::clamp(Controller->LeftStickEnded.x - 1, -1, 1);
+                                Controller->LeftStickEnded.x = clamp(Controller->LeftStickEnded.x - 1, -1, 1);
                             } else {
-                                Controller->LeftStickEnded.x = Asuka::clamp(Controller->LeftStickEnded.x + 1, -1, 1);
+                                Controller->LeftStickEnded.x = clamp(Controller->LeftStickEnded.x + 1, -1, 1);
                             }
                         }
                         break;
@@ -636,9 +646,9 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                         case 'S':
                         {
                             if (IsDown) {
-                                Controller->LeftStickEnded.y = Asuka::clamp(Controller->LeftStickEnded.y - 1, -1, 1);
+                                Controller->LeftStickEnded.y = clamp(Controller->LeftStickEnded.y - 1, -1, 1);
                             } else {
-                                Controller->LeftStickEnded.y = Asuka::clamp(Controller->LeftStickEnded.y + 1, -1, 1);
+                                Controller->LeftStickEnded.y = clamp(Controller->LeftStickEnded.y + 1, -1, 1);
                             }
                         }
                         break;
@@ -646,9 +656,9 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                         case 'D':
                         {
                             if (IsDown) {
-                                Controller->LeftStickEnded.x = Asuka::clamp(Controller->LeftStickEnded.x + 1, -1, 1);
+                                Controller->LeftStickEnded.x = clamp(Controller->LeftStickEnded.x + 1, -1, 1);
                             } else {
-                                Controller->LeftStickEnded.x = Asuka::clamp(Controller->LeftStickEnded.x - 1, -1, 1);
+                                Controller->LeftStickEnded.x = clamp(Controller->LeftStickEnded.x - 1, -1, 1);
                             }
                         }
                         break;
@@ -794,9 +804,9 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
 }
 
 
-Asuka::Vec2I Win32_GetMousePosition(HWND Window)
+vector2i Win32_GetMousePosition(HWND Window)
 {
-    Asuka::Vec2I Position;
+    vector2i Position;
 
     POINT MousePosition;
     GetCursorPos(&MousePosition);
@@ -818,15 +828,15 @@ void Win32_DebugDrawRectangle(
     u32 Color,
     bool Dotted = false)
 {
-    Asuka::Vec2I tl = Asuka::round_to_v2i(MinCorner);
-    Asuka::Vec2I br = Asuka::round_to_v2i(MaxCorner);
+    vector2i tl = Asuka::round_to_v2i(MinCorner);
+    vector2i br = Asuka::round_to_v2i(MaxCorner);
 
     if (tl.x < 0) tl.x = 0;
     if (tl.y < 0) tl.y = 0;
     if (br.x > ScreenBuffer->Width)  br.x = ScreenBuffer->Width;
     if (br.y > ScreenBuffer->Height) br.y = ScreenBuffer->Height;
 
-    Asuka::Vec2I dimensions = br - tl;
+    vector2i dimensions = br - tl;
 
     u8* Row = (u8*)ScreenBuffer->Memory + tl.y*ScreenBuffer->Pitch + tl.x*ScreenBuffer->BytesPerPixel;
 
@@ -1034,6 +1044,11 @@ struct ThreadTestArgument
 
 b32 DoWorkerWork(ThreadTestArgument *Arg)
 {
+    // @todo @bug Figure out why sometimes worker prints out empty message
+    // @assumption: next read happens on both threads at the same time, and
+    // although it is correct, InterlockedIncrement from next statement
+    // increments the value for both threads leading to the read past the
+    // array size.
     if (NextEntryToDo < WorkCount)
     {
         int EntryIndex = InterlockedIncrement((LONG volatile *) &NextEntryToDo) - 1;
@@ -1235,7 +1250,7 @@ int WINAPI WinMain(
 
     const i32 ResolutionIndex = 1;
     STATIC_ASSERT_MSG(ResolutionIndex < ARRAY_COUNT(Global_ResolutionPresets), "Resolution Index is too high");
-    Asuka::Vector2i Resolution = Global_ResolutionPresets[ResolutionIndex];
+    vector2i Resolution = Global_ResolutionPresets[ResolutionIndex];
 
     Win32_LoadXInputFunctions();
     Win32_ResizeDIBSection(&Global_BackBuffer, Resolution[0], Resolution[1]);
@@ -1357,8 +1372,8 @@ int WINAPI WinMain(
     Running = true;
     int FrameCounter = 0;
 
-    Platform::Thread GameThread {};
-    Platform::Thread SoundThread {};
+    ThreadContext GameThread {};
+    ThreadContext SoundThread {};
 
 #if 0
     Platform::Thread SoundThread_ = Platform::CreateThread(ThreadTest);
@@ -1400,6 +1415,7 @@ int WINAPI WinMain(
     Platform::GameDLL Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath, LockFilepath);
 
     os::timepoint LastClockTimepoint = os::get_wall_clock();
+    float32 dtFromLastFrame = TargetSecondsPerFrame;
     while (Running) {
         FrameCounter += 1;
 
@@ -1408,6 +1424,8 @@ int WINAPI WinMain(
             Win32_UnloadGameDLL(&Game);
             Game = Win32_LoadGameDLL(GameDllFilepath, GameTempDllFilepath, LockFilepath);
         }
+
+        NewInput->dt = dtFromLastFrame;
 
         Game::ControllerInput* OldKeyboardController = &OldInput->KeyboardInput;
         Game::ControllerInput* NewKeyboardController = &NewInput->KeyboardInput;
@@ -1700,6 +1718,8 @@ int WINAPI WinMain(
         Game::Input* TmpInput = NewInput;
         NewInput = OldInput;
         OldInput = TmpInput;
+
+        dtFromLastFrame = SecondsElapsedForFrame;
     }
 
     return 0;

@@ -1422,7 +1422,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #endif
     // ===================== RENDERING MEMORY LAYOUT ===================== //
 
-#define ASUKA_DRAW_MEMORY_LAYOUT 0
+#define ASUKA_DRAW_MEMORY_LAYOUT 1
 #define DRAW_WORLD_ARENA         0
 #define DRAW_EXPERIMENTAL_POOL   1
 #define DRAW_MALLOCATOR_MEMORY   0
@@ -1518,9 +1518,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #endif // DRAW_WORLD_ARENA
 #if DRAW_EXPERIMENTAL_POOL
     {
-        u64 how_many_bytes_i_want_to_see = MEGABYTES(1);
-        u32 strip_height         = 10; // px
-        u32 size_per_pixel_width = 2;  // bytes
+        u32 strip_height         = 30; // px
+        u32 size_per_pixel_width = 5;  // bytes
+        b32 drawBucketBorders    = false;
 
         auto *allocator_to_draw = &game_state->experimental_pool;
 
@@ -1530,7 +1530,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         PERSIST int *allocations[1024];
         PERSIST u32 allocations_count = 0;
 
-        f32 const chance = 0.05f;
+        f32 const chance = 0.4f;
         f32 roll = uniform_real(0, 1);
         if (roll < chance)
         {
@@ -1543,7 +1543,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         {
             if (allocations_count > 0)
             {
-                f32 const dealloc_chance = 0.03f;
+                f32 const dealloc_chance = 1.0f;
                 roll = uniform_real(0, 1);
                 if (roll < dealloc_chance)
                 {
@@ -1606,7 +1606,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             }
         }
 
-        // Draw Buckets of pool allocator
+        if (drawBucketBorders)
         {
             void* start_p = allocator_to_draw->memory;
             int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel_width;
@@ -1714,8 +1714,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             {
                 if (allocations[i] < game_state->start_p) game_state->start_p = allocations[i];
             }
-
-            usize size = GIGABYTES(1); // Actually we don't know what it is
 
             int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel_width;
 
