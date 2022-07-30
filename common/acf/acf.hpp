@@ -509,11 +509,16 @@ void acf_print_impl(acf value, acf_print_options options, int depth = 0)
         case acf_type_t::custom:
         {
             osOutputDebugString("%.*s(", STRING_PRINT_(value.value.custom_value.newtype_name));
+            usize i = 0;
+            usize n = value.value.custom_value.newtype_arguments.get_size();
             for (auto& arg : value.value.custom_value.newtype_arguments)
             {
                 acf_print_options sub_options = options;
                 sub_options.multiline = acf_print_options::multiline_t::disabled;
                 acf_print_impl(arg, sub_options, depth);
+
+                if ((i + 1) < n) { osOutputDebugString(", "); }
+                i += 1;
             }
             osOutputDebugString(")");
         }
@@ -1592,7 +1597,7 @@ bool parse_constructor_call(acf_lexer *lexer, acf *result)
             }
             else if ((type == acf_type_t::integer) && (t.type == acf_token_type::integer))
             {
-                acf_push_argument(&custom_value_result, acf_boolean(t.integer_value));
+                acf_push_argument(&custom_value_result, acf_integer(t.integer_value));
                 eat_token(lexer);
             }
             else if ((type == acf_type_t::string) && (t.type == acf_token_type::string))
