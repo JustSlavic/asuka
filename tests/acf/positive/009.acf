@@ -1,6 +1,0 @@
-// This is a comment.
-
-x = [ 1, 2 { a = null } ];
-y = true; // @note: @-things highlighting works too! Wow!
-z = false;
-s = "Strings are supported"

@@ -1,0 +1,5 @@
+#newtype name(string)
+
+{
+    identity = name("Peter Parker");
+}

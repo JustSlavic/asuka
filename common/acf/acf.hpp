@@ -1,6 +1,10 @@
 #ifndef ACF_LIB_HPP
 #define ACF_LIB_HPP
 
+#include <defines.hpp>
+#include <array.hpp>
+#include <windows.h>
+#include <allocator.hpp>
 
 // #include <initializer_list>
 
@@ -54,9 +58,9 @@
 */
 
 
-enum class acf_type
+enum class acf_type_t
 {
-    null,
+    null = 0,
     boolean,
     integer,
     floating,
@@ -64,23 +68,23 @@ enum class acf_type
     object,
     array,
     custom,
-    // type, // @note: this is special type, for trying to make types be values
+    type,
 };
 
 INTERNAL
-char const *get_acf_type_string(acf_type type)
+char const *get_acf_type_string(acf_type_t type)
 {
     switch (type)
     {
-        case acf_type::null: return "null";
-        case acf_type::boolean: return "boolean";
-        case acf_type::integer: return "integer";
-        case acf_type::floating: return "floating";
-        case acf_type::string: return "string";
-        // case acf_type::object: return "object";
-        // case acf_type::array: return "array";
-        // case acf_type::custom: return "custom";
-        // case acf_type::type: return "type";
+        case acf_type_t::null: return "null";
+        case acf_type_t::boolean: return "boolean";
+        case acf_type_t::integer: return "integer";
+        case acf_type_t::floating: return "floating";
+        case acf_type_t::string: return "string";
+        case acf_type_t::object: return "object";
+        case acf_type_t::array: return "array";
+        case acf_type_t::custom: return "custom";
+        case acf_type_t::type: return "type";
     }
 
     return "<none>";
@@ -89,448 +93,343 @@ char const *get_acf_type_string(acf_type type)
 
 struct acf
 {
-    using allocator_t = memory::mallocator;
+    using acf_allocator_t = memory::mallocator;
 
-    using boolean_t = bool;
-    using integer_t = int64;
-    using floating_t = float64;
-    using string_t = string;
-    using array_t = dynamic_array<acf, allocator_t>;
-    // struct object_t
-    // {
-    //     dynamic_array<string, allocator_t> keys;
-    //     dynamic_array<acf, allocator_t> values;
-    // };
-    // struct custom_t
-    // {
-    //     string name;
-    //     dynamic_array<acf, allocator_t> arguments;
-    // };
+    using acf_boolean_t = bool;
+    using acf_integer_t = int64;
+    using acf_floating_t = float64;
+    using acf_string_t = string; // @todo: Make strings UTF-8.
+    using acf_array_t = array<acf>;
 
-private:
-    union acf_value
+    struct acf_object_t
     {
-        boolean_t  boolean_value;
-        integer_t  integer_value;
-        floating_t floating_value;
-        string_t   string_value;
-        array_t    array_value;
-        // object_t   object_value;
-        // custom_t   custom_value;
+        array<string> keys;
+        array<acf> values;
     };
 
-    acf_type     type;
-    acf_value    value;
-    allocator_t *allocator;
-
-public:
-    ~acf()
+    struct acf_custom_t
     {
-        deallocate_content();
+        string     newtype_name;
+        array<acf> newtype_arguments;
+    };
+
+    union acf_value_t
+    {
+        acf_boolean_t boolean_value;
+        acf_integer_t integer_value;
+        acf_string_t  string_value;
+        acf_array_t   array_value;
+        acf_object_t  object_value;
+        acf_custom_t  custom_value;
+    };
+
+    acf_type_t type;
+    acf_value_t value;
+    acf_allocator_t *allocator;
+
+    acf_array_t::iterator begin()
+    {
+        ASSERT(type == acf_type_t::array);
+        return value.array_value.begin();
     }
 
-    acf(acf_type type) : type(type), allocator(&memory::global_mallocator_instance)
+    acf_array_t::iterator end()
     {
+        ASSERT(type == acf_type_t::array);
+        return value.array_value.end();
     }
 
-    acf() : acf(acf_type::null)
+    acf_array_t::const_iterator begin() const
     {
+        ASSERT(type == acf_type_t::array);
+        return value.array_value.cbegin();
     }
 
-    acf(bool value_) : acf(acf_type::boolean)
+    acf_array_t::const_iterator end() const
     {
-        value.boolean_value = value_;
+        ASSERT(type == acf_type_t::array);
+        return value.array_value.cend();
     }
 
-    acf(int value_) : acf(acf_type::integer)
+    acf_array_t::const_iterator cbegin() const
     {
-        value.integer_value = value_;
+        ASSERT(type == acf_type_t::array);
+        return value.array_value.cbegin();
     }
 
-    acf(int64 value_) : acf(acf_type::integer)
+    acf_array_t::const_iterator cend() const
     {
-        value.integer_value = value_;
+        ASSERT(type == acf_type_t::array);
+        return value.array_value.cend();
     }
 
-    acf(float value_) : acf(acf_type::floating)
+    struct object_iterator
     {
-        value.floating_value = value_;
-    }
-
-    acf(double value_) : acf(acf_type::floating)
-    {
-        value.floating_value = value_;
-    }
-
-    acf(char const *value_) : acf(acf_type::string)
-    {
-        value.string_value = cstring::make_string(value_);
-    }
-
-    acf(string value_) : acf(acf_type::string)
-    {
-        value.string_value = make_copy(value_, allocator);
-    }
-
-    // @note: this requires an allocation strategy figured out
-    // @todo implement initializer list constructor to be able to create acfs with {}
-    // acf::acf(std::initializer_list<acf> init_list)
-    //     : acf()
-    // {
-    //     bool is_an_object = true;
-    //     for (auto it = init_list.begin(); it != init_list.end(); ++it)
-    //     {
-    //         acf v = acf(*it);
-    //         if (!(v.is_array() && v.get_size() == 2 && v[0].is_string()))
-    //         {
-    //             is_an_object = false;
-    //             break;
-    //         }
-    //     }
-
-        // if (is_an_object)
-        // {
-        //     for (auto& v : init_list) {
-        //         push(v[0].get_string(), v[1]);
-        //     }
-        // }
-        // if (is_an_object) {
-        // } else {
-        //     for (auto& v : init_list) {
-        //         push(v);
-        //     }
-        // }
-    // }
-
-    // Copy constructor
-    acf(acf const& other)
-    {
-        type = other.type;
-        allocator = other.allocator;
-
-        switch (type)
+        struct pair
         {
-            case acf_type::null:
-            {
-            }
-            break;
+            string& key;
+            acf& value;
+        };
 
-            case acf_type::boolean:
-            {
-                value.boolean_value = other.value.boolean_value;
-            }
-            break;
+        acf_object_t *host;
+        usize index;
 
-            case acf_type::integer:
-            {
-                value.integer_value = other.value.integer_value;
-            }
-            break;
+        object_iterator& operator ++ () { index += 1; return *this; }
+        object_iterator  operator ++ (int) { object_iterator result = *this; index += 1; return result; }
+        bool operator == (object_iterator other) const { return (host == other.host) && (index == other.index); }
+        bool operator != (object_iterator other) const { return !(*this == other); }
+        pair operator * () const { return { host->keys[index], host->values[index] }; }
+    };
 
-            case acf_type::floating:
-            {
-                value.floating_value = other.value.floating_value;
-            }
-            break;
-
-            case acf_type::string:
-            {
-                value.string_value = make_copy(other.value.string_value, allocator);
-            }
-            break;
-
-            // case acf_type::array:
-            // {
-            //     value.array_value = make_copy(other.value.array_value, allocator);
-            // }
-            // break;
-
-            // case acf_type::object:
-            // {
-            //     value.object_value.keys = make_copy(other.value.object_value.keys, allocator);
-            //     value.object_value.values = make_copy(other.value.object_value.values, allocator);
-            // }
-            // break;
-
-            // case acf_type::custom:
-            // {
-
-            // }
-            // break;
-
-        }
-    }
-
-    // Move constructor
-    acf(acf&& other)
+    struct object_iterator_wrapper
     {
-        this->swap(other);
-    }
+        acf_object_t *host;
 
-    // Copy assignment operator
-    acf& operator = (acf const& other)
-    {
-        acf(other).swap(*this);
-        return *this;
-    }
-
-    // Move assignment operator
-    acf& operator = (acf&& other)
-    {
-        other.swap(*this);
-        return *this;
-    }
-
-    template <typename T>
-    STATIC void acf_swap__(T& a, T& b)
-    {
-        T tmp = a;
-        a = b;
-        b = tmp;
-    }
-
-    void swap(acf& other)
-    {
-        acf_swap__(type, other.type);
-        acf_swap__(value, other.value);
-        acf_swap__(allocator, other.allocator);
-    }
-
-    acf_type get_type() const { return type; }
-
-    bool is_null     () const { return (type == acf_type::null);     }
-    bool is_boolean  () const { return (type == acf_type::boolean);  }
-    bool is_integer  () const { return (type == acf_type::integer);  }
-    bool is_floating () const { return (type == acf_type::floating); }
-    bool is_string   () const { return (type == acf_type::string);   }
-    bool is_object   () const { return (type == acf_type::object);   }
-    bool is_array    () const { return (type == acf_type::array);    }
-    bool is_custom   () const { return (type == acf_type::custom);   }
-
-    boolean_t  get_boolean  () const { return value.boolean_value;  }
-    integer_t  get_integer  () const { return value.integer_value;  }
-    floating_t get_floating () const { return value.floating_value; }
-    string_t   get_string   () const { return value.string_value;   }
-
-    const char* get_type_name() const {
-        switch (type) {
-            case acf_type::null: return "null";
-            case acf_type::boolean: return "boolean";
-            case acf_type::integer: return "integer";
-            case acf_type::floating: return "floating";
-            case acf_type::string: return "string";
-            case acf_type::object: return "object";
-            case acf_type::array: return "array";
-            case acf_type::custom: return "custom";
-        }
-
-        return nullptr;
-    }
-
-    void set_null()
-    {
-        deallocate_content();
-        type = acf_type::null;
-    }
-
-    void set_boolean(bool value_)
-    {
-        deallocate_content();
-        type = acf_type::boolean;
-        value.boolean_value = value_;
-    }
-
-    void set_integer(int value_)
-    {
-        deallocate_content();
-        type = acf_type::integer;
-        value.integer_value = value_;
-    }
-
-    void set_string(string value_)
-    {
-        deallocate_content();
-        type = acf_type::string;
-        value.string_value = make_copy(value_, allocator);
-    }
-
-    void set_array(dynamic_array<acf, allocator_t> value_)
-    {
-        deallocate_content();
-        type = acf_type::array;
-        value.array_value = value_;
-    }
-
-    void push(acf const& value_)
-    {
-        if (is_null())
+        object_iterator begin()
         {
-            // Implicitly convert null value to an array
-            set_array(make_dynamic_array<acf>(allocator, 4));
+            object_iterator it = {};
+            it.host = host;
+            it.index = 0;
+
+            return it;
         }
 
-        ASSERT(is_array());
-        value.array_value.push(value_);
-    }
-
-    // void set_object(object_t value_)
-    // {
-    //     deallocate_content();
-    //     type = acf_type::object;
-    //     value.object_value = value_;
-    // }
-
-    // void set_custom(custom_t value_)
-    // {
-    //     deallocate_content();
-    //     type = acf_type::custom;
-    //     value.custom_value = value_;
-    // }
-
-    acf& operator [] (int32 index)
-    {
-        if (is_null())
+        object_iterator end()
         {
-            // Implicitly convert null value to an array
-            set_array(make_dynamic_array<acf>(allocator, 4));
-        }
+            object_iterator it = {};
+            it.host = host;
+            it.index = host->keys.get_size();
 
-        ASSERT(is_array());
-        while (get_size() <= index)
-        {
-            // Fill up array with null values up to the index
-            push(acf());
+            return it;
         }
-        return value.array_value[index];
-    }
+    };
 
-    acf const& operator [] (int32 index) const
+    object_iterator_wrapper pairs()
     {
-        ASSERT(is_array());
-        return value.array_value[index];
-    }
+        object_iterator_wrapper it = {};
+        it.host = &this->value.object_value;
 
-    // acf& operator [] (char const *key)
-    // {
-    //     ASSERT(is_object());
-
-    //     for (usize i = 0; i < value.object_value.keys.get_size(); i++)
-    //     {
-    //         auto& k = value.object_value.keys[i];
-    //         if (cstring::equals_to_cstr(k, key))
-    //         {
-    //             return value.object_value.values[i];
-    //         }
-    //     }
-
-    //     // Key not found, add it to the end of arrays, and value is null
-    //     value.object_value.keys.push(cstring::make_string(key));
-    //     value.object_value.values.push(acf());
-
-    //     return value.object_value.values[value.object_value.values.get_size() - 1];
-    // }
-
-    usize get_size() const
-    {
-        switch (type)
-        {
-            case acf_type::null:
-                return 0;
-            case acf_type::boolean:
-            case acf_type::integer:
-            case acf_type::floating:
-            case acf_type::string:
-                return 1;
-            // case acf_type::object:
-            // {
-            //     return value.object_value.values.get_size();
-            // }
-            case acf_type::array:
-            {
-                return value.array_value.get_size();
-            }
-            // case acf_type::custom:
-            // {
-            //     return 1 + value.custom_value.arguments.get_size();
-            // }
-        }
-
-        // Why gcc says that control reaches end of non-void function,
-        // if there's return in every possible case above?
-        return 0;
-    }
-
-    usize depth_size() const
-    {
-        switch (type)
-        {
-            case acf_type::null:
-            case acf_type::boolean:
-            case acf_type::integer:
-            case acf_type::floating:
-            case acf_type::string:
-                return 1;
-            // case acf_type::object:
-            // {
-            //     usize n = 0;
-            //     for (auto& v : value.object_value.values)
-            //     {
-            //         n += v.depth_size();
-            //     }
-            //     return n;
-            // }
-            // case acf_type::array:
-            // {
-            //     usize n = 0;
-            //     for (auto& v : value.array_value)
-            //     {
-            //         n += v.depth_size();
-            //     }
-            //     return n;
-            // }
-            // case acf_type::custom:
-            // {
-            //     usize n = 1 + value.custom_value.arguments.get_size();
-            //     return n;
-            // }
-        }
-
-        return 0;
-    }
-
-    void deallocate_content()
-    {
-        switch (type)
-        {
-            case acf_type::string:
-            {
-                deallocate_string(allocator, value.string_value);
-            }
-            break;
-
-            // case acf_type::object:
-            // {
-            //     deallocate_array(value.object_value.keys);
-            //     deallocate_array(value.object_value.values);
-            // }
-            // break;
-
-            // case acf_type::array:
-            // {
-            //     deallocate_array(value.array_value);
-            // }
-            // break;
-
-            // case acf_type::custom:
-            // {
-            //     // @todo: deallocate name, when I implement string copying.
-            //     deallocate_array(value.custom_value.arguments);
-            // }
-            // break;
-        }
+        return it;
     }
 };
 
+
+acf acf_null()
+{
+    acf result = {};
+    result.type = acf_type_t::null;
+    result.allocator = &memory::global_mallocator_instance;
+
+    return result;
+}
+
+acf acf_boolean(bool value)
+{
+    acf result = {};
+    result.type = acf_type_t::boolean;
+    result.value.boolean_value = value;
+    result.allocator = &memory::global_mallocator_instance;
+
+    return result;
+}
+
+template <typename T>
+acf acf_integer(T value)
+{
+    acf result = {};
+    result.type = acf_type_t::integer;
+    result.value.integer_value = (int64) value;
+    result.allocator = &memory::global_mallocator_instance;
+
+    return result;
+}
+
+acf acf_string(string s)
+{
+    acf result = {};
+    result.type = acf_type_t::string;
+    result.value.string_value = s;
+    result.allocator = &memory::global_mallocator_instance;
+
+    return result;
+}
+
+acf acf_array()
+{
+    acf result = {};
+    result.type = acf_type_t::array;
+    result.value.array_value = allocate_array<acf>(&memory::global_mallocator_instance, 4);
+    result.allocator = &memory::global_mallocator_instance;
+
+    return result;
+}
+
+acf acf_object()
+{
+    acf result = {};
+    result.type = acf_type_t::object;
+    result.value.object_value.keys = allocate_array<string>(&memory::global_mallocator_instance, 4);
+    result.value.object_value.values = allocate_array<acf>(&memory::global_mallocator_instance, 4);
+    result.allocator = &memory::global_mallocator_instance;
+
+    return result;
+}
+
+acf acf_custom_type(string name)
+{
+    acf result = {};
+    result.type = acf_type_t::custom;
+    result.value.custom_value.newtype_name = name;
+    result.allocator = &memory::global_mallocator_instance;
+
+    return result;
+}
+
+void acf_push(acf *dest, acf value)
+{
+    if (dest->type == acf_type_t::null)
+    {
+        if (dest->allocator == NULL)
+        {
+            dest->allocator = &memory::global_mallocator_instance;
+        }
+
+        dest->type = acf_type_t::array;
+        dest->value.array_value = allocate_array<acf>(dest->allocator, 4);
+    }
+
+    if (dest->type == acf_type_t::array)
+    {
+        auto& arr = dest->value.array_value;
+        if (arr.size == arr.capacity)
+        {
+            array<acf> new_array = allocate_array<acf>(dest->allocator, (arr.capacity + 1) * 2);
+            copy_array(&new_array, arr);
+            deallocate_array(dest->allocator, arr);
+            arr = new_array;
+        }
+
+        arr.push(value);
+    }
+}
+
+void acf_push(acf *dest, string key, acf value)
+{
+    if (dest->type == acf_type_t::null)
+    {
+        if (dest->allocator == NULL)
+        {
+            dest->allocator = &memory::global_mallocator_instance;
+        }
+
+        dest->type = acf_type_t::object;
+        dest->value.object_value.keys = allocate_array<string>(dest->allocator, 4);
+        dest->value.object_value.values = allocate_array<acf>(dest->allocator, 4);
+    }
+
+    if (dest->type == acf_type_t::object)
+    {
+        auto& keys   = dest->value.object_value.keys;
+        auto& values = dest->value.object_value.values;
+
+        ASSERT(keys.size == values.size); // Invariant!
+        ASSERT(keys.capacity == values.capacity); // Invariant!
+
+        if (keys.size == keys.capacity)
+        {
+            array<string> new_keys = allocate_array<string>(dest->allocator, (keys.capacity + 1) * 2);
+            copy_array(&new_keys, keys);
+            deallocate_array(dest->allocator, keys);
+            keys = new_keys;
+
+            array<acf> new_values = allocate_array<acf>(dest->allocator, (keys.capacity + 1) * 2);
+            copy_array(&new_values, values);
+            deallocate_array(dest->allocator, values);
+            values = new_values;
+        }
+
+        keys.push(key);
+        values.push(value);
+    }
+}
+
+void acf_push_argument(acf *dest, acf arg)
+{
+    if (dest->type == acf_type_t::custom)
+    {
+        auto& arguments = dest->value.custom_value.newtype_arguments;
+        if (arguments.size == arguments.capacity)
+        {
+            array<acf> new_args = allocate_array<acf>(dest->allocator, (arguments.capacity + 1) * 2);
+            copy_array(&new_args, arguments);
+            deallocate_array(dest->allocator, arguments);
+            arguments = new_args;
+        }
+
+        arguments.push(arg);
+    }
+}
+
+usize acf_size(acf value)
+{
+    switch (value.type)
+    {
+        case acf_type_t::null:
+            return 0;
+        case acf_type_t::boolean:
+        case acf_type_t::integer:
+        case acf_type_t::floating:
+        case acf_type_t::string:
+        case acf_type_t::type:
+            return 1;
+        case acf_type_t::array:
+            return value.value.array_value.get_size();
+        case acf_type_t::object:
+            return value.value.object_value.keys.get_size();
+        // case acf_type_t::custom:
+        //     return value.value.cust
+        default:
+            INVALID_CODE_PATH();
+            return 0;
+    }
+}
+
+usize acf_depth_size(acf value)
+{
+    switch (value.type)
+    {
+        case acf_type_t::null:
+        case acf_type_t::boolean:
+        case acf_type_t::integer:
+        case acf_type_t::floating:
+        case acf_type_t::string:
+        case acf_type_t::type:
+            return 1;
+        case acf_type_t::array:
+        {
+            usize n = 0;
+            for (auto& v : value.value.array_value)
+            {
+                n += acf_depth_size(v);
+            }
+            return n;
+        }
+        case acf_type_t::object:
+        {
+            usize n = 0;
+            for (auto& v : value.value.object_value.values)
+            {
+                n += acf_depth_size(v) + 1; // @note: +1 for the key
+            }
+            return n;
+        }
+        // case acf_type_t::custom:
+        //     return value.value.cust
+        default:
+            INVALID_CODE_PATH();
+            return 0;
+    }
+}
 
 struct acf_print_options
 {
@@ -548,13 +447,254 @@ struct acf_print_options
     int32 max_elements_in_line = 3;
 };
 
+char const* spaces = "                                                            ";
+void acf_print_impl(acf value, acf_print_options options, int depth = 0)
+{
+    switch (value.type)
+    {
+        case acf_type_t::null: osOutputDebugString("null"); break;
+        case acf_type_t::boolean: osOutputDebugString("%s", value.value.boolean_value ? "true" : "false"); break;
+        case acf_type_t::integer: osOutputDebugString("%lld", value.value.integer_value); break;
+        case acf_type_t::floating: osOutputDebugString("<FLOAT NOT IMPLEMENTED>"); break;
+        case acf_type_t::string: osOutputDebugString("\"%.*s\"", STRING_PRINT_(value.value.string_value)); break;
 
-void acf_print(acf const& value, acf_print_options options = acf_print_options());
+        case acf_type_t::object:
+        {
+            bool in_one_line = (options.multiline == acf_print_options::multiline_t::smart && acf_depth_size(value) <= options.max_elements_in_line)
+                || options.multiline == acf_print_options::multiline_t::disabled;
+
+            osOutputDebugString("{%s", in_one_line ? " " : "\n");
+            depth += 1;
+
+            for (auto [k, v] : value.pairs())
+            {
+                if (!in_one_line) { osOutputDebugString("%.*s", options.indent * depth, spaces); }
+                osOutputDebugString("%.*s = ", STRING_PRINT_(k));
+                acf_print_impl(v, options, depth);
+                osOutputDebugString("%s%s", options.print_semicolons ? ";" : "", in_one_line ? " " : "\n");
+            }
+
+            depth -= 1;
+            osOutputDebugString("%.*s}", in_one_line ? 0 : options.indent * depth, spaces);
+        }
+        break;
+
+        case acf_type_t::array:
+        {
+            bool in_one_line = (options.multiline == acf_print_options::multiline_t::smart && acf_depth_size(value) <= options.max_elements_in_line)
+                || options.multiline == acf_print_options::multiline_t::disabled;
+
+            osOutputDebugString("[%s", in_one_line ? acf_size(value) > 0 ? " " : "" : "\n");
+            depth += 1;
+
+            int i = 0;
+            for (auto& v : value)
+            {
+                if (!in_one_line) { osOutputDebugString("%.*s", options.indent * depth, spaces); }
+
+                acf_print_impl(v, options, depth);
+
+                osOutputDebugString("%s%s",
+                    (options.print_commas && ((i + 1) < acf_size(value))) ? "," : "",
+                    in_one_line ? " " : "\n");
+
+                i += 1;
+            }
+
+            depth -= 1;
+            osOutputDebugString("%.*s]", in_one_line ? 0 : options.indent * depth, spaces);
+        }
+        break;
+
+        case acf_type_t::custom:
+        {
+            osOutputDebugString("%.*s(", STRING_PRINT_(value.value.custom_value.newtype_name));
+            for (auto& arg : value.value.custom_value.newtype_arguments)
+            {
+                acf_print_options sub_options = options;
+                sub_options.multiline = acf_print_options::multiline_t::disabled;
+                acf_print_impl(arg, sub_options, depth);
+            }
+            osOutputDebugString(")");
+        }
+        break;
+
+        case acf_type_t::type:
+        {
+            osOutputDebugString("<TYPE NOT IMPLEMENTED>");
+        }
+        break;
+    }
+}
+
+void acf_print(acf value, acf_print_options options = acf_print_options())
+{
+    acf_print_impl(value, options, 0);
+}
 
 
-/*
-  ====================== IMPLEMENTATION ======================
-*/
+//     // @note: this requires an allocation strategy figured out
+//     // @todo implement initializer list constructor to be able to create acfs with {}
+//     // acf::acf(std::initializer_list<acf> init_list)
+//     //     : acf()
+//     // {
+//     //     bool is_an_object = true;
+//     //     for (auto it = init_list.begin(); it != init_list.end(); ++it)
+//     //     {
+//     //         acf v = acf(*it);
+//     //         if (!(v.is_array() && v.get_size() == 2 && v[0].is_string()))
+//     //         {
+//     //             is_an_object = false;
+//     //             break;
+//     //         }
+//     //     }
+
+//         // if (is_an_object)
+//         // {
+//         //     for (auto& v : init_list) {
+//         //         push(v[0].get_string(), v[1]);
+//         //     }
+//         // }
+//         // if (is_an_object) {
+//         // } else {
+//         //     for (auto& v : init_list) {
+//         //         push(v);
+//         //     }
+//         // }
+//     // }
+
+//     // Copy constructor
+//     acf(acf const& other)
+//     {
+//         type = other.type;
+//         allocator = other.allocator;
+
+//         switch (type)
+//         {
+//             case acf_type_t::null:
+//             {
+//             }
+//             break;
+
+//             case acf_type_t::boolean:
+//             {
+//                 value.boolean_value = other.value.boolean_value;
+//             }
+//             break;
+
+//             case acf_type_t::integer:
+//             {
+//                 value.integer_value = other.value.integer_value;
+//             }
+//             break;
+
+//             case acf_type_t::floating:
+//             {
+//                 value.floating_value = other.value.floating_value;
+//             }
+//             break;
+
+//             case acf_type_t::string:
+//             {
+//                 value.string_value = make_copy(allocator, other.value.string_value);
+//             }
+//             break;
+
+//             // case acf_type_t::array:
+//             // {
+//             //     value.array_value = make_copy(other.value.array_value, allocator);
+//             // }
+//             // break;
+
+//             // case acf_type_t::object:
+//             // {
+//             //     value.object_value.keys = make_copy(other.value.object_value.keys, allocator);
+//             //     value.object_value.values = make_copy(other.value.object_value.values, allocator);
+//             // }
+//             // break;
+
+//             // case acf_type_t::custom:
+//             // {
+
+//             // }
+//             // break;
+
+//         }
+//     }
+
+//     // Move constructor
+//     acf(acf&& other)
+//     {
+//         this->swap(other);
+//     }
+
+//     // Copy assignment operator
+//     acf& operator = (acf const& other)
+//     {
+//         acf(other).swap(*this);
+//         return *this;
+//     }
+
+//     // Move assignment operator
+//     acf& operator = (acf&& other)
+//     {
+//         other.swap(*this);
+//         return *this;
+//     }
+
+//     template <typename T>
+//     STATIC void acf_swap__(T& a, T& b)
+//     {
+//         T tmp = a;
+//         a = b;
+//         b = tmp;
+//     }
+
+//     void swap(acf& other)
+//     {
+//         acf_swap__(type, other.type);
+//         acf_swap__(value, other.value);
+//         acf_swap__(allocator, other.allocator);
+//     }
+
+
+//     void deallocate_content()
+//     {
+//         switch (type)
+//         {
+//             case acf_type_t::string:
+//             {
+//                 deallocate_string(allocator, value.string_value);
+//             }
+//             break;
+
+//             // case acf_type_t::object:
+//             // {
+//             //     deallocate_array(value.object_value.keys);
+//             //     deallocate_array(value.object_value.values);
+//             // }
+//             // break;
+
+//             // case acf_type_t::array:
+//             // {
+//             //     deallocate_array(value.array_value);
+//             // }
+//             // break;
+
+//             // case acf_type_t::custom:
+//             // {
+//             //     // @todo: deallocate name, when I implement string copying.
+//             //     deallocate_array(value.custom_value.arguments);
+//             // }
+//             // break;
+//         }
+//     }
+// };
+
+
+//
+// ====================== IMPLEMENTATION ======================
+//
 #ifdef ACF_LIB_IMPLEMENTATION
 
 INTERNAL bool is_whitespace(char c) { return c == ' '; }
@@ -592,6 +732,7 @@ enum class acf_token_type
     keyword_string,
     keyword_object,
     keyword_array,
+    keyword_type,
 
     identifier,
     integer,
@@ -624,8 +765,9 @@ char const *get_acf_token_type_string(acf_token_type type)
         case acf_token_type::keyword_int: return "keyword_int";
         case acf_token_type::keyword_float: return "keyword_float";
         case acf_token_type::keyword_string: return "keyword_string";
-        case acf_token_type::keyword_object: return "keyword_object";
         case acf_token_type::keyword_array: return "keyword_array";
+        case acf_token_type::keyword_object: return "keyword_object";
+        case acf_token_type::keyword_type: return "keyword_type";
         case acf_token_type::identifier: return "identifier";
         case acf_token_type::integer: return "integer";
         case acf_token_type::floating: return "floating";
@@ -658,155 +800,32 @@ void print_acf_token(acf_token token)
 {
     switch (token.type)
     {
-        case acf_token_type::undefined:
-        {
-            osOutputDebugString("token: undefined");
-        }
-        break;
-
-        case acf_token_type::parentheses_open:
-        {
-            osOutputDebugString("(");
-        }
-        break;
-
-        case acf_token_type::parentheses_close:
-        {
-            osOutputDebugString(")");
-        }
-        break;
-
-        case acf_token_type::brace_open:
-        {
-            osOutputDebugString("{");
-        }
-        break;
-
-        case acf_token_type::brace_close:
-        {
-            osOutputDebugString("}");
-        }
-        break;
-
-        case acf_token_type::bracket_open:
-        {
-            osOutputDebugString("[");
-        }
-        break;
-
-        case acf_token_type::bracket_close:
-        {
-            osOutputDebugString("]");
-        }
-        break;
-
-        case acf_token_type::equals:
-        {
-            osOutputDebugString("=");
-        }
-        break;
-
-        case acf_token_type::semicolon:
-        {
-            osOutputDebugString(";");
-        }
-        break;
-
-        case acf_token_type::comma:
-        {
-            osOutputDebugString(",");
-        }
-        break;
-
-        case acf_token_type::keyword_null:
-        {
-            osOutputDebugString("null");
-        }
-        break;
-
-        case acf_token_type::keyword_true:
-        {
-            osOutputDebugString("true");
-        }
-        break;
-
-        case acf_token_type::keyword_false:
-        {
-            osOutputDebugString("false");
-        }
-        break;
-
-        case acf_token_type::keyword_bool:
-        {
-            osOutputDebugString("bool");
-        }
-        break;
-
-        case acf_token_type::keyword_int:
-        {
-            osOutputDebugString("int");
-        }
-        break;
-
-        case acf_token_type::keyword_float:
-        {
-            osOutputDebugString("float");
-        }
-        break;
-
-        case acf_token_type::keyword_string:
-        {
-            osOutputDebugString("string");
-        }
-        break;
-
-        case acf_token_type::keyword_object:
-        {
-            osOutputDebugString("object");
-        }
-        break;
-
-        case acf_token_type::keyword_array:
-        {
-            osOutputDebugString("array");
-        }
-        break;
-
-        case acf_token_type::identifier:
-        {
-            osOutputDebugString("%.*s", (int) token.span.get_size(), token.span.get_data());
-        }
-        break;
-
-        case acf_token_type::integer:
-        {
-            osOutputDebugString("%lld", token.integer_value);
-        }
-        break;
-
-        case acf_token_type::floating:
-        {
-            osOutputDebugString("%lf", token.floating_value);
-        }
-        break;
-
-        case acf_token_type::string:
-        {
-            osOutputDebugString("%.*s", (int) token.span.get_size(), token.span.get_data());
-        }
-        break;
-
-        case acf_token_type::comment:
-        {
-            osOutputDebugString("%.*s", (int) token.span.get_size(), token.span.get_data());
-        }
-        break;
-
-        case acf_token_type::end_of_file:
-        {
-            osOutputDebugString("token: end_of_file");
-        }
-        break;
+        case acf_token_type::undefined:         { osOutputDebugString("token: undefined"); } break;
+        case acf_token_type::parentheses_open:  { osOutputDebugString("("); } break;
+        case acf_token_type::parentheses_close: { osOutputDebugString(")"); } break;
+        case acf_token_type::brace_open:        { osOutputDebugString("{"); } break;
+        case acf_token_type::brace_close:       { osOutputDebugString("}"); } break;
+        case acf_token_type::bracket_open:      { osOutputDebugString("["); } break;
+        case acf_token_type::bracket_close:     { osOutputDebugString("]"); } break;
+        case acf_token_type::equals:            { osOutputDebugString("="); } break;
+        case acf_token_type::semicolon:         { osOutputDebugString(";"); } break;
+        case acf_token_type::comma:             { osOutputDebugString(","); } break;
+        case acf_token_type::keyword_null:      { osOutputDebugString("null"); } break;
+        case acf_token_type::keyword_true:      { osOutputDebugString("true"); } break;
+        case acf_token_type::keyword_false:     { osOutputDebugString("false"); } break;
+        case acf_token_type::keyword_bool:      { osOutputDebugString("bool"); } break;
+        case acf_token_type::keyword_int:       { osOutputDebugString("int"); } break;
+        case acf_token_type::keyword_float:     { osOutputDebugString("float"); } break;
+        case acf_token_type::keyword_string:    { osOutputDebugString("string"); } break;
+        case acf_token_type::keyword_object:    { osOutputDebugString("object"); } break;
+        case acf_token_type::keyword_array:     { osOutputDebugString("array"); } break;
+        case acf_token_type::keyword_type:      { osOutputDebugString("type"); } break;
+        case acf_token_type::identifier:        { osOutputDebugString("%.*s", (int) token.span.get_size(), token.span.get_data()); } break;
+        case acf_token_type::integer:           { osOutputDebugString("%lld", token.integer_value); } break;
+        case acf_token_type::floating:          { osOutputDebugString("%lf", token.floating_value); } break;
+        case acf_token_type::string:            { osOutputDebugString("%.*s", (int) token.span.get_size(), token.span.get_data()); } break;
+        case acf_token_type::comment:           { osOutputDebugString("%.*s", (int) token.span.get_size(), token.span.get_data()); } break;
+        case acf_token_type::end_of_file:       { osOutputDebugString("token: end_of_file"); } break;
     }
 }
 
@@ -814,7 +833,7 @@ void print_acf_token(acf_token token)
 struct acf_constructor_arguments
 {
     uint32 argument_count;
-    acf_type arguments[4];
+    acf_type_t arguments[4];
 };
 
 
@@ -834,8 +853,8 @@ struct acf_lexer
     acf_token_type keyword_types[32];
 
     u32 new_type_count;
-    string new_types[32];
-    acf_constructor_arguments arguments[32];
+    string newtype_names[32];
+    acf_constructor_arguments newtype_arguments[32];
 };
 
 INTERNAL
@@ -850,8 +869,8 @@ void register_acf_keyword(acf_lexer *lexer, char const *keyword, acf_token_type 
 INTERNAL
 void register_acf_new_type(acf_lexer *lexer, string type_name, acf_constructor_arguments args)
 {
-    lexer->new_types[lexer->new_type_count] = type_name;
-    lexer->arguments[lexer->new_type_count] = args;
+    lexer->newtype_names[lexer->new_type_count] = type_name;
+    lexer->newtype_arguments[lexer->new_type_count] = args;
     lexer->new_type_count += 1;
 }
 
@@ -866,12 +885,12 @@ bool is_newtype_registered(acf_lexer *lexer, string s, acf_constructor_arguments
 {
     for (uint32 type_name_index = 0; type_name_index < lexer->new_type_count; type_name_index++)
     {
-        string type_name = lexer->new_types[type_name_index];
+        string type_name = lexer->newtype_names[type_name_index];
         if (s == type_name)
         {
             if (args)
             {
-                *args = lexer->arguments[type_name_index];
+                *args = lexer->newtype_arguments[type_name_index];
             }
             return true;
         }
@@ -892,7 +911,8 @@ void initialize_acf_lexer(acf_lexer *lexer, string buffer)
     lexer->keyword_count = 0;
     memory::set(lexer->keywords, 0, sizeof(lexer->keywords));
     lexer->new_type_count = 0;
-    memory::set(lexer->new_types, 0, sizeof(lexer->new_types));
+    memory::set(lexer->newtype_names, 0, sizeof(lexer->newtype_names));
+    memory::set(lexer->newtype_arguments, 0, sizeof(lexer->newtype_arguments));
 
     register_acf_keyword(lexer, "null", acf_token_type::keyword_null);
     register_acf_keyword(lexer, "true", acf_token_type::keyword_true);
@@ -900,8 +920,10 @@ void initialize_acf_lexer(acf_lexer *lexer, string buffer)
     register_acf_keyword(lexer, "bool", acf_token_type::keyword_bool);
     register_acf_keyword(lexer, "int", acf_token_type::keyword_int);
     register_acf_keyword(lexer, "float", acf_token_type::keyword_float);
-    register_acf_keyword(lexer, "object", acf_token_type::keyword_object);
+    register_acf_keyword(lexer, "string", acf_token_type::keyword_string);
     register_acf_keyword(lexer, "array", acf_token_type::keyword_array);
+    register_acf_keyword(lexer, "object", acf_token_type::keyword_object);
+    register_acf_keyword(lexer, "type", acf_token_type::keyword_type);
 }
 
 INTERNAL
@@ -1133,21 +1155,14 @@ acf_token eat_token(acf_lexer *lexer)
     void(0)
 
 
-template <typename Allocator>
-bool parse_key_value_pair(Allocator *allocator, acf_lexer *lexer, string *key, acf *value);
-
-template <typename Allocator>
-bool parse_array(Allocator *allocator, acf_lexer *lexer, acf *result, bool brackets_optional = false);
-
-template <typename Allocator>
-bool parse_object(Allocator *allocator, acf_lexer *lexer, acf *result, bool braces_optional = false);
-
-template <typename Allocator>
-bool parse_constructor_call(Allocator *allocator, acf_lexer *lexer, acf *result);
+bool parse_value(acf_lexer *lexer, acf *result);
+bool parse_key_value_pair(acf_lexer *lexer, string *key, acf *value);
+bool parse_array(acf_lexer *lexer, acf *result, bool brackets_optional = false);
+bool parse_object(acf_lexer *lexer, acf *result, bool braces_optional = false);
+bool parse_constructor_call(acf_lexer *lexer, acf *result);
 
 
-template <typename Allocator>
-bool parse_value(Allocator *allocator, acf_lexer *lexer, acf *result)
+bool parse_value(acf_lexer *lexer, acf *result)
 {
     acf_lexer checkpoint = *lexer;
 
@@ -1156,28 +1171,28 @@ bool parse_value(Allocator *allocator, acf_lexer *lexer, acf *result)
     {
         case acf_token_type::keyword_null:
         {
-            *result = acf();
+            *result = acf_null();
             eat_token(lexer);
         }
         break;
 
         case acf_token_type::keyword_true:
         {
-            *result = acf(true);
+            *result = acf_boolean(true);
             eat_token(lexer);
         }
         break;
 
         case acf_token_type::keyword_false:
         {
-            *result = acf(false);
+            *result = acf_boolean(false);
             eat_token(lexer);
         }
         break;
 
         case acf_token_type::integer:
         {
-            *result = acf(t.integer_value);
+            *result = acf_integer(t.integer_value);
             eat_token(lexer);
         }
         break;
@@ -1187,7 +1202,7 @@ bool parse_value(Allocator *allocator, acf_lexer *lexer, acf *result)
         case acf_token_type::identifier:
         {
             acf custom_value;
-            bool success = parse_constructor_call(allocator, lexer, &custom_value);
+            bool success = parse_constructor_call(lexer, &custom_value);
             if (success)
             {
                 // Ok.
@@ -1208,11 +1223,11 @@ bool parse_value(Allocator *allocator, acf_lexer *lexer, acf *result)
             // @note: This is somewhat dangerous operation, and the strings
             // should be reallocated in the allocator's memory anyway (for
             // escape symbols resolution), so I'll leave it like that for now.
-            string string_value = t.span;
-            string_value.data += 1;
-            string_value.size -= 2;
+            string s = t.span;
+            s.data += 1;
+            s.size -= 2;
 
-            result->set_string(string_value);
+            *result = acf_string(s);
             eat_token(lexer);
         }
         break;
@@ -1220,10 +1235,10 @@ bool parse_value(Allocator *allocator, acf_lexer *lexer, acf *result)
         case acf_token_type::brace_open:
         {
             acf object_value;
-            bool success = parse_object(allocator, lexer, &object_value);
+            bool success = parse_object(lexer, &object_value);
             if (success)
             {
-                *result = type::move(object_value);
+                *result = object_value;
             }
             else
             {
@@ -1236,10 +1251,10 @@ bool parse_value(Allocator *allocator, acf_lexer *lexer, acf *result)
         case acf_token_type::bracket_open:
         {
             acf array_value;
-            bool success = parse_array(allocator, lexer, &array_value);
+            bool success = parse_array(lexer, &array_value);
             if (success)
             {
-                *result = type::move(array_value);
+                *result = array_value;
             }
             else
             {
@@ -1260,8 +1275,7 @@ bool parse_value(Allocator *allocator, acf_lexer *lexer, acf *result)
 }
 
 
-template <typename Allocator>
-bool parse_key_value_pair(Allocator *allocator, acf_lexer *lexer, string *key, acf *value)
+bool parse_key_value_pair(acf_lexer *lexer, string *key, acf *value)
 {
     acf_lexer checkpoint = *lexer;
 
@@ -1269,7 +1283,7 @@ bool parse_key_value_pair(Allocator *allocator, acf_lexer *lexer, string *key, a
     ACF_GET_TOKEN_OR_FAIL(equals);
 
     *key = ident_token.span;
-    bool success = parse_value(allocator, lexer, value);
+    bool success = parse_value(lexer, value);
     if (!success)
     {
         *lexer = checkpoint;
@@ -1280,8 +1294,7 @@ bool parse_key_value_pair(Allocator *allocator, acf_lexer *lexer, string *key, a
 }
 
 
-template <typename Allocator>
-bool parse_object(Allocator *allocator, acf_lexer *lexer, acf *result, bool braces_optional)
+bool parse_object(acf_lexer *lexer, acf *result, bool braces_optional)
 {
     acf_lexer checkpoint = *lexer;
 
@@ -1302,22 +1315,21 @@ bool parse_object(Allocator *allocator, acf_lexer *lexer, acf *result, bool brac
         }
     }
 
-    auto keys = make_dynamic_array<string>(allocator);
-    auto values = make_dynamic_array<acf>(allocator);
+    acf object_result = acf_object();
 
     bool should_stop = false;
-    int32 iterations = 0;
     while (!should_stop)
     {
         string key;
         acf value;
-        bool success = parse_key_value_pair(allocator, lexer, &key, &value);
+        bool success = parse_key_value_pair(lexer, &key, &value);
         if (success)
         {
             bool key_already_defined = false;
-            for (auto& k : keys)
+            for (auto [k, v] : object_result.pairs())
             {
-                if (k == key) {
+                if (k == key)
+                {
                     key_already_defined = true;
                     break;
                 }
@@ -1327,13 +1339,14 @@ bool parse_object(Allocator *allocator, acf_lexer *lexer, acf *result, bool brac
             {
                 osOutputDebugString("Key '%.*s' already defined in this object.\n", STRING_PRINT_(key));
             }
-
-            keys.push(key);
-            values.push(type::move(value));
+            else
+            {
+                acf_push(&object_result, key, value);
+            }
         }
         else
         {
-            if (braces_optional && values.is_empty())
+            if (braces_optional && acf_size(object_result) == 0)
             {
                 *lexer = checkpoint;
                 return false;
@@ -1351,8 +1364,6 @@ bool parse_object(Allocator *allocator, acf_lexer *lexer, acf *result, bool brac
             // Consume optional semicolon, if present.
             eat_token(lexer);
         }
-
-        iterations += 1;
     }
 
     acf_token close_brace_token = get_token(lexer);
@@ -1369,18 +1380,12 @@ bool parse_object(Allocator *allocator, acf_lexer *lexer, acf *result, bool brac
         }
     }
 
-    // @todo @nocommit
-    // acf::object_t object_value = {};
-    // object_value.keys = keys;
-    // object_value.values = values;
-
-    // result->set_object(object_value);
+    *result = object_result;
     return true;
 }
 
 
-template <typename Allocator>
-bool parse_array(Allocator *allocator, acf_lexer *lexer, acf *result, bool brackets_optional)
+bool parse_array(acf_lexer *lexer, acf *result, bool brackets_optional)
 {
     acf_lexer checkpoint = *lexer;
 
@@ -1401,20 +1406,22 @@ bool parse_array(Allocator *allocator, acf_lexer *lexer, acf *result, bool brack
         }
     }
 
-    acf values;
+    acf array_value = acf_array();
+    int count = 0;
 
     bool should_stop = false;
     while (!should_stop)
     {
         acf value;
-        bool success = parse_value(allocator, lexer, &value);
+        bool success = parse_value(lexer, &value);
         if (success)
         {
-            values.push(value);
+            acf_push(&array_value, value);
+            count += 1;
         }
         else
         {
-            if (brackets_optional && values.is_null())
+            if (brackets_optional && count == 0) // && values.is_null())
             {
                 *lexer = checkpoint;
                 return false;
@@ -1448,83 +1455,35 @@ bool parse_array(Allocator *allocator, acf_lexer *lexer, acf *result, bool brack
         }
     }
 
-    result->swap(values);
+    *result = array_value;
     return true;
 }
 
 INTERNAL
-bool parse_type(acf_lexer *lexer, acf_type *type)
+bool parse_type(acf_lexer *lexer, acf_type_t *type)
 {
-    // @todo: make it parse already registered types
-    acf_token type_name = get_token(lexer);
+    ASSERT(type);
+
+    acf_lexer checkpoint = *lexer;
+    acf_token type_name = eat_token(lexer);
     switch (type_name.type)
     {
-        case acf_token_type::keyword_null:
+        case acf_token_type::keyword_null:   { *type = acf_type_t::null; } break;
+        case acf_token_type::keyword_bool:   { *type = acf_type_t::boolean; } break;
+        case acf_token_type::keyword_int:    { *type = acf_type_t::integer; } break;
+        case acf_token_type::keyword_float:  { *type = acf_type_t::floating; } break;
+        case acf_token_type::keyword_string: { *type = acf_type_t::string; } break;
+        case acf_token_type::keyword_object: { *type = acf_type_t::object; } break;
+        case acf_token_type::keyword_array:  { *type = acf_type_t::array; } break;
+        default:
         {
-            eat_token(lexer);
-            if (type)
-            {
-                *type = acf_type::null;
-            }
-            return true;
-        }
-        case acf_token_type::keyword_bool:
-        {
-            eat_token(lexer);
-            if (type)
-            {
-                *type = acf_type::boolean;
-            }
-            return true;
-        }
-        case acf_token_type::keyword_int:
-        {
-            eat_token(lexer);
-            if (type)
-            {
-                *type = acf_type::integer;
-            }
-            return true;
-        }
-        case acf_token_type::keyword_float:
-        {
-            eat_token(lexer);
-            if (type)
-            {
-                *type = acf_type::floating;
-            }
-            return true;
-        }
-        case acf_token_type::keyword_string:
-        {
-            eat_token(lexer);
-            if (type)
-            {
-                *type = acf_type::string;
-            }
-            return true;
-        }
-        case acf_token_type::keyword_object:
-        {
-            eat_token(lexer);
-            if (type)
-            {
-                *type = acf_type::object;
-            }
-            return true;
-        }
-        case acf_token_type::keyword_array:
-        {
-            eat_token(lexer);
-            if (type)
-            {
-                *type = acf_type::array;
-            }
-            return true;
+            // @todo: make it parse already registered types
+            *lexer = checkpoint;
+            return false;
         }
     }
 
-    return false;
+    return true;
 }
 
 INTERNAL
@@ -1553,7 +1512,7 @@ bool parse_directive(acf_lexer *lexer)
     bool should_stop = false;
     while (!should_stop)
     {
-        acf_type arg_type;
+        acf_type_t arg_type;
         bool success = parse_type(lexer, &arg_type);
         if (success)
         {
@@ -1565,6 +1524,13 @@ bool parse_directive(acf_lexer *lexer)
         }
         else
         {
+            acf_token close_paren = get_token(lexer);
+            if (close_paren.type != acf_token_type::parentheses_close)
+            {
+                *lexer = checkpoint;
+                return false;
+            }
+
             // Could not parse next item
             should_stop = true;
         }
@@ -1585,14 +1551,13 @@ bool parse_directive(acf_lexer *lexer)
 }
 
 
-template <typename Allocator>
-bool parse_constructor_call(Allocator *allocator, acf_lexer *lexer, acf *result)
+bool parse_constructor_call(acf_lexer *lexer, acf *result)
 {
     acf_lexer checkpoint = *lexer;
 
     auto constructor_name_token = ACF_GET_TOKEN_OR_FAIL(identifier);
 
-    array<acf> argument_values = allocate_array<acf>(allocator, 4);
+    acf custom_value_result = acf_custom_type(constructor_name_token.span);
     acf_constructor_arguments args;
     if (is_newtype_registered(lexer, constructor_name_token.span, &args))
     {
@@ -1600,7 +1565,7 @@ bool parse_constructor_call(Allocator *allocator, acf_lexer *lexer, acf *result)
 
         for (uint32 argument_index = 0; argument_index < args.argument_count; argument_index++)
         {
-            acf_type type = args.arguments[argument_index];
+            acf_type_t type = args.arguments[argument_index];
             acf_token t = get_token(lexer);
 
             if (t.type == acf_token_type::parentheses_close)
@@ -1610,25 +1575,63 @@ bool parse_constructor_call(Allocator *allocator, acf_lexer *lexer, acf *result)
                 *lexer = checkpoint;
                 return false;
             }
-            else if ((type == acf_type::null) && (t.type == acf_token_type::keyword_null))
+            else if ((type == acf_type_t::null) && (t.type == acf_token_type::keyword_null))
             {
-                argument_values[argument_index] = acf();
+                acf_push_argument(&custom_value_result, acf_null());
                 eat_token(lexer);
             }
-            else if ((type == acf_type::boolean) && (t.type == acf_token_type::keyword_true))
+            else if ((type == acf_type_t::boolean) && (t.type == acf_token_type::keyword_true))
             {
-                argument_values[argument_index] = acf(true);
+                acf_push_argument(&custom_value_result, acf_boolean(true));
                 eat_token(lexer);
             }
-            else if ((type == acf_type::boolean) && (t.type == acf_token_type::keyword_false))
+            else if ((type == acf_type_t::boolean) && (t.type == acf_token_type::keyword_false))
             {
-                argument_values[argument_index] = acf(false);
+                acf_push_argument(&custom_value_result, acf_boolean(false));
                 eat_token(lexer);
             }
-            else if ((type == acf_type::integer) && (t.type == acf_token_type::integer))
+            else if ((type == acf_type_t::integer) && (t.type == acf_token_type::integer))
             {
-                argument_values[argument_index] = acf(t.integer_value);
+                acf_push_argument(&custom_value_result, acf_boolean(t.integer_value));
                 eat_token(lexer);
+            }
+            else if ((type == acf_type_t::string) && (t.type == acf_token_type::string))
+            {
+                string s = t.span;
+                s.data += 1;
+                s.size -= 2;
+                acf_push_argument(&custom_value_result, acf_string(s));
+                eat_token(lexer);
+            }
+            else if ((type == acf_type_t::array) && (t.type == acf_token_type::bracket_open))
+            {
+                acf array_argument;
+                bool success = parse_array(lexer, &array_argument, false);
+                if (success)
+                {
+                    acf_push_argument(&custom_value_result, array_argument);
+                }
+                else
+                {
+                    osOutputDebugString("Cannot parse array argument!\n");
+                    *lexer = checkpoint;
+                    return false;
+                }
+            }
+            else if ((type == acf_type_t::object) && (t.type == acf_token_type::brace_open))
+            {
+                acf object_argument;
+                bool success = parse_object(lexer, &object_argument, false);
+                if (success)
+                {
+                    acf_push_argument(&custom_value_result, object_argument);
+                }
+                else
+                {
+                    osOutputDebugString("Cannot parse object argument!\n");
+                    *lexer = checkpoint;
+                    return false;
+                }
             }
             else
             {
@@ -1656,23 +1659,13 @@ bool parse_constructor_call(Allocator *allocator, acf_lexer *lexer, acf *result)
         return false;
     }
 
-    if (result)
-    {
-        // @todo @nocommit
-        // acf_custom_type custom = {};
-        // custom.name = constructor_name_token.span;
-        // custom.arguments = argument_values;
-        // result->set_custom(custom);
-    }
+    *result = custom_value_result;
 
     return true;
 }
 
-template <typename Allocator>
-acf parse_acf(Allocator *allocator, string buffer)
+bool parse_acf(string buffer, acf *result)
 {
-    acf result = {};
-
     acf_lexer lexer;
     initialize_acf_lexer(&lexer, buffer);
 
@@ -1681,85 +1674,8 @@ acf parse_acf(Allocator *allocator, string buffer)
         success = parse_directive(&lexer);
     } while (success);
 
-    success = parse_array(allocator, &lexer, &result, true);
-
-    // success = parse_object(allocator, &lexer, &result, true);
-    // if (success)
-    // {
-    //     acf_token t = get_token(&lexer);
-    //     if (t.type != acf_token_type::end_of_file)
-    //     {
-    //         acf super_array;
-    //         bool sup_array_success = parse_array(allocator, &lexer, &super_array, true);
-    //         if (sup_array_success)
-    //         {
-    //             t = get_token(&lexer);
-    //             if (t.type == acf_token_type::end_of_file)
-    //             {
-    //                 // All good.
-    //                 // super_array.push(result);
-    //                 // result = super_array;
-    //             }
-    //             else
-    //             {
-    //                 osOutputDebugString("Something left in the file, although should not been!\n");
-    //                 success = false;
-    //             }
-    //         }
-    //         else
-    //         {
-    //             success = false;
-    //             osOutputDebugString("Something went wrong!\n");
-    //         }
-    //     }
-    // }
-    // else
-    // {
-    //     acf array_result;
-    //     success = parse_array(allocator, &lexer, &array_result, true);
-    //     if (success)
-    //     {
-    //         loop
-    //         {
-    //             acf_token t = get_token(&lexer);
-    //             if (t.type == acf_token_type::end_of_file)
-    //             {
-    //                 // All good.
-    //                 result = array_result;
-    //                 break;
-    //             }
-    //             else
-    //             {
-    //                 acf rest;
-    //                 success = parse_array(allocator, &lexer, &rest, true);
-    //                 if (success)
-    //                 {
-    //                     // acf top_array;
-    //                     // auto storage = make_dynamic_array<acf>(allocator);
-    //                     // storage.push(array_result);
-
-    //                     // auto rest_storage = rest.get_array();
-    //                     // for (auto& v : rest_storage)
-    //                     // {
-    //                     //     PERSIST int i = 0;
-    //                     //     i += 1;
-    //                     //     storage.push(v);
-    //                     // }
-    //                     // top_array.set_array(storage);
-
-    //                     // array_result = top_array;
-    //                 }
-    //                 else
-    //                 {
-    //                     osOutputDebugString("Something left in the file, although should not been!\n");
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    osOutputDebugString("\n\n%s!\n", success ? "success" : "failure");
-
-    return result;
+    success = parse_object(&lexer, result, true);
+    return success;
 }
 
 
@@ -1768,11 +1684,11 @@ acf parse_acf(Allocator *allocator, string buffer)
 // {
 //     switch (value.get_type())
 //     {
-//         case acf_type::null:
-//         case acf_type::boolean:
-//         case acf_type::integer:
-//         case acf_type::floating:
-//         case acf_type::string:
+//         case acf_type_t::null:
+//         case acf_type_t::boolean:
+//         case acf_type_t::integer:
+//         case acf_type_t::floating:
+//         case acf_type_t::string:
 //         {
 //             acf result;
 //             {
@@ -1803,7 +1719,7 @@ acf parse_acf(Allocator *allocator, string buffer)
 //             // return { {"key", key ? *key : son()}, {"type", value.type_name()}, {"values", {}} };
 //         }
 // //             return { {"key", key ? *key : son()}, {"type", value.type_name()}, {"values", {}} };
-//         case acf_type::object:
+//         case acf_type_t::object:
 //         {
 //             acf result;
 //             {
@@ -1855,7 +1771,7 @@ acf parse_acf(Allocator *allocator, string buffer)
 // //             result.push("values", values);
 // //             return result;
 //         }
-//         case acf_type::array: {
+//         case acf_type_t::array: {
 //             acf result;
 //             {
 //                 auto keys = make_dynamic_array<string>(allocator);
@@ -1896,7 +1812,7 @@ acf parse_acf(Allocator *allocator, string buffer)
 //             return result;
 //             // return { {"key", key ? *key : son()}, {"type", value.type_name()}, {"values", {}} };
 //         }
-//         case acf_type::custom:
+//         case acf_type_t::custom:
 //         {
 //             acf result;
 //             {
@@ -1946,116 +1862,6 @@ acf parse_acf(Allocator *allocator, string buffer)
 //     return acf();
 // }
 
-
-// 60 spaces should be enough
-char const* spaces = "                                                            ";
-
-void acf_print_impl(acf const& value, acf_print_options options, int32 depth = 0)
-{
-    switch (value.get_type())
-    {
-        case acf_type::null: osOutputDebugString("null"); break;
-        case acf_type::boolean: osOutputDebugString("%s", value.get_boolean() ? "true" : "false"); break;
-        case acf_type::integer: osOutputDebugString("%lld", value.get_integer()); break;
-        case acf_type::floating: osOutputDebugString("<NOT IMPLEMENTED>"); break;
-        case acf_type::string:
-        {
-            auto s = value.get_string();
-            osOutputDebugString("\"%.*s\"", STRING_PRINT_(s));
-        }
-        break;
-
-        case acf_type::object:
-        {
-        //     bool in_one_line = (options.multiline == acf_print_options::multiline_t::smart && value.depth_size() <= options.max_elements_in_line)
-        //         || options.multiline == acf_print_options::multiline_t::disabled;
-
-        //     osOutputDebugString("{%s", in_one_line ? " " : "\n");
-        //     depth += 1;
-
-            // auto obj = value.get_object();
-
-            // @todo: make iterators for acf structure
-            //        this loop should be just
-            // for (auto& [k, v] : obj.pairs()) { ... }
-            // for (int i = 0; i < obj.keys.get_size(); i++)
-            // {
-            //     auto &s = obj.keys[i];
-            //     auto &v = obj.values[i];
-
-            //     if (!in_one_line) { osOutputDebugString("%.*s", options.indent * depth, spaces); }
-            //     osOutputDebugString("%.*s = ", STRING_PRINT_(s.get_string()));
-
-            //     acf_print_impl(v, options, depth);
-
-            //     osOutputDebugString("%s%s",
-            //         options.print_semicolons ? ";" : "",
-            //         in_one_line ? " " : "\n");
-            // }
-
-            // depth -= 1;
-            // osOutputDebugString("%.*s}", in_one_line ? 0 : options.indent * depth, spaces);
-        }
-        break;
-
-        case acf_type::array:
-        {
-            bool in_one_line = (options.multiline == acf_print_options::multiline_t::smart && value.depth_size() <= options.max_elements_in_line)
-                || options.multiline == acf_print_options::multiline_t::disabled;
-
-            osOutputDebugString("[%s", in_one_line ? value.get_size() > 0 ? " " : "" : "\n");
-            depth += 1;
-
-            for (int32 i = 0; i < value.get_size(); i++)
-            {
-                // @todo: make acf::operator[] to get values from an array just with [], and without value.get_array() part
-                auto& v = value[i];
-
-                if (!in_one_line) { osOutputDebugString("%.*s", options.indent * depth, spaces); }
-
-                acf_print_impl(v, options, depth);
-
-                osOutputDebugString("%s%s",
-                    (options.print_commas && ((i + 1) < value.get_size())) ? "," : "",
-                    in_one_line ? " " : "\n");
-            }
-
-            depth -= 1;
-            osOutputDebugString("%.*s]", in_one_line ? 0 : options.indent * depth, spaces);
-        }
-        break;
-
-        case acf_type::custom:
-        {
-            // auto custom = value.get_custom();
-            // osOutputDebugString("%.*s(", STRING_PRINT_(custom.name));
-
-            // if (custom.arguments.get_size() > 0)
-            // {
-            //     auto& arg = custom.arguments[0];
-
-            //     acf_print_impl(arg, options, depth);
-            // }
-
-            // for (usize i = 1; i < custom.arguments.get_size(); i++)
-            // {
-            //     auto& arg = custom.arguments[i];
-
-            //     osOutputDebugString(", ");
-            //     acf_print(arg);
-            // }
-
-            // osOutputDebugString(")");
-        }
-        break;
-
-    }
-}
-
-void acf_print(acf const& value, acf_print_options options)
-{
-    acf_print_impl(value, options, 0);
-}
 
 #endif // ACF_LIB_IMPLEMENTATION
 

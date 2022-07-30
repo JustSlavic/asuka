@@ -1,0 +1,5 @@
+#newtype kg(float)
+
+{
+    weight = kg(10.0);
+}

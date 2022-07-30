@@ -1,0 +1,5 @@
+#newtype vector3(int, int, int)
+
+{
+    velocity = vector3(10, 20, 30);
+}

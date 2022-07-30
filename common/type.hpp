@@ -3,6 +3,24 @@
 
 namespace type {
 
+template <bool Condition, typename IfTrue, typename IfFalse>
+struct sfinae_if
+{};
+
+template <typename IfTrue, typename IfFalse>
+struct sfinae_if<true, IfTrue, IfFalse>
+{
+    static const b32 value = true;
+    using type = IfTrue;
+};
+
+template <typename IfTrue, typename IfFalse>
+struct sfinae_if<false, IfTrue, IfFalse>
+{
+    static const b32 value = false;
+    using type = IfTrue;
+};
+
 template <typename LHS, typename RHS>
 struct is_same {
     static const b32 value = false;

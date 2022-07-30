@@ -24,8 +24,11 @@ struct mallocator
 #endif // ASUKA_DEBUG
 };
 
-
-GLOBAL mallocator global_mallocator_instance;
+#if ASUKA_DEBUG
+GLOBAL mallocator global_mallocator_instance = {"malloc"};
+#else
+GLOBAL mallocator global_mallocator_instance = {};
+#endif
 
 #if ASUKA_DEBUG
 
@@ -93,8 +96,11 @@ void pop_allocation_entry(mallocator *allocator, void *pointer)
 
 #endif // ASUKA_DEBUG
 
-INLINE
-void initialize__(mallocator *allocator, void *memory, usize size, char const *name = "mallocator")
+#if ASUKA_DEBUG
+INLINE void initialize__(mallocator *allocator, void *memory, usize size, char const *name = "mallocator")
+#else
+INLINE void initialize__(mallocator *allocator, void *memory, usize size)
+#endif // ASUKA_DEBUG
 {
 #if ASUKA_DEBUG
     allocator->name = name;
@@ -103,9 +109,11 @@ void initialize__(mallocator *allocator, void *memory, usize size, char const *n
 #endif // ASUKA_DEBUG
 }
 
-
-INLINE
-void *allocate__(mallocator *allocator, usize requested_size, usize alignment, CodeLocation cl)
+#if ASUKA_DEBUG
+INLINE void *allocate__(mallocator *allocator, usize requested_size, usize alignment, CodeLocation cl)
+#else
+INLINE void *allocate__(mallocator *allocator, usize requested_size, usize alignment)
+#endif
 {
     void *result = malloc(requested_size);
 
@@ -117,9 +125,11 @@ void *allocate__(mallocator *allocator, usize requested_size, usize alignment, C
     return result;
 }
 
-
-INLINE
-void deallocate__(mallocator *allocator, void *memory_to_free, CodeLocation cl)
+#if ASUKA_DEBUG
+INLINE void deallocate__(mallocator *allocator, void *memory_to_free, CodeLocation cl)
+#else
+INLINE void deallocate__(mallocator *allocator, void *memory_to_free)
+#endif
 {
 #if ASUKA_DEBUG
     pop_allocation_entry(allocator, memory_to_free);

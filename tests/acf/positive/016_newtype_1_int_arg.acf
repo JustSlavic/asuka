@@ -1,0 +1,5 @@
+#newtype kg(int)
+
+{
+    weight = kg(10);
+}

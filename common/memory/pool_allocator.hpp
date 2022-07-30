@@ -103,16 +103,16 @@ void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size
 
     using chunk_t = typename pool_allocator<ChunkSize>::memory_chunk;
 
-    auto aligned = get_aligned_pointer(memory, 8); // @todo: what is MAX_ALIGN should be?
-
-    allocator->memory = aligned.pointer;
-    allocator->size   = size - aligned.padding;
+    allocator->memory = (byte *) memory;
+    allocator->size   = size;
     allocator->used   = 0;
 
-    chunk_t *first_header = (chunk_t *) allocator->memory;
+    auto aligned = get_aligned_pointer(memory, 8); // @todo: What is MAX_ALIGN should be?
+    chunk_t *first_header = (chunk_t *) aligned.pointer;
+    usize chunk_count = (size - aligned.padding) / sizeof(chunk_t);
 
     chunk_t *header = first_header;
-    for (usize chunk_index = 1; chunk_index < (size / sizeof(chunk_t)); chunk_index++)
+    for (usize chunk_index = 1; chunk_index < chunk_count; chunk_index++)
     {
         chunk_t *next_chunk = header + 1;
         header->next_chunk  = next_chunk;

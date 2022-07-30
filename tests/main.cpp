@@ -1,17 +1,19 @@
 #include <stdio.h>
-#include <vector>
+#include "acf/acf_tests.hpp"
 
 
 int main()
 {
-    std::vector<int> v = { 1, 2, 3 };
-
-    for (int i = 0; i < v.size(); i++)
-    {
-        printf("%d ", v[i]);
-    }
-
-    printf("\n");
+#if 0
+    bool success = run_acf_test(string::from("positive\\008_many_types.acf"));
+    printf("%s\n", success ? "Success!" : "Failure!");
+#else
+    auto tests_result = run_acf_tests();
+    printf("Successfull tests: %d\n"
+           "Failed tests:      %d\n",
+           tests_result.successfull,
+           tests_result.failed);
+#endif
 
     return 0;
 }

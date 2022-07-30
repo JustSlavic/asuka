@@ -1,0 +1,6 @@
+#newtype is_dynamic(bool)
+
+{
+    resolution_is_dynamic = is_dynamic(false);
+    windows_size_is_dynamic = is_dynamic(true);
+}

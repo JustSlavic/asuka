@@ -1,0 +1,5 @@
+#newtype void(null)
+
+{
+    void_value = void(null);
+}

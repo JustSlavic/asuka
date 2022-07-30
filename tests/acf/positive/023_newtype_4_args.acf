@@ -1,0 +1,5 @@
+#newtype color32(float, float, float, float)
+
+{
+    color = color32(0.1, 0.2, 0.3, 1.0);
+}

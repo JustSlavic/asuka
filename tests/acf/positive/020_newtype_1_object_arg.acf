@@ -1,0 +1,5 @@
+#newtype go_wild(object)
+
+{
+    info = go_wild({ species = "cat" weight = 4 });
+}

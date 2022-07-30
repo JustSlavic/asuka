@@ -1,0 +1,5 @@
+#newtype vector2(int, int)
+
+{
+    position = vector2(32, 42);
+}

@@ -1,0 +1,12 @@
+{
+    x = null
+    y = true
+    z = false
+
+    i = 10
+    // f = 10.0
+
+    s = "Strings are supported"
+    v = [ 1, 2, 3 ]
+    o = { a = 1 b = 2 }
+}

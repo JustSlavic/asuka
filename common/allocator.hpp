@@ -4,9 +4,7 @@
 #include <defines.hpp>
 #include <os/memory.hpp>
 
-#ifdef ASUKA_MALLOCATOR
 #include <memory/mallocator.hpp>
-#endif // ASUKA_MALLOCATOR
 #include <memory/arena_allocator.hpp>
 #include <memory/pool_allocator.hpp>
 
@@ -115,7 +113,11 @@ template <typename Allocator>
 void deallocate(Allocator *allocator, void *memory_to_free, CodeLocation cl)
 {
     // osOutputDebugString("Deallocaion: %p\n", memory_to_free);
+#if ASUKA_DEBUG
     deallocate__(allocator, memory_to_free, cl);
+#else
+    deallocate__(allocator, memory_to_free);
+#endif
 }
 
 
