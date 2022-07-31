@@ -1,0 +1,6 @@
+#newtype argument_type()
+#newtype wrapper(argument_type)
+
+{
+    wtf = wrapper(argument_type())
+}

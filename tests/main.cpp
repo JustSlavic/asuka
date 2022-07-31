@@ -5,7 +5,7 @@
 int main()
 {
 #if 0
-    bool success = run_acf_test(string::from("positive\\008_many_types.acf"));
+    bool success = run_acf_test(string::from("008_many_types.acf"));
     printf("%s\n", success ? "Success!" : "Failure!");
 #else
     auto tests_result = run_acf_tests();
