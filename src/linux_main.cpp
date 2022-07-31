@@ -1,9 +1,10 @@
 #include <defines.hpp>
 
+#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <stdio.h>
+#include <dlfcn.h>
 
 #include <X11/Xlib.h>
 #include <cerrno>
@@ -79,7 +80,9 @@ GLOBAL v2i  global_resolution_presets[12] =
     { 1920, 1200 },
     { 2560, 1440 },
 };
-GLOBAL const char* global_gamepad_device_paths[] = {
+
+GLOBAL const char* global_gamepad_device_paths[] =
+{
     "/dev/input/js0",
     "/dev/input/js1",
     "/dev/input/js2",
@@ -87,7 +90,63 @@ GLOBAL const char* global_gamepad_device_paths[] = {
 };
 
 
-struct linux_screen_buffer {
+struct linux_game_dll
+{
+    void *handle;
+    Game_InitializeMemoryT *initialize_memory;
+    Game_UpdateAndRenderT  *update_and_render;
+    Game_OutputSoundT      *output_sound;
+
+    // FILETIME Timestamp;
+
+    b32 is_valid;
+};
+
+
+INTERNAL
+linux_game_dll load_game_dll(char const *dll_path)
+{
+    linux_game_dll result = {};
+
+#if ASUKA_DLL_BUILD
+    result.handle = dlopen(dll_path, RTLD_NOW);
+
+    if (result.handle)
+    {
+        result.update_and_render = (Game_UpdateAndRenderT *) dlsym(result.handle, "Game_UpdateAndRender");
+        result.output_sound = (Game_OutputSoundT *) dlsym(result.handle, "Game_OutputSound");
+
+        result.is_valid = (result.update_and_render != NULL) && (result.output_sound != NULL);
+    }
+    else
+    {
+        printf("%s\n", dlerror());
+    }
+#else // ASUKA_DLL_BUILD
+    result.update_and_render = Game_UpdateAndRender;
+    result.output_sound = Game_OutputSound;
+    result.is_valid = true;
+#endif // ASUKA_DLL_BUILD
+
+    return result;
+}
+
+
+INTERNAL
+void unload_game_dll(linux_game_dll *dll)
+{
+#if ASUKA_DLL_BUILD
+    if (dll->handle)
+    {
+        dlclose(dll->handle);
+    }
+#else // ASUKA_DLL_BUILD
+#endif // ASUKA_DLL_BUILD
+}
+
+
+struct linux_screen_buffer
+{
     XImage x_image;
     void* memory;
     uint32 width;
@@ -511,6 +570,13 @@ int32 main(int32 argc, char** argv)
 
     linux_gamepad gamepad_devices[ARRAY_COUNT(global_gamepad_device_paths)] {};
 
+    linux_game_dll dll = load_game_dll("/home/radko/Projects/asuka/build/asuka.so");
+    if (!dll.is_valid)
+    {
+        printf("Could not load game dll\n");
+        return 1;
+    }
+
     while (global_running)
     {
         auto *mouse = &Input.mouse;
@@ -809,7 +875,7 @@ int32 main(int32 argc, char** argv)
         GraphicsBuffer.Pitch = screen_buffer.width * screen_buffer.bytes_per_pixel;
         GraphicsBuffer.BytesPerPixel = screen_buffer.bytes_per_pixel;
 
-        Game_UpdateAndRender(&context, &game_memory, &Input, &GraphicsBuffer);
+        dll.update_and_render(&context, &game_memory, &Input, &GraphicsBuffer);
 
         // linux_send_sound_buffer(sound_output.sound_device, &sound_output, n_sound_frames);
         // {

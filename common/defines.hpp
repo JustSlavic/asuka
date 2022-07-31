@@ -160,11 +160,11 @@ typedef double float64;
 #define ASUKA_DEBUG_BREAK __builtin_trap
 #define FORCE_INLINE __attribute__((always_inline))
 
-#if ASUKA_DLL_BUILD
-#define ASUKA_DLL_EXPORT __attribute__((dllexport))
-#else
+// #if ASUKA_DLL_BUILD
+// #define ASUKA_DLL_EXPORT __attribute__((dllexport))
+// #else
 #define ASUKA_DLL_EXPORT
-#endif // ASUKA_DLL_BUILD
+// #endif // ASUKA_DLL_BUILD
 
 #endif // ASUKA_COMPILER_GNU
 

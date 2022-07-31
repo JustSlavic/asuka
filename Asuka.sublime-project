@@ -18,8 +18,8 @@
             },
 
             "linux": {
-                // "shell_cmd": "$folder/build.sh",
-                "shell_cmd": "make",
+                "shell_cmd": "$folder/build.sh",
+                // "shell_cmd": "make",
                 "working_dir": "$folder",
                 "file_regex": "^([\\w\\/\\.]+)\\:(\\d+)\\:(\\d+)\\:(.*)$",
                 "syntax": "Packages/User/GCC_BuildResults.sublime-syntax",
