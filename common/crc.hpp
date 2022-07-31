@@ -10,7 +10,7 @@
 u32 compute_crc(u8 *buf, usize len);
 
 
-#ifdef UNITY_BUILD
+#if UNITY_BUILD
 #include "crc.cpp"
 #endif // UNITY_BUILD
 

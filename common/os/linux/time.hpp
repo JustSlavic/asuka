@@ -15,7 +15,7 @@ timepoint get_wall_clock();
 
 } // os
 
-#ifdef UNITY_BUILD
+#if UNITY_BUILD
 #include "time.cpp"
 #endif // UNITY_BUILD
 

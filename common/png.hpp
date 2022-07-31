@@ -11,7 +11,7 @@ Bitmap load_png_file(const char* filename);
 
 } // namespace Asuka
 
-#ifdef UNITY_BUILD
+#if UNITY_BUILD
 #include "png.cpp"
 #endif // UNITY_BUILD
 

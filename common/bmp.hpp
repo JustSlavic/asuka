@@ -8,7 +8,7 @@
 Bitmap load_bmp_file(const char* filename);
 
 
-#ifdef UNITY_BUILD
+#if UNITY_BUILD
 #include "bmp.cpp"
 #endif // UNITY_BUILD
 

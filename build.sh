@@ -1,5 +1,16 @@
 #!/bin/bash
 
+CMAKE_BUILD=1
+
+if [[ "$CMAKE_BUILD" == 1 ]]; then
+    mkdir -p build
+    cd build
+
+    cmake -G Ninja ../ -DCMAKE_BUILD_TYPE=Debug -DASUKA_DLL_BUILD=OFF -DASUKA_UNITY_BUILD=OFF
+    cmake --build . --target all
+    exit 0
+fi
+
 CXX_STANDARD=17
 
 DEBUG_BUILD=1

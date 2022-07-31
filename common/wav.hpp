@@ -15,7 +15,7 @@ struct wav_file_contents {
 wav_file_contents load_wav_file(const char* filename);
 
 
-#ifdef UNITY_BUILD
+#if UNITY_BUILD
 #include "wav.cpp"
 #endif // UNITY_BUILD
 
