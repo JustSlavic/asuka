@@ -1,6 +1,3 @@
-#newtype argument_type()
-#newtype wrapper(argument_type)
+#newtype const(int)
 
-{
-    wtf = wrapper(argument_type())
-}
+wtf = { a = [1 2 3 const(true)] }

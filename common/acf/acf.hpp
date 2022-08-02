@@ -448,6 +448,8 @@ struct acf_print_options
 };
 
 char const* spaces = "                                                            ";
+char const *carets = "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^";
+
 void acf_print_impl(acf value, acf_print_options options, int depth = 0)
 {
     switch (value.type)
@@ -845,7 +847,7 @@ struct acf_constructor_arguments
 struct acf_lexer
 {
     string buffer;
-    usize index;
+    int32 index;
 
     int32 line;
     int32 column;
@@ -857,9 +859,21 @@ struct acf_lexer
     string keywords[32];
     acf_token_type keyword_types[32];
 
-    u32 new_type_count;
+    u32 newtype_count;
     string newtype_names[32];
     acf_constructor_arguments newtype_arguments[32];
+
+    int32 error_buffer_size;
+    char error_buffer[2048];
+
+    struct parse_line
+    {
+        int32 start_index;
+        int32 line_number;
+        int32 length;
+    };
+
+    parse_line current_line;
 };
 
 INTERNAL
@@ -874,9 +888,9 @@ void register_acf_keyword(acf_lexer *lexer, char const *keyword, acf_token_type 
 INTERNAL
 void register_acf_new_type(acf_lexer *lexer, string type_name, acf_constructor_arguments args)
 {
-    lexer->newtype_names[lexer->new_type_count] = type_name;
-    lexer->newtype_arguments[lexer->new_type_count] = args;
-    lexer->new_type_count += 1;
+    lexer->newtype_names[lexer->newtype_count] = type_name;
+    lexer->newtype_arguments[lexer->newtype_count] = args;
+    lexer->newtype_count += 1;
 }
 
 INTERNAL
@@ -888,20 +902,38 @@ void register_acf_new_type(acf_lexer *lexer, char const *type_name, acf_construc
 INTERNAL
 bool is_newtype_registered(acf_lexer *lexer, string s, acf_constructor_arguments *args)
 {
-    for (uint32 type_name_index = 0; type_name_index < lexer->new_type_count; type_name_index++)
+    for (uint32 newtype_index = 0; newtype_index < lexer->newtype_count; newtype_index++)
     {
-        string type_name = lexer->newtype_names[type_name_index];
+        string type_name = lexer->newtype_names[newtype_index];
         if (s == type_name)
         {
             if (args)
             {
-                *args = lexer->newtype_arguments[type_name_index];
+                *args = lexer->newtype_arguments[newtype_index];
             }
             return true;
         }
     }
 
     return false;
+}
+
+INTERNAL
+acf_lexer::parse_line lexer_start_line(acf_lexer *lexer)
+{
+    acf_lexer::parse_line result = {};
+    result.start_index = lexer->index;
+    result.line_number = lexer->line;
+
+    // Count the length of the line
+    int32 index = lexer->index;
+    while (lexer->buffer[index] != '\n' && lexer->buffer[index] != 0)
+    {
+        result.length += 1;
+        index += 1;
+    }
+
+    return result;
 }
 
 INTERNAL
@@ -915,9 +947,13 @@ void initialize_acf_lexer(acf_lexer *lexer, string buffer)
     lexer->next_token_valid = false;
     lexer->keyword_count = 0;
     memory::set(lexer->keywords, 0, sizeof(lexer->keywords));
-    lexer->new_type_count = 0;
+    lexer->newtype_count = 0;
     memory::set(lexer->newtype_names, 0, sizeof(lexer->newtype_names));
     memory::set(lexer->newtype_arguments, 0, sizeof(lexer->newtype_arguments));
+    lexer->error_buffer_size = 0;
+    memory::set(lexer->error_buffer, 0, sizeof(lexer->error_buffer));
+
+    lexer->current_line = lexer_start_line(lexer);
 
     register_acf_keyword(lexer, "null", acf_token_type::keyword_null);
     register_acf_keyword(lexer, "true", acf_token_type::keyword_true);
@@ -963,6 +999,8 @@ char eat_char(acf_lexer *lexer)
     {
         lexer->line += 1;
         lexer->column = 0;
+
+        lexer->current_line = lexer_start_line(lexer);
     }
 
     lexer->column += 1;
@@ -1154,23 +1192,223 @@ acf_token eat_token(acf_lexer *lexer)
 }
 
 
-#define ACF_GET_TOKEN_OR_FAIL(TOKEN_TYPE) \
-    get_token(lexer); \
-    if (get_token(lexer).type == acf_token_type::TOKEN_TYPE) { eat_token(lexer); } else { *lexer = checkpoint; return false; } \
-    void(0)
+void acf_parser_report_error(acf_lexer *lexer, char const* message, ...)
+{
+    va_list args;
+    va_start(args, message);
+    int32 count = vsprintf(lexer->error_buffer + lexer->error_buffer_size, message, args);
+    if (count > 0)
+    {
+        lexer->error_buffer_size += count;
+    }
+    va_end(args);
+}
+
+
+void acf_parser_highlight_token(acf_lexer *lexer, acf_token t)
+{
+    int32 count = snprintf(lexer->error_buffer + lexer->error_buffer_size,
+        ARRAY_COUNT(lexer->error_buffer) - lexer->error_buffer_size,
+        "\n"
+        "%.*s\n"
+        "%.*s%.*s\n",
+        (int) lexer->current_line.length, lexer->buffer.get_data() + lexer->current_line.start_index,
+        (int) t.column - 1, spaces,
+        (int) t.span.get_size(), carets
+    );
+}
 
 
 bool parse_value(acf_lexer *lexer, acf *result);
 bool parse_key_value_pair(acf_lexer *lexer, string *key, acf *value);
-bool parse_array(acf_lexer *lexer, acf *result, bool brackets_optional = false);
+bool parse_array(acf_lexer *lexer, acf *result);
 bool parse_object(acf_lexer *lexer, acf *result, bool braces_optional = false);
 bool parse_constructor_call(acf_lexer *lexer, acf *result);
 
 
+bool parse_constructor_call(acf_lexer *lexer, acf *result)
+{
+    auto name_token = eat_token(lexer);
+    if (name_token.type != acf_token_type::identifier)
+    {
+        acf_parser_report_error(lexer, "Constructor call should start with the registered type name.\n");
+        acf_parser_highlight_token(lexer, name_token);
+        return false;
+    }
+
+    acf custom_value_result = acf_custom_type(name_token.span);
+    acf_constructor_arguments args;
+    if (is_newtype_registered(lexer, name_token.span, &args))
+    {
+        auto paren_open_token = eat_token(lexer);
+        if (paren_open_token.type != acf_token_type::parentheses_open)
+        {
+            acf_parser_report_error(lexer, "Constructor call have to have parentheses around arguments, even if number of them is 0.\n");
+            acf_parser_highlight_token(lexer, paren_open_token);
+            return false;
+        }
+
+        for (uint32 argument_index = 0; argument_index < args.argument_count; argument_index++)
+        {
+            acf_type_t type = args.arguments[argument_index];
+            acf_token t = get_token(lexer);
+
+            if (t.type == acf_token_type::parentheses_close)
+            {
+                // Unexpected end of arguments.
+                acf_parser_report_error(lexer, "Argument count mismatch! Expected %d arguments, got %d.\n", args.argument_count, argument_index);
+                acf_parser_highlight_token(lexer, t);
+                return false;
+            }
+            else if ((type == acf_type_t::null) && (t.type == acf_token_type::keyword_null))
+            {
+                acf_push_argument(&custom_value_result, acf_null());
+                eat_token(lexer);
+            }
+            else if ((type == acf_type_t::boolean) && (t.type == acf_token_type::keyword_true))
+            {
+                acf_push_argument(&custom_value_result, acf_boolean(true));
+                eat_token(lexer);
+            }
+            else if ((type == acf_type_t::boolean) && (t.type == acf_token_type::keyword_false))
+            {
+                acf_push_argument(&custom_value_result, acf_boolean(false));
+                eat_token(lexer);
+            }
+            else if ((type == acf_type_t::integer) && (t.type == acf_token_type::integer))
+            {
+                acf_push_argument(&custom_value_result, acf_integer(t.integer_value));
+                eat_token(lexer);
+            }
+            else if ((type == acf_type_t::string) && (t.type == acf_token_type::string))
+            {
+                string s = t.span;
+                s.data += 1;
+                s.size -= 2;
+                acf_push_argument(&custom_value_result, acf_string(s));
+                eat_token(lexer);
+            }
+            else if ((type == acf_type_t::array) && (t.type == acf_token_type::bracket_open))
+            {
+                acf array_argument;
+                bool success = parse_array(lexer, &array_argument);
+                if (success)
+                {
+                    acf_push_argument(&custom_value_result, array_argument);
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else if ((type == acf_type_t::object) && (t.type == acf_token_type::brace_open))
+            {
+                acf object_argument;
+                bool success = parse_object(lexer, &object_argument, false);
+                if (success)
+                {
+                    acf_push_argument(&custom_value_result, object_argument);
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                acf_parser_report_error(lexer, "Argument type mismatch! Constructor call expected value of type %s, but got %s.\n",
+                    get_acf_type_string(type),
+                    get_acf_token_type_string(t.type));
+                acf_parser_highlight_token(lexer, t);
+                return false;
+            }
+
+            if (argument_index + 1 < args.argument_count) // Do not support trailing comma in function calls.
+            {
+                // Consume required comma, if present.
+                auto comma_token = eat_token(lexer);
+                if (comma_token.type != acf_token_type::comma)
+                {
+                    acf_parser_report_error(lexer, "Expected ','\n");
+                    acf_parser_highlight_token(lexer, comma_token);
+                    return false;
+                }
+            }
+        }
+
+        auto paren_close_token = eat_token(lexer);
+        if (paren_close_token.type != acf_token_type::parentheses_close)
+        {
+            acf_parser_report_error(lexer, "Expected ')'\n");
+            acf_parser_highlight_token(lexer, paren_close_token);
+            return false;
+        }
+    }
+    else
+    {
+        acf_parser_report_error(lexer, "Referencing an identifier '%.*s', which was not declared before!\n", STRING_PRINT_(name_token.span));
+        acf_parser_highlight_token(lexer, name_token);
+        return false;
+    }
+
+    *result = custom_value_result;
+    return true;
+}
+
+
+bool parse_array(acf_lexer *lexer, acf *result)
+{
+    auto open_bracket_token = eat_token(lexer);
+    if (open_bracket_token.type != acf_token_type::bracket_open)
+    {
+        acf_parser_report_error(lexer, "Array should always start with the '['\n");
+        return false;
+    }
+
+    acf array_value = acf_array();
+    while (true)
+    {
+        auto t = get_token(lexer);
+        if (t.type == acf_token_type::bracket_close)
+        {
+            break;
+        }
+
+        acf value;
+        bool success = parse_value(lexer, &value);
+        if (success)
+        {
+            acf_push(&array_value, value);
+        }
+        else
+        {
+            // The error is contained from the 'parse_value' call.
+            return false;
+        }
+
+        auto comma = get_token(lexer);
+        if (comma.type == acf_token_type::comma)
+        {
+            // Consume optional comma, if present, including trailing comma.
+            eat_token(lexer);
+        }
+    }
+
+    auto close_bracket_token = eat_token(lexer);
+    if (close_bracket_token.type != acf_token_type::bracket_close)
+    {
+        acf_parser_report_error(lexer, "Expected ']'\n");
+        acf_parser_highlight_token(lexer, close_bracket_token);
+        return false;
+    }
+
+    *result = array_value;
+    return true;
+}
+
+
 bool parse_value(acf_lexer *lexer, acf *result)
 {
-    acf_lexer checkpoint = *lexer;
-
     acf_token t = get_token(lexer);
     switch (t.type)
     {
@@ -1210,14 +1448,10 @@ bool parse_value(acf_lexer *lexer, acf *result)
             bool success = parse_constructor_call(lexer, &custom_value);
             if (success)
             {
-                // Ok.
                 *result = custom_value;
             }
             else
             {
-                osOutputDebugString("Could not parse constructor call '%.*s'!\n",
-                    STRING_PRINT_(t.span));
-                *lexer = checkpoint;
                 return false;
             }
         }
@@ -1247,7 +1481,6 @@ bool parse_value(acf_lexer *lexer, acf *result)
             }
             else
             {
-                *lexer = checkpoint;
                 return false;
             }
         }
@@ -1263,7 +1496,6 @@ bool parse_value(acf_lexer *lexer, acf *result)
             }
             else
             {
-                *lexer = checkpoint;
                 return false;
             }
         }
@@ -1271,7 +1503,8 @@ bool parse_value(acf_lexer *lexer, acf *result)
 
         default:
         {
-            *lexer = checkpoint;
+            acf_parser_report_error(lexer, "Expected value but got something else <INSERT SOMETHING ELSE HERE>\n");
+            acf_parser_highlight_token(lexer, t);
             return false;
         }
     }
@@ -1282,27 +1515,30 @@ bool parse_value(acf_lexer *lexer, acf *result)
 
 bool parse_key_value_pair(acf_lexer *lexer, string *key, acf *value)
 {
-    acf_lexer checkpoint = *lexer;
-
-    auto ident_token = ACF_GET_TOKEN_OR_FAIL(identifier);
-    ACF_GET_TOKEN_OR_FAIL(equals);
-
-    *key = ident_token.span;
-    bool success = parse_value(lexer, value);
-    if (!success)
+    auto identifier_token = eat_token(lexer);
+    if (identifier_token.type != acf_token_type::identifier)
     {
-        *lexer = checkpoint;
+        acf_parser_report_error(lexer, "Expected identifier for key-value pair, but got %s.\n", get_acf_token_type_string(identifier_token.type));
+        acf_parser_highlight_token(lexer, identifier_token); // @todo: When this is the EOF, it produces just an '\n' in the error_buffer.
         return false;
     }
 
-    return true;
+    auto equals_token = eat_token(lexer);
+    if (equals_token.type != acf_token_type::equals)
+    {
+        acf_parser_report_error(lexer, "Expected '='\n");
+        acf_parser_highlight_token(lexer, equals_token);
+        return false;
+    }
+
+    *key = identifier_token.span;
+    bool success = parse_value(lexer, value);
+    return success;
 }
 
 
 bool parse_object(acf_lexer *lexer, acf *result, bool braces_optional)
 {
-    acf_lexer checkpoint = *lexer;
-
     acf_token open_brace_token = get_token(lexer);
     if (open_brace_token.type == acf_token_type::brace_open)
     {
@@ -1313,20 +1549,36 @@ bool parse_object(acf_lexer *lexer, acf *result, bool braces_optional)
     }
     else
     {
+        if (open_brace_token.type != acf_token_type::identifier)
+        {
+            acf_parser_report_error(lexer, "Presumably, top-level braces are omitted, but then identifier is expected here:\n");
+            acf_parser_highlight_token(lexer, open_brace_token);
+            return false;
+        }
+
         if (!braces_optional)
         {
-            *lexer = checkpoint;
+            acf_parser_report_error(lexer, "Braces are required by the caller site, but the '%s' is found.\n", get_acf_token_type_string(open_brace_token.type));
+            acf_parser_highlight_token(lexer, open_brace_token);
             return false;
         }
     }
 
     acf object_result = acf_object();
 
-    bool should_stop = false;
-    while (!should_stop)
+    while (true)
     {
+        auto t = get_token(lexer);
+        if ((t.type == acf_token_type::brace_close) ||
+            (braces_optional && t.type == acf_token_type::end_of_file))
+        {
+            break; // It's ok!
+        }
+
         string key;
         acf value;
+
+        // If this returns an error, we know it is a legitimate error!
         bool success = parse_key_value_pair(lexer, &key, &value);
         if (success)
         {
@@ -1342,7 +1594,8 @@ bool parse_object(acf_lexer *lexer, acf *result, bool braces_optional)
 
             if (key_already_defined)
             {
-                osOutputDebugString("Key '%.*s' already defined in this object.\n", STRING_PRINT_(key));
+                acf_parser_report_error(lexer, "Key '%.*s' already defined in this object.\n", STRING_PRINT_(key));
+                return false;
             }
             else
             {
@@ -1351,16 +1604,8 @@ bool parse_object(acf_lexer *lexer, acf *result, bool braces_optional)
         }
         else
         {
-            if (braces_optional && acf_size(object_result) == 0)
-            {
-                *lexer = checkpoint;
-                return false;
-            }
-            else
-            {
-                // End of object, because can't parse anything further.
-                should_stop = true;
-            }
+            // The error should be stored from the parse_key_value_pair call.
+            return false;
         }
 
         acf_token semicolon = get_token(lexer);
@@ -1380,7 +1625,8 @@ bool parse_object(acf_lexer *lexer, acf *result, bool braces_optional)
     {
         if (!braces_optional)
         {
-            *lexer = checkpoint;
+            acf_parser_report_error(lexer, "Closing brackets required, but encountered %s here:\n", get_acf_token_type_string(close_brace_token.type));
+            acf_parser_highlight_token(lexer, close_brace_token);
             return false;
         }
     }
@@ -1390,86 +1636,9 @@ bool parse_object(acf_lexer *lexer, acf *result, bool braces_optional)
 }
 
 
-bool parse_array(acf_lexer *lexer, acf *result, bool brackets_optional)
-{
-    acf_lexer checkpoint = *lexer;
-
-    acf_token open_bracket_token = get_token(lexer);
-    if (open_bracket_token.type == acf_token_type::bracket_open)
-    {
-        eat_token(lexer);
-
-        // Ensure there is closing bracket to this open bracket.
-        brackets_optional = false;
-    }
-    else
-    {
-        if (!brackets_optional)
-        {
-            *lexer = checkpoint;
-            return false;
-        }
-    }
-
-    acf array_value = acf_array();
-    int count = 0;
-
-    bool should_stop = false;
-    while (!should_stop)
-    {
-        acf value;
-        bool success = parse_value(lexer, &value);
-        if (success)
-        {
-            acf_push(&array_value, value);
-            count += 1;
-        }
-        else
-        {
-            if (brackets_optional && count == 0) // && values.is_null())
-            {
-                *lexer = checkpoint;
-                return false;
-            }
-            else
-            {
-                // End of array, because can't parse anything further.
-                should_stop = true;
-            }
-        }
-
-        acf_token comma = get_token(lexer);
-        if (comma.type == acf_token_type::comma)
-        {
-            // Consume optional comma, if present.
-            eat_token(lexer);
-        }
-    }
-
-    acf_token close_bracket_token = get_token(lexer);
-    if (close_bracket_token.type == acf_token_type::bracket_close)
-    {
-        eat_token(lexer);
-    }
-    else
-    {
-        if (!brackets_optional)
-        {
-            *lexer = checkpoint;
-            return false;
-        }
-    }
-
-    *result = array_value;
-    return true;
-}
-
 INTERNAL
 bool parse_type(acf_lexer *lexer, acf_type_t *type)
 {
-    ASSERT(type);
-
-    acf_lexer checkpoint = *lexer;
     acf_token type_name = eat_token(lexer);
     switch (type_name.type)
     {
@@ -1482,8 +1651,10 @@ bool parse_type(acf_lexer *lexer, acf_type_t *type)
         case acf_token_type::keyword_array:  { *type = acf_type_t::array; } break;
         default:
         {
-            // @todo: make it parse already registered types
-            *lexer = checkpoint;
+            // @note: Now I forbid nested custom types. They will overcomplicate matters
+            // and what I want to achieve is possible without them anyway.
+            acf_parser_report_error(lexer, "Expected one of the basic types here:\n");
+            acf_parser_highlight_token(lexer, type_name);
             return false;
         }
     }
@@ -1491,37 +1662,62 @@ bool parse_type(acf_lexer *lexer, acf_type_t *type)
     return true;
 }
 
-INTERNAL
+
+
 bool parse_directive(acf_lexer *lexer)
 {
-    acf_lexer checkpoint = *lexer;
-
-    auto pound_token = ACF_GET_TOKEN_OR_FAIL(pound);
-
-    acf_token directive_token = get_token(lexer);
-    if ((directive_token.type == acf_token_type::identifier)
-        && (cstring::equals_to_cstr(directive_token.span, "newtype")))
+    auto pound_token = eat_token(lexer);
+    if (pound_token.type != acf_token_type::pound)
     {
-        eat_token(lexer);
-    }
-    else
-    {
-        *lexer = checkpoint;
+        acf_parser_report_error(lexer, "Expected '#', but got %s\n", get_acf_token_type_string(pound_token.type));
+        acf_parser_highlight_token(lexer, pound_token);
         return false;
     }
 
-    auto constructor_name_token = ACF_GET_TOKEN_OR_FAIL(identifier);
-    auto paren_open_token = ACF_GET_TOKEN_OR_FAIL(parentheses_open);
+    auto directive_token = eat_token(lexer);
+    if (directive_token.type != acf_token_type::identifier)
+    {
+        acf_parser_report_error(lexer, "There should be an identifier after '#'\n");
+        acf_parser_highlight_token(lexer, directive_token);
+        return false;
+    }
+
+    if (!cstring::equals_to_cstr(directive_token.span, "newtype"))
+    {
+        acf_parser_report_error(lexer, "Currently the only supported directive is 'newtype', but '%.*s' is given\n", STRING_PRINT_(directive_token.span));
+        acf_parser_highlight_token(lexer, directive_token);
+        return false;
+    }
+
+    auto name_token = eat_token(lexer);
+    if (name_token.type != acf_token_type::identifier)
+    {
+        acf_parser_report_error(lexer, "You should specify name of your type here:\n");
+        acf_parser_highlight_token(lexer, name_token);
+        return false;
+    }
+
+    auto open_paren_token = eat_token(lexer);
+    if (open_paren_token.type != acf_token_type::parentheses_open)
+    {
+        acf_parser_report_error(lexer, "Expected '('\n");
+        acf_parser_highlight_token(lexer, open_paren_token);
+        return false;
+    }
 
     acf_constructor_arguments args = {};
-    bool should_stop = false;
-    while (!should_stop)
+    while (true)
     {
+        auto t = get_token(lexer);
+        if (t.type == acf_token_type::parentheses_close)
+        {
+            break; // Ok return.
+        }
+
         acf_type_t arg_type;
         bool success = parse_type(lexer, &arg_type);
         if (success)
         {
-            // Ok
             if (args.argument_count < ARRAY_COUNT(args.arguments))
             {
                 args.arguments[args.argument_count++] = arg_type;
@@ -1529,15 +1725,8 @@ bool parse_directive(acf_lexer *lexer)
         }
         else
         {
-            acf_token close_paren = get_token(lexer);
-            if (close_paren.type != acf_token_type::parentheses_close)
-            {
-                *lexer = checkpoint;
-                return false;
-            }
-
-            // Could not parse next item
-            should_stop = true;
+            // If we encountered an error here, we know for sure that it is legitimate error.
+            return false;
         }
 
         acf_token comma = get_token(lexer);
@@ -1548,138 +1737,52 @@ bool parse_directive(acf_lexer *lexer)
         }
     }
 
-    auto paren_close_token = ACF_GET_TOKEN_OR_FAIL(parentheses_close);
-
-    register_acf_new_type(lexer, constructor_name_token.span, args);
-
-    return true;
-}
-
-
-bool parse_constructor_call(acf_lexer *lexer, acf *result)
-{
-    acf_lexer checkpoint = *lexer;
-
-    auto constructor_name_token = ACF_GET_TOKEN_OR_FAIL(identifier);
-
-    acf custom_value_result = acf_custom_type(constructor_name_token.span);
-    acf_constructor_arguments args;
-    if (is_newtype_registered(lexer, constructor_name_token.span, &args))
+    auto close_paren_token = eat_token(lexer);
+    if (close_paren_token.type != acf_token_type::parentheses_close)
     {
-        ACF_GET_TOKEN_OR_FAIL(parentheses_open);
-
-        for (uint32 argument_index = 0; argument_index < args.argument_count; argument_index++)
-        {
-            acf_type_t type = args.arguments[argument_index];
-            acf_token t = get_token(lexer);
-
-            if (t.type == acf_token_type::parentheses_close)
-            {
-                // Unexpected end of arguments.
-                osOutputDebugString("Argument count mismatch!\n");
-                *lexer = checkpoint;
-                return false;
-            }
-            else if ((type == acf_type_t::null) && (t.type == acf_token_type::keyword_null))
-            {
-                acf_push_argument(&custom_value_result, acf_null());
-                eat_token(lexer);
-            }
-            else if ((type == acf_type_t::boolean) && (t.type == acf_token_type::keyword_true))
-            {
-                acf_push_argument(&custom_value_result, acf_boolean(true));
-                eat_token(lexer);
-            }
-            else if ((type == acf_type_t::boolean) && (t.type == acf_token_type::keyword_false))
-            {
-                acf_push_argument(&custom_value_result, acf_boolean(false));
-                eat_token(lexer);
-            }
-            else if ((type == acf_type_t::integer) && (t.type == acf_token_type::integer))
-            {
-                acf_push_argument(&custom_value_result, acf_integer(t.integer_value));
-                eat_token(lexer);
-            }
-            else if ((type == acf_type_t::string) && (t.type == acf_token_type::string))
-            {
-                string s = t.span;
-                s.data += 1;
-                s.size -= 2;
-                acf_push_argument(&custom_value_result, acf_string(s));
-                eat_token(lexer);
-            }
-            else if ((type == acf_type_t::array) && (t.type == acf_token_type::bracket_open))
-            {
-                acf array_argument;
-                bool success = parse_array(lexer, &array_argument, false);
-                if (success)
-                {
-                    acf_push_argument(&custom_value_result, array_argument);
-                }
-                else
-                {
-                    osOutputDebugString("Cannot parse array argument!\n");
-                    *lexer = checkpoint;
-                    return false;
-                }
-            }
-            else if ((type == acf_type_t::object) && (t.type == acf_token_type::brace_open))
-            {
-                acf object_argument;
-                bool success = parse_object(lexer, &object_argument, false);
-                if (success)
-                {
-                    acf_push_argument(&custom_value_result, object_argument);
-                }
-                else
-                {
-                    osOutputDebugString("Cannot parse object argument!\n");
-                    *lexer = checkpoint;
-                    return false;
-                }
-            }
-            else
-            {
-                osOutputDebugString("Constructor call expected value of type %s, but got %s.\n",
-                    get_acf_type_string(type),
-                    get_acf_token_type_string(t.type));
-                *lexer = checkpoint;
-                return false;
-            }
-
-            if (argument_index + 1 < args.argument_count) // Do not support trailing comma in function calls.
-            {
-                // Consume required comma, if present.
-                acf_token comma = ACF_GET_TOKEN_OR_FAIL(comma);
-            }
-        }
-
-        auto paren_close_token = ACF_GET_TOKEN_OR_FAIL(parentheses_close);
-    }
-    else
-    {
-        osOutputDebugString("Referencing an identifier '%.*s', which was not declared before!\n",
-            STRING_PRINT_(constructor_name_token.span));
-        *lexer = checkpoint;
+        acf_parser_report_error(lexer, "Expected '('\n");
+        acf_parser_highlight_token(lexer, open_paren_token);
         return false;
     }
 
-    *result = custom_value_result;
+    register_acf_new_type(lexer, name_token.span, args);
 
     return true;
 }
+
 
 bool parse_acf(string buffer, acf *result)
 {
     acf_lexer lexer;
     initialize_acf_lexer(&lexer, buffer);
 
-    bool success;
+    bool success = false;
     do {
-        success = parse_directive(&lexer);
+        auto t = get_token(&lexer);
+        if (t.type == acf_token_type::pound) {
+            auto checkpoint = lexer;
+            success = parse_directive(&lexer);
+            if (!success)
+            {
+                break;
+            }
+        }
+        else
+        {
+            break;
+        }
     } while (success);
 
-    success = parse_object(&lexer, result, true);
+    if (success)
+    {
+        success = parse_object(&lexer, result, true);
+    }
+
+    if (!success)
+    {
+        OutputDebugStringA(lexer.error_buffer);
+    }
+
     return success;
 }
 

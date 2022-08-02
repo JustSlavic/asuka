@@ -260,7 +260,12 @@ typedef double float64;
 #define SUCCESS    (1)
 #define FAILURE    (0)
 
+// Sound sample is 16-bit number
+// Sound frame is 2 samples: [left, right]
+// Sound period is a number of frames
+// Sound buffer is a bunch of periods?
 typedef i16 sound_sample_t;
+
 typedef u64 hash_t;
 
 typedef u32 b32;
