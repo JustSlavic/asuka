@@ -1,3 +1,0 @@
-#newtype const(int)
-
-wtf = { a = [1 2 3 const(true)] }

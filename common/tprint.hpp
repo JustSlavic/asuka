@@ -6,61 +6,109 @@
 #include <stdio.h>
 
 
-GLOBAL memory::arena_allocator temporary_storage;
-
-
 int32 tprint(char const *fmt)
 {
-    return printf("%s", fmt);
+    osOutputDebugString("%s", fmt);
+    return (int32) cstring::size_no0(fmt);
 }
 
 template <typename T>
-int32 tprint_helper(char const *fmt, T x);
+void tprint_helper(T x);
 
 template <>
-int32 tprint_helper<int>(char const *fmt, int x)
+void tprint_helper<int8>(int8 x)
 {
-    return printf("%d", x);
+    osOutputDebugString("%hhd", x);
 }
 
 template <>
-int32 tprint_helper<float>(char const *fmt, float x)
+void tprint_helper<int16>(int16 x)
 {
-    return printf("%5.2f", x);
+    osOutputDebugString("%hd", x);
+}
+
+template <>
+void tprint_helper<int32>(int32 x)
+{
+    osOutputDebugString("%d", x);
+}
+
+template <>
+void tprint_helper<int64>(int64 x)
+{
+    osOutputDebugString("%lld", x);
+}
+
+template <>
+void tprint_helper<uint8>(uint8 x)
+{
+    osOutputDebugString("%hhu", x);
+}
+
+template <>
+void tprint_helper<uint16>(uint16 x)
+{
+    osOutputDebugString("%hu", x);
+}
+
+template <>
+void tprint_helper<uint32>(uint32 x)
+{
+    osOutputDebugString("%u", x);
+}
+
+template <>
+void tprint_helper<uint64>(uint64 x)
+{
+    osOutputDebugString("%llu", x);
+}
+
+template <>
+void tprint_helper<float32>(float32 x)
+{
+    osOutputDebugString("%f", x);
+}
+
+template <>
+void tprint_helper<float64>(float64 x)
+{
+    osOutputDebugString("%lf", x);
 }
 
 template <typename T, typename... Args>
 int32 tprint(char const *fmt, T x, Args... args)
 {
     int32 count = 0;
+
+    auto advance = [&count, &fmt] (int32 n = 1) { fmt += n; count += n; };
     while (*fmt)
     {
         if (*fmt == '{')
         {
-            fmt++;
+            advance();
             if (*fmt == '}')
             {
-                fmt++;
-                count += tprint_helper(fmt, x);
+                advance();
+                tprint_helper(x);
 
                 int32 n = tprint(fmt, args...);
-                count += n;
-                fmt += n;
+                advance(n);
             }
             else if (*fmt == '{')
             {
-                count += printf("{");
+                osOutputDebugString("{");
+                advance();
             }
             else
             {
-                printf("<ERROR!>");
+                osOutputDebugString("<ERROR!>");
                 return count;
             }
         }
         else
         {
-            printf("%c", *fmt++);
-            count += 1;
+            osOutputDebugString("%c", *fmt);
+            advance();
         }
     }
 

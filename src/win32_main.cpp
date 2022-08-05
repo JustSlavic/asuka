@@ -1088,7 +1088,7 @@ THREAD_FUNCTION(ThreadTest)
 
 
 #define ACF_LIB_IMPLEMENTATION
-#include "../acf/acf.hpp"
+#include <acf/acf.hpp>
 
 
 int WINAPI WinMain(
@@ -1152,7 +1152,7 @@ int WINAPI WinMain(
     // }
 #endif
 
-#if 1
+#if 0
 
     WIN32_FIND_DATAA FoundFile = {};
     HANDLE hFind = FindFirstFile("C:\\Projects\\asuka\\tests\\acf\\positive\\*", &FoundFile);
@@ -1163,7 +1163,8 @@ int WINAPI WinMain(
     byte_array test_content = os::load_entire_file("../tests/acf/positive/live_test.acf");
     string acf_string = make_string(test_content);
 
-    acf parsed = parse_acf(acf_string);
+    acf parsed;
+    bool success = parse_acf(acf_string, &parsed);
 
     // acf_print_options options;
     // options.multiline = acf_print_options::multiline_t::smart;

@@ -4,6 +4,7 @@
 #include <byte.hpp>
 #include <type.hpp>
 #include <allocator.hpp>
+// #include <tprint.hpp>
 
 //
 // @note: Arrays are non-owners of data. They are just spans of values (when copied, data shares between instances).
@@ -62,6 +63,7 @@ struct array
     constexpr T const* get_data() const { return data; }
     constexpr usize get_size() const { return size; }
     constexpr bool is_empty() const { return (size == 0); }
+    constexpr bool is_valid() const { return (data != 0) && (size != 0); }
 
     T& operator [] (usize index)
     {
@@ -87,8 +89,8 @@ struct array
         return data[size++] = t;
     }
 
-    template <typename U>
-    static array<T> from(array<U> s)
+    template <typename U> STATIC
+    array<T> from(array<U> s)
     {
         array<T> result;
         result.data = (T *) s.data;
@@ -98,7 +100,8 @@ struct array
         return result;
     }
 
-    static array<char> from(char const* s)
+    STATIC
+    array<char> from(char const* s)
     {
         static_assert(type::is_same<T, char>::value, "This from can be called only for strings.");
         array<char> result;
@@ -145,87 +148,7 @@ using string = array<char>;
 // @todo: Utf8 support
 // using utf8_string = array<utf8_char>;
 
-
-template <typename T>
-array<T> make_array(T *data, usize size)
-{
-    array<T> result = {};
-    result.data = data;
-    result.size = size;
-    result.capacity = size;
-
-    return result;
-}
-
-string make_string(char *data, usize size)
-{
-    auto result = make_array<char>(data, size);
-    return result;
-}
-
-string make_string(byte_array array)
-{
-    string result = {};
-    result.data = (char *) array.data;
-    result.size = array.size;
-    result.capacity = array.capacity;
-
-    return result;
-}
-
-template <typename T>
-void copy_array(array<T> *dest, array<T> source)
-{
-    if (dest->capacity < source.size)
-    {
-        return;
-    }
-
-    dest->size = source.size;
-    for (usize i = 0; i < source.size; i++)
-    {
-        dest->data[i] = source.data[i];
-    }
-}
-
-template <typename T>
-byte_string to_byte_string(array<T> s) {
-    byte_string result;
-    result.data = (memory::byte *) s.data_;
-    result.size = s.size_ * sizeof(T);
-    result.capacity = s.capacity_ * sizeof(T);
-
-    return result;
-}
-
-template <typename T>
-array<T> from_byte_string(byte_string s) {
-    array<T> result;
-    result.data = (T *) s.data;
-    result.size = s.size / sizeof(T);
-    result.capacity = s.capacity / sizeof(T);
-
-    return result;
-}
-
-template <typename T>
-b32 operator == (array<T> lhs, array<T> rhs)
-{
-    b32 same = (lhs.get_size() == rhs.get_size());
-    for (usize i = 0; same && (i < lhs.get_size()); i++)
-    {
-        if (lhs[i] != rhs[i]) same = false;
-    }
-
-    return same;
-}
-
-template <typename T>
-b32 operator != (array<T> lhs, array<T> rhs)
-{
-    b32 same = (lhs == rhs);
-    return !same;
-}
+// ============================================================
 
 template <typename T, typename Allocator>
 array<T> allocate_array_(Allocator *allocator, usize count)
@@ -289,13 +212,98 @@ void deallocate_string(Allocator *allocator, string& s)
     deallocate_array(allocator, s);
 }
 
+// ============================================================
+
+template <typename T>
+array<T> make_array(T *data, usize size)
+{
+    array<T> result = {};
+    result.data = data;
+    result.size = size;
+    result.capacity = size;
+
+    return result;
+}
+
+string make_string(char *data, usize size)
+{
+    auto result = make_array<char>(data, size);
+    return result;
+}
+
+string make_string(byte_array array)
+{
+    string result = {};
+    result.data = (char *) array.data;
+    result.size = array.size;
+    result.capacity = array.capacity;
+
+    return result;
+}
+
+template <typename T, typename Allocator>
+array<T> copy_array(Allocator *allocator, array<T> source)
+{
+    array<T> result = allocate_array_<T>(allocator, source.capacity);
+    for (auto& v : source)
+    {
+        result.push(v);
+    }
+    return result;
+}
+
+template <typename T>
+byte_string to_byte_string(array<T> s) {
+    byte_string result;
+    result.data = (memory::byte *) s.data_;
+    result.size = s.size_ * sizeof(T);
+    result.capacity = s.capacity_ * sizeof(T);
+
+    return result;
+}
+
+template <typename T>
+array<T> from_byte_string(byte_string s) {
+    array<T> result;
+    result.data = (T *) s.data;
+    result.size = s.size / sizeof(T);
+    result.capacity = s.capacity / sizeof(T);
+
+    return result;
+}
+
+template <typename T>
+b32 operator == (array<T> lhs, array<T> rhs)
+{
+    b32 same = (lhs.get_size() == rhs.get_size());
+    for (usize i = 0; same && (i < lhs.get_size()); i++)
+    {
+        if (lhs[i] != rhs[i]) same = false;
+    }
+
+    return same;
+}
+
+template <typename T>
+b32 operator != (array<T> lhs, array<T> rhs)
+{
+    b32 same = (lhs == rhs);
+    return !same;
+}
+
 template <typename T, typename Allocator>
 array<T> make_copy(Allocator *allocator, array<T> source)
 {
-    array<T> result = allocate_array_<T>(allocator, source.size);
-    copy_array(&result, source);
+    array<T> result = copy_array(allocator, source);
     return result;
 }
+
+
+// template <>
+// void tprint_helper<string const&>(char const *fmt, string const& str)
+// {
+//     osOutputDebugString("%.*s", (int32) str.size, str.data);
+// }
 
 
 #include "string.hpp"

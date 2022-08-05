@@ -29,7 +29,7 @@ void SetTextFormatting(WORD Formatting)
 
 struct test_pair
 {
-    string filename;
+    os::filepath filename;
     acf correct;
 };
 
@@ -42,21 +42,26 @@ struct test_stats
 
 bool run_acf_test(test_pair test)
 {
-    printf("%.*s: ", (int) test.filename.size, test.filename.data);
+    tprint("{}: ", test.filename);
+    printf("%.*s: ", (int) test.filename.buffer.size, test.filename.buffer.data);
 
     // @todo: Change it to tprint() or tformat() when they are ready!
     char filename_buffer[256];
     memory::set(filename_buffer, 0, sizeof(filename_buffer));
-    sprintf(filename_buffer, "C:\\Projects\\asuka\\tests\\acf\\positive\\%s", test.filename.data);
+    sprintf(filename_buffer, "C:\\Projects\\asuka\\tests\\acf\\positive\\%s", test.filename.buffer.data);
 
     auto content = string::from(os::load_entire_file(filename_buffer));
 
     acf parsed_acf;
     b32 successfull = parse_acf(content, &parsed_acf);
+
     if (successfull)
     {
-        acf_print(parsed_acf);
         osOutputDebugString("\n");
+        tprint("parsed_acf: {}\n", parsed_acf);
+        osOutputDebugString("\n");
+
+        parsed_acf.dispose();
         // successfull = (parsed_acf == test.correct);
     }
 
@@ -83,30 +88,30 @@ test_stats run_acf_tests()
 
     test_pair tests[] =
     {
-        { string::from("001_empty_object.acf"), acf_null() },
-        { string::from("002_null_value.acf"), acf_null() },
-        { string::from("003_boolean_value.acf"), acf_null() },
-        { string::from("004_integer_value.acf"), acf_null() },
-        { string::from("005_floating_value.acf"), acf_null() },
-        { string::from("006_string_value.acf"), acf_null() },
-        { string::from("007_comments.acf"), acf_null() },
-        { string::from("008_many_types.acf"), acf_null() },
-        { string::from("009_optional_semicolons.acf"), acf_null() },
-        { string::from("010_trailing_comma.acf"), acf_null() },
-        { string::from("011_optional_commas.acf"), acf_null() },
-        { string::from("012_optional_top_braces.acf"), acf_null() },
-        { string::from("013_newtype_0_args.acf"), acf_null() },
-        { string::from("014_newtype_1_null_arg.acf"), acf_null() },
-        { string::from("015_newtype_1_bool_arg.acf"), acf_null() },
-        { string::from("016_newtype_1_int_arg.acf"), acf_null() },
-        { string::from("017_newtype_1_float_arg.acf"), acf_null() },
-        { string::from("018_newtype_1_string_arg.acf"), acf_null() },
-        { string::from("019_newtype_1_array_arg.acf"), acf_null() },
-        { string::from("020_newtype_1_object_arg.acf"), acf_null() },
-        { string::from("021_newtype_2_args.acf"), acf_null() },
-        { string::from("022_newtype_3_args.acf"), acf_null() },
-        { string::from("023_newtype_4_args.acf"), acf_null() },
-        { string::from("024_newtype_1_custom_arg.acf"), acf_null() },
+        { os::filepath::from("001_empty_object.acf"), acf::from() },
+        { os::filepath::from("002_null_value.acf"), acf::from() },
+        { os::filepath::from("003_boolean_value.acf"), acf::from() },
+        { os::filepath::from("004_integer_value.acf"), acf::from() },
+        { os::filepath::from("005_floating_value.acf"), acf::from() },
+        { os::filepath::from("006_string_value.acf"), acf::from() },
+        { os::filepath::from("007_comments.acf"), acf::from() },
+        { os::filepath::from("008_many_types.acf"), acf::from() },
+        { os::filepath::from("009_optional_semicolons.acf"), acf::from() },
+        { os::filepath::from("010_trailing_comma.acf"), acf::from() },
+        { os::filepath::from("011_optional_commas.acf"), acf::from() },
+        { os::filepath::from("012_optional_top_braces.acf"), acf::from() },
+        { os::filepath::from("013_newtype_0_args.acf"), acf::from() },
+        { os::filepath::from("014_newtype_1_null_arg.acf"), acf::from() },
+        { os::filepath::from("015_newtype_1_bool_arg.acf"), acf::from() },
+        { os::filepath::from("016_newtype_1_int_arg.acf"), acf::from() },
+        { os::filepath::from("017_newtype_1_float_arg.acf"), acf::from() },
+        { os::filepath::from("018_newtype_1_string_arg.acf"), acf::from() },
+        { os::filepath::from("019_newtype_1_array_arg.acf"), acf::from() },
+        { os::filepath::from("020_newtype_1_object_arg.acf"), acf::from() },
+        { os::filepath::from("021_newtype_2_args.acf"), acf::from() },
+        { os::filepath::from("022_newtype_3_args.acf"), acf::from() },
+        { os::filepath::from("023_newtype_4_args.acf"), acf::from() },
+        { os::filepath::from("024_type_value.acf"), acf::from() },
     };
 
     test_stats result = {};
