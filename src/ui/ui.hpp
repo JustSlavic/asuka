@@ -4,8 +4,6 @@
 #include "ui_element.hpp"
 
 
-namespace Asuka {
-
 /*
     @todo: All things what I want to make for UI:
 
@@ -42,6 +40,3 @@ struct UiScene {
     // @todo: Focus system
     UiElement *focus;
 };
-
-
-} // namespace Asuka

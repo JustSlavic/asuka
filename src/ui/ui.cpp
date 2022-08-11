@@ -1,9 +1,6 @@
 #include "ui.hpp"
 
 
-namespace Asuka {
-
-
 UiScene *ui_allocate_scene(memory::arena_allocator *allocator)
 {
     UiScene *result = ALLOCATE_STRUCT(allocator, UiScene);
@@ -25,7 +22,7 @@ void ui_update_element(UiScene *scene, UiElement *ui_element, Game::Input *input
     {
         case UI_ELEMENT_SHAPE:
         {
-            Rect2 aabb = get_bounding_box(ui_element);
+            rect2 aabb = get_bounding_box(ui_element);
 
             v2 mouse_position = make_vector2(input->mouse.position);
             v2 mouse_prev_position = make_vector2(input->mouse.previous_position);
@@ -114,5 +111,3 @@ void ui_update_scene(UiScene *scene, Game::Input *input)
     scene->hovered_element = NULL;
     ui_update_element(scene, scene->root, input);
 }
-
-} // namespace Asuka

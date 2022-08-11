@@ -84,7 +84,7 @@ struct SimRegion
 {
     World *world;
     WorldPosition origin;
-    Rectangle3 bounds;
+    rect3 bounds;
 
     u32 entity_capacity;
     u32 entity_count;
@@ -105,7 +105,7 @@ SimEntity *get_sim_entity(SimRegion *sim_region, u32 sim_index);
 // Find sim entity in the SimRegion, and if it's not found, add entity to it and return resulted pointer
 SimEntity *get_entity_by_storage_index(GameState *game_state, SimRegion *sim_region, u32 storage_index);
 
-SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_arena, WorldPosition sim_origin, Rectangle3 sim_bounds);
+SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_arena, WorldPosition sim_origin, rect3 sim_bounds);
 void end_simulation(GameState *game_state, SimRegion *sim_region);
 
 

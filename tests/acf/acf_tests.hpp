@@ -15,18 +15,6 @@
 #include <windows.h>
 
 
-GLOBAL WORD TextFormatting_Regular = 7;
-GLOBAL WORD TextFormatting_Red = 4;
-GLOBAL WORD TextFormatting_Green = 2;
-
-
-void SetTextFormatting(WORD Formatting)
-{
-    PERSIST HANDLE Console = GetStdHandle(STD_OUTPUT_HANDLE);
-    SetConsoleTextAttribute(Console, Formatting);
-}
-
-
 struct test_pair
 {
     os::filepath filename;
@@ -43,7 +31,6 @@ struct test_stats
 bool run_acf_test(test_pair test)
 {
     tprint("{}: ", test.filename);
-    printf("%.*s: ", (int) test.filename.buffer.size, test.filename.buffer.data);
 
     // @todo: Change it to tprint() or tformat() when they are ready!
     char filename_buffer[256];
@@ -58,7 +45,7 @@ bool run_acf_test(test_pair test)
     if (successfull)
     {
         osOutputDebugString("\n");
-        tprint("parsed_acf: {}\n", parsed_acf);
+        tprint("{}\n", parsed_acf);
         osOutputDebugString("\n");
 
         parsed_acf.dispose();
@@ -67,15 +54,15 @@ bool run_acf_test(test_pair test)
 
     if (successfull)
     {
-        SetTextFormatting(TextFormatting_Green);
+        console::set_fg(0, 255, 0);
         printf("Ok\n");
-        SetTextFormatting(TextFormatting_Regular);
+        console::reset_formatting();
     }
     else
     {
-        SetTextFormatting(TextFormatting_Red);
+        console::set_fg(255, 0, 0);
         printf("Fail\n");
-        SetTextFormatting(TextFormatting_Regular);
+        console::reset_formatting();
     }
 
     return successfull;
@@ -84,8 +71,6 @@ bool run_acf_test(test_pair test)
 
 test_stats run_acf_tests()
 {
-
-
     test_pair tests[] =
     {
         { os::filepath::from("001_empty_object.acf"), acf::from() },
@@ -112,6 +97,8 @@ test_stats run_acf_tests()
         { os::filepath::from("022_newtype_3_args.acf"), acf::from() },
         { os::filepath::from("023_newtype_4_args.acf"), acf::from() },
         { os::filepath::from("024_type_value.acf"), acf::from() },
+        { os::filepath::from("025_int_to_float_conversion.acf"), acf::from() },
+        { os::filepath::from("026_type_type_value.acf"), acf::from() },
     };
 
     test_stats result = {};
@@ -127,53 +114,5 @@ test_stats run_acf_tests()
         }
     }
 
-    // WIN32_FIND_DATAA FoundFile = {};
-    // HANDLE FileHandle = FindFirstFile("C:\\Projects\\asuka\\tests\\acf\\positive\\*", &FoundFile);
-
-    // if (FileHandle == INVALID_HANDLE_VALUE)
-    // {
-    //     printf("Filepath is wrong.\n");
-    // }
-    // else
-    // {
-    //     do {
-    //         auto FileAttributes = FoundFile.dwFileAttributes;
-    //         if (FileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-    //         {
-    //             // Skip directories.
-    //         }
-    //         else
-    //         {
-    //             char filename_buffer[256];
-    //             memory::set(filename_buffer, 0, sizeof(filename_buffer));
-    //             sprintf(filename_buffer, "positive\\%s", FoundFile.cFileName);
-
-    //             auto filename = string::from(filename_buffer);
-    //             if ((filename[filename.size - 4] != '.') ||
-    //                 (filename[filename.size - 3] != 'a') ||
-    //                 (filename[filename.size - 2] != 'c') ||
-    //                 (filename[filename.size - 1] != 'f'))
-    //             {
-    //                 continue;
-    //             }
-
-    //             if (run_acf_test(filename))
-    //             {
-    //                 result.successfull += 1;
-    //             }
-    //             else
-    //             {
-    //                 result.failed += 1;
-    //             }
-    //         }
-    //     } while (FindNextFile(FileHandle, &FoundFile));
-
-    //     if (GetLastError() != ERROR_NO_MORE_FILES)
-    //     {
-    //         printf("Could not real whole directory for some reason.\n");
-    //     }
-
-    //     FindClose(FileHandle);
-    // }
     return result;
 }

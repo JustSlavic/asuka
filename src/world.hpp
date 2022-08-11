@@ -5,8 +5,6 @@
 
 namespace Game {
 
-using namespace Asuka;
-
 /*
 
     Now there are two coordinate systems:

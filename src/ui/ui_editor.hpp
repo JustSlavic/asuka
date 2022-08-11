@@ -7,9 +7,6 @@
     - Actions recording for Undo/Redo
 */
 
-namespace Asuka {
-
-
 using UiPosition = decltype(UiElement::position);
 
 enum UiEditorActionType
@@ -99,6 +96,3 @@ UiEditorAction *get_last_action(UiEditor *editor)
     UiEditorAction *result = get_action(editor, editor->action_end_index - 1);
     return result;
 }
-
-
-} // namespace Asuka

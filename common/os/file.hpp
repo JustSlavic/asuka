@@ -38,8 +38,13 @@ bool write_file(const char* filepath, byte_array contents);
 template <>
 void tprint_helper<os::filepath>(os::filepath p)
 {
-    osOutputDebugString("%.*s", (int) p.buffer.size, p.buffer.data);
+    printf("%.*s", (int) p.buffer.size, p.buffer.data);
 }
+
+struct filepath_iterator
+{
+    // @todo: OS-defined implementation?
+};
 
 
 #if UNITY_BUILD

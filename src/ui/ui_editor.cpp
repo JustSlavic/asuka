@@ -1,10 +1,6 @@
 #include "ui_editor.hpp"
 
 
-namespace Asuka
-{
-
-
 struct UiEditorUpdateResult
 {
     UiElement *hovered_element;
@@ -25,7 +21,7 @@ void ui_update_editor_impl(
     {
         case UI_ELEMENT_SHAPE:
         {
-            Rect2 aabb = get_bounding_box(ui_element);
+            rect2 aabb = get_bounding_box(ui_element);
 
             v2 mouse_position = make_vector2(input->mouse.position);
             v2 mouse_prev_position = make_vector2(input->mouse.previous_position);
@@ -113,8 +109,6 @@ void undo_action(UiEditor *editor)
     {
         editor->action_end_index -= 1;
     }
-
-    osOutputDebugString("Ctrl+Z => %lld\n", editor->action_end_index);
 }
 
 
@@ -141,8 +135,6 @@ void redo_action(UiEditor *editor)
     {
         editor->action_end_index += 1;
     }
-
-    osOutputDebugString("Ctrl+Shift+Z => %lld\n", editor->action_end_index);
 }
 
 
@@ -164,7 +156,6 @@ void ui_update_editor(UiEditor *editor, UiScene *scene, Game::Input *input)
             commit_action(editor, action);
 
             editor->selection = update_result.ui_element_to_select;
-            osOutputDebugString("commit selection: %lld\n", editor->action_end_index - 1);
         }
     }
     if (editor->selection != NULL && length(update_result.dP) > 0.5f) // 0.5f is a deadzone
@@ -187,7 +178,6 @@ void ui_update_editor(UiEditor *editor, UiScene *scene, Game::Input *input)
             action->move.new_position = editor->selection->position;
             commit_action(editor, *action);
             *action = ui_action();
-            osOutputDebugString("commit move: %lld\n", editor->action_end_index - 1);
         }
         else
         {
@@ -203,6 +193,3 @@ void ui_update_editor(UiEditor *editor, UiScene *scene, Game::Input *input)
         undo_action(editor);
     }
 }
-
-
-} // namespace Asuka

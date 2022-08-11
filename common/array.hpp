@@ -4,7 +4,6 @@
 #include <byte.hpp>
 #include <type.hpp>
 #include <allocator.hpp>
-// #include <tprint.hpp>
 
 //
 // @note: Arrays are non-owners of data. They are just spans of values (when copied, data shares between instances).
@@ -67,7 +66,7 @@ struct array
 
     T& operator [] (usize index)
     {
-        ASSERT_MSG(index + 1 < capacity, "Attempt to access array memory out of bounds.");
+        ASSERT_MSG(index < capacity, "Attempt to access array memory out of bounds.");
 
         if (size < index + 1)
         {
@@ -297,13 +296,6 @@ array<T> make_copy(Allocator *allocator, array<T> source)
     array<T> result = copy_array(allocator, source);
     return result;
 }
-
-
-// template <>
-// void tprint_helper<string const&>(char const *fmt, string const& str)
-// {
-//     osOutputDebugString("%.*s", (int32) str.size, str.data);
-// }
 
 
 #include "string.hpp"

@@ -129,7 +129,7 @@ SimEntity *get_entity_by_storage_index(GameState *game_state, SimRegion *sim_reg
 }
 
 
-SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_arena, WorldPosition sim_origin, Rectangle3 sim_bounds)
+SimRegion *begin_simulation(GameState *game_state, memory::arena_allocator *sim_arena, WorldPosition sim_origin, rect3 sim_bounds)
 {
     SimRegion *sim_region = ALLOCATE_STRUCT(sim_arena, SimRegion);
     sim_region->world  = game_state->world;

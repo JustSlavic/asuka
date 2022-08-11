@@ -608,12 +608,9 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                                 {
                                     Win32_ToggleFullscreen(Message.hwnd);
                                 }
-                                else
-                                {
-                                    Running = false;
-                                }
                             }
                             Win32_ProcessKeyEvent(&Controller->Back, IsDown);
+                            Win32_ProcessKeyEvent(&Keyboard->Esc, IsDown);
                         }
                         break;
 
@@ -684,24 +681,28 @@ void Win32_ProcessPendingMessages(HWND Window, Game::ControllerInput *Controller
                         case VK_UP:
                         {
                             Win32_ProcessKeyEvent(&Controller->Y, IsDown);
+                            Win32_ProcessKeyEvent(&Keyboard->ArrowUp, IsDown);
                         }
                         break;
 
                         case VK_DOWN:
                         {
                             Win32_ProcessKeyEvent(&Controller->A, IsDown);
+                            Win32_ProcessKeyEvent(&Keyboard->ArrowDown, IsDown);
                         }
                         break;
 
                         case VK_LEFT:
                         {
                             Win32_ProcessKeyEvent(&Controller->X, IsDown);
+                            Win32_ProcessKeyEvent(&Keyboard->ArrowLeft, IsDown);
                         }
                         break;
 
                         case VK_RIGHT:
                         {
                             Win32_ProcessKeyEvent(&Controller->B, IsDown);
+                            Win32_ProcessKeyEvent(&Keyboard->ArrowRight, IsDown);
                         }
                         break;
 
@@ -867,82 +868,6 @@ void Win32_DebugDrawRectangle(
             Row += ScreenBuffer->Pitch;
         }
     }
-
-    // int Bottom = int(MaxCorner.y);
-    // int X = int(MinCorner.x);
-
-    // if (Bottom >= ScreenBuffer->Height) {
-    //     Bottom = ScreenBuffer->Height;
-    // }
-
-
-    // if (Dotted) {
-    // } else {
-    //     for (int Y = Top; Y < Bottom; Y++) {
-    //         *(u32*)Pixel = Color;
-    //         Pixel += ScreenBuffer->Pitch;
-    //     }
-    // }
-}
-
-
-INTERNAL
-Float32 Win32_DebugFourierSound(Game::SoundOutputBuffer *SoundBuffer, Float32 Frequency)
-{
-    Float32 IntegralValue = 0;
-
-    sound_sample_t *Sample = SoundBuffer->Samples;
-    for (Int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++)
-    {
-        IntegralValue += (Asuka::absolute(*Sample++) * 1.0f);
-        IntegralValue += (Asuka::absolute(*Sample++) * 1.0f);
-    }
-}
-
-
-INTERNAL
-void Win32_DebugDrawVolume(
-    Platform::OffscreenBuffer *ScreenBuffer,
-    Game::SoundOutputBuffer *SoundBuffer)
-{
-    Float32 VolumeL = 0;
-    Float32 VolumeR = 0;
-
-    sound_sample_t *Sample = SoundBuffer->Samples;
-    for (Int32 SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; SampleIndex++)
-    {
-        VolumeL += Asuka::absolute(*Sample++);
-        VolumeR += Asuka::absolute(*Sample++);
-    }
-
-    PERSIST Float32 VolumeL_[10] = {};
-    PERSIST Float32 VolumeR_[10] = {};
-    PERSIST Int32   VolumeIndex = 0;
-
-    VolumeL /= (SoundBuffer->SampleCount);
-    VolumeR /= (SoundBuffer->SampleCount);
-
-    VolumeL_[VolumeIndex] = VolumeL;
-    VolumeR_[VolumeIndex] = VolumeR;
-
-    VolumeIndex = (VolumeIndex + 1) % 10;
-
-    // Draw sound volume for left and right channels
-    {
-        Float32 L = 0;
-        Float32 R = 0;
-        for (Int32 i = 0; i < 10; i++)
-        {
-            L += VolumeL_[i];
-            R += VolumeR_[i];
-        }
-
-        L /= 1000;
-        R /= 1000;
-
-        Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(0, ScreenBuffer->Height - L), Asuka::V2(50, ScreenBuffer->Height), 0xFFFFFFFF);
-        Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(ScreenBuffer->Width - 50, ScreenBuffer->Height - R), Asuka::V2(ScreenBuffer->Width, ScreenBuffer->Height), 0xFFFFFFFF);
-    }
 }
 
 INTERNAL
@@ -967,27 +892,27 @@ void Win32_DebugSoundDisplay(
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].PlayCursor);
             u32 Color = CursorIndex == CurrentCursorIndex ? 0xFFFF00FF : 0xFFFFFFFF;
-            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), Color, false);
+            Win32_DebugDrawRectangle(ScreenBuffer, v2(X, Top), v2(X+1, Bottom), Color, false);
         }
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].WriteCursor);
-            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), 0xFFFF0000, false);
+            Win32_DebugDrawRectangle(ScreenBuffer, v2(X, Top), v2(X+1, Bottom), 0xFFFF0000, false);
         }
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].OutputLocationStart);
-            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), 0xFF00FF00, false);
+            Win32_DebugDrawRectangle(ScreenBuffer, v2(X, Top), v2(X+1, Bottom), 0xFF00FF00, false);
         }
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].OutputLocationEnd);
-            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), 0xFF0000FF, false);
+            Win32_DebugDrawRectangle(ScreenBuffer, v2(X, Top), v2(X+1, Bottom), 0xFF0000FF, false);
         }
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].PageFlip);
-            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), 0xFFFFFF00, true);
+            Win32_DebugDrawRectangle(ScreenBuffer, v2(X, Top), v2(X+1, Bottom), 0xFFFFFF00, true);
         }
         {
             int X = PadX + (int)(C * (f32)Cursors[CursorIndex].ExpectedNextPageFlip);
-            Win32_DebugDrawRectangle(ScreenBuffer, Asuka::V2(X, Top), Asuka::V2(X+1, Bottom), 0xFF00FFFF, true);
+            Win32_DebugDrawRectangle(ScreenBuffer, v2(X, Top), v2(X+1, Bottom), 0xFF00FFFF, true);
         }
 
     }
@@ -1146,62 +1071,20 @@ int WINAPI WinMain(
     PushIntoWorkQueue(SemaphoreHandle, "B 7 Camera!");
     PushIntoWorkQueue(SemaphoreHandle, "B 8 Memory!");
 
-    // while (FinishedWorkCount < WorkCount)
-    // {
-    //     DoWorkerWork(&MainThreadInfo);
-    // }
-#endif
-
-#if 0
-
-    WIN32_FIND_DATAA FoundFile = {};
-    HANDLE hFind = FindFirstFile("C:\\Projects\\asuka\\tests\\acf\\positive\\*", &FoundFile);
-
-    osOutputDebugString(FoundFile.cFileName);
-    return 0;
-
-    byte_array test_content = os::load_entire_file("../tests/acf/positive/live_test.acf");
-    string acf_string = make_string(test_content);
-
-    acf parsed;
-    bool success = parse_acf(acf_string, &parsed);
-
-    // acf_print_options options;
-    // options.multiline = acf_print_options::multiline_t::smart;
-    // options.max_elements_in_line = 4;
-    // acf_print(parsed, options);
-
-    osOutputDebugString("\n\n============\n\n");
-
-    // acf scheme = create_scheme_from_acf_impl(parsed, &acf_arena);
-    // acf_print(scheme, options);
-    // osOutputDebugString("\n");
-
-    return 0;
-#endif
-
-#if 0
-    u32 dct = GetDoubleClickTime();
-    printf("dct=%u\n", dct);
-#endif
-
-#if 0
-    for (f32 x = -1000.0f; x < 1050.0f; x += 10)
+    while (FinishedWorkCount < WorkCount)
     {
-        f32 std_result = sinf(x);
-        f32  my_result = my_sin(x);
-
-        osOutputDebugString("x=%f; sin=%f; my_sin=%f; err=%f\n", x, std_result, my_result, Asuka::absolute(std_result-my_result));
+        DoWorkerWork(&MainThreadInfo);
     }
-
-    return 0;
 #endif
+
+    // @todo: Use this value to implement double clicking
+    UINT DoubleClickTimeMs = GetDoubleClickTime();
 
     UINT DesiredSchedulerGranularityMS = 1; // ms
     MMRESULT TimeBeginPeriodResult = timeBeginPeriod(DesiredSchedulerGranularityMS); // Set this so that sleep granularity
     bool SleepIsGranular = (TimeBeginPeriodResult == TIMERR_NOERROR);
 
-    char ProgramPath [256] {};
+    char ProgramPath[256] = {};
     DWORD ProgramPathSize = GetModuleFileNameA(Instance, ProgramPath, 256);
 
     DWORD IndexOfLastSlash = 0;
@@ -1257,8 +1140,8 @@ int WINAPI WinMain(
         WindowStyle,                      // Style
         CW_USEDEFAULT,                    // X,
         CW_USEDEFAULT,                    // Y,
-        Platform::Width(WindowRectangle),           // Width
-        Platform::Height(WindowRectangle),          // Height
+        Platform::Width(WindowRectangle), // Width
+        Platform::Height(WindowRectangle),// Height
         0,                                // WndParent
         0,                                // Menu
         Instance,                         // Instance
@@ -1336,7 +1219,14 @@ int WINAPI WinMain(
     Running = true;
     int FrameCounter = 0;
 
+    DWORD MainThreadId = GetCurrentThreadId();
+
+    PlatformCommandQueue CommandQueue = {};
+
     ThreadContext GameThread {};
+    GameThread.thread_id = MainThreadId;
+    GameThread.command_queue = &CommandQueue;
+
     ThreadContext SoundThread {};
 
 #if 0
@@ -1358,10 +1248,10 @@ int WINAPI WinMain(
     char GameTempDllFilename[] = "asuka_running.dll";
     char LockFilename[] = "lock.tmp";
 
-    char GameDllFilepath [256];
-    char GameTempDllFilepath [256];
-    char LockFilepath [256];
-    char WindowText [256];
+    char GameDllFilepath[256];
+    char GameTempDllFilepath[256];
+    char LockFilepath[256];
+    char WindowText[256];
 
     Win32_DebugCatStrings(
         ProgramPath, ProgramPathNoFilenameSize,
@@ -1658,6 +1548,21 @@ int WINAPI WinMain(
             Debug_SoundCursorIndex = (Debug_SoundCursorIndex + 1) % ARRAY_COUNT(Debug_Cursors);
         }
 #endif
+        // Process command buffer
+        {
+            while (CommandQueue.command_count > 0)
+            {
+                auto command = pop_command(&CommandQueue);
+                switch (command)
+                {
+                    case PLATFORM_COMMAND_EXIT:
+                    {
+                        Running = false;
+                    }
+                    break;
+                }
+            }
+        }
 
         {
             HDC DeviceContext = GetDC(Window);

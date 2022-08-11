@@ -1,15 +1,18 @@
 @echo off
 
+
 SET DLL_BUILD=/DASUKA_DLL_BUILD=1
 SET INCLUDE_TEXTURES=/DIN_CODE_TEXTURES=0
 SET UI_EDITOR=/DUI_EDITOR_ENABLED=1
 
 SET BUILD_SETTINGS=%DLL_BUILD% %INCLUDE_TEXTURES% %UI_EDITOR%
 
+SET COMMON_DEFINES=/DUNITY_BUILD=1 /DASUKA_DEBUG=1 /DASUKA_OS_WINDOWS=1 /DBYTE_ORDER=1234 /D_CRT_SECURE_NO_WARNINGS
+
 SET WARNINGS=/W4 /WX /wd4201 /wd4100 /wd4189 /wd4505 /wd4702
 SET COMMON_CL_FLAGS=/std:c++17 /MTd /nologo /GR- /Oi /Zi /EHa-
 SET COMMON_LINKER_FLAGS=/opt:ref /incremental:no
-SET COMMON_MY_FLAGS=/DUNITY_BUILD=1 %BUILD_SETTINGS% /DASUKA_DEBUG=1 /DASUKA_OS_WINDOWS=1 /DBYTE_ORDER=1234 /I../common /I../src /D_CRT_SECURE_NO_WARNINGS
+SET COMMON_FLAGS= %COMMON_DEFINES% /I../common /I../src
 SET COMMON_LIBS=User32.lib Xinput.lib Gdi32.lib Winmm.lib
 
 IF NOT EXIST build mkdir build
@@ -22,22 +25,23 @@ SET HOUR=%time:~0,2%
 IF "%HOUR:~0,1%" == " " SET HOUR=0%HOUR:~1,1%
 
 REM ASUKA
-rem SET PDB_FILENAME=%date:~6,4%_%date:~3,2%_%date:~0,2%_%HOUR%_%time:~3,2%_%time:~6,2%_asuka.pdb
-rem echo WAITING FOR PDB > lock.tmp
-rem cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DLL=1 /Fmasuka.map /Feasuka ../src/asuka.cpp /LD /link /PDB:%PDB_FILENAME% %COMMON_LINKER_FLAGS%
-rem del lock.tmp
+SET PDB_FILENAME=%date:~6,4%_%date:~3,2%_%date:~0,2%_%HOUR%_%time:~3,2%_%time:~6,2%_asuka.pdb
+echo WAITING FOR PDB > lock.tmp
+cl %COMMON_CL_FLAGS% %COMMON_FLAGS% %BUILD_SETTINGS% /DASUKA_DLL=1 /Fmasuka.map /Feasuka ../src/asuka.cpp /LD /link /PDB:%PDB_FILENAME% %COMMON_LINKER_FLAGS%
+del lock.tmp
 
 REM Wenjie
 rem SET PDB_FILENAME=%date:~6,4%_%date:~3,2%_%date:~0,2%_%HOUR%_%time:~3,2%_%time:~6,2%_wenjie.pdb
 rem echo WAITING FOR PDB > lock.tmp
-rem cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /DASUKA_DLL=1 /Fmwenjie.map /Fewenjie ../wenjie/code/wenjie.cpp /LD /link /PDB:%PDB_FILENAME% %COMMON_LINKER_FLAGS%
+rem cl %COMMON_CL_FLAGS% %COMMON_FLAGS% /DASUKA_DLL=1 /Fmwenjie.map /Fewenjie ../wenjie/code/wenjie.cpp /LD /link /PDB:%PDB_FILENAME% %COMMON_LINKER_FLAGS%
 rem del lock.tmp
 
 REM Platform code
-rem cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /Femain /Fmwin32_main.map ../src/win32_main.cpp /link %COMMON_LINKER_FLAGS% %COMMON_LIBS%
+cl %COMMON_CL_FLAGS% %COMMON_FLAGS% %BUILD_SETTINGS% /Femain /Fmwin32_main.map ../src/win32_main.cpp /link %COMMON_LINKER_FLAGS% %COMMON_LIBS%
 
 REM Tests
-cl /nologo /std:c++17 /EHa- %WARNINGS% /fsanitize=address /Zi /EHsc /Fetests ../tests/main.cpp /I../common /DASUKA_OS_WINDOWS=1 /D_CRT_SECURE_NO_WARNINGS /DUNITY_BUILD=1
+rem SET ASAN_TESTS=/fsanitize=address
+cl %COMMON_CL_FLAGS% %WARNINGS% %COMMON_FLAGS% /EHsc /Fetests ../tests/main.cpp /I../common /DASUKA_OS_WINDOWS=1 /D_CRT_SECURE_NO_WARNINGS /DUNITY_BUILD=1
 
 
 REM XAudio2

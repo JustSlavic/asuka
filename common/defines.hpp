@@ -221,6 +221,7 @@ typedef double float64;
 
 #define OFFSET_OF(STRUCT, MEMBER) ((size_t)&(((STRUCT *)0)->MEMBER(STRUCT, MEMBER)))
 
+#define CONSTANT         const
 #define STATIC           static
 #define INTERNAL         static
 #define PERSIST          static
@@ -297,46 +298,5 @@ struct CONCAT2(NAME, _Flags) { \
 }
 
 #define TOGGLE(X) { (X) = !(X); } void(0)
-
-struct CodeLocation
-{
-    char const *function;
-    char const *filename;
-    int32 line;
-};
-
-CodeLocation make_code_location(char const *file, int32 l)
-{
-    CodeLocation cl = {};
-    cl.filename = file;
-    cl.line = l;
-    return cl;
-}
-
-CodeLocation make_code_location(char const *file, int32 l, char const *func)
-{
-    CodeLocation cl = {};
-    cl.filename = file;
-    cl.line = l;
-    cl.function = func;
-    return cl;
-}
-
-struct AllocationLogEntry
-{
-    CodeLocation cl;
-    void *pointer;
-    usize size;
-    usize index;
-};
-
-AllocationLogEntry null_allocation_entry()
-{
-    AllocationLogEntry result = {};
-    return result;
-}
-
-#define CODE_LOCATION make_code_location(__FILE__, __LINE__)
-#define CODE_LOCATION_FUNC make_code_location(__FILE__, __LINE__, __FUNCTION__)
 
 #endif // ASUKA_COMMON_DEFINES_HPP

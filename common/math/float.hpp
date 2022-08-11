@@ -212,45 +212,49 @@ f32 signaling_nan()
 #define NaN qNaN
 #endif // ASUKA_DEBUG
 
-
-
-inline u32 rotate_left(u32 x, u32 n) {
+INLINE
+u32 rotate_left(u32 x, u32 n)
+{
     n &= 31;
     u32 result = (x << n) | (x >> (32 - n));
     return result;
 }
 
-inline u32 rotate_right(u32 x, u32 n) {
+INLINE
+u32 rotate_right(u32 x, u32 n)
+{
     n &= 31;
     u32 result = (x >> n) | (x << (32 - n));
     return result;
 }
 
-
-
-inline f32 min(f32 x, f32 y) {
+INLINE
+f32 min_(f32 x, f32 y)
+{
     f32 result = (x < y) ? x : y;
     return result;
 }
 
-inline f32 max(f32 x, f32 y) {
+INLINE
+f32 max_(f32 x, f32 y)
+{
     f32 result = (x < y) ? y : x;
     return result;
 }
 
-inline i32 min(i32 x, i32 y) {
+INLINE
+i32 min_(i32 x, i32 y)
+{
     i32 result = (x < y) ? x : y;
     return result;
 }
 
-inline i32 max(i32 x, i32 y) {
+INLINE
+i32 max_(i32 x, i32 y)
+{
     i32 result = (x < y) ? y : x;
     return result;
 }
-
-
-
-
 
 INLINE
 f32 sin(f32 x)
@@ -258,7 +262,6 @@ f32 sin(f32 x)
     f32 result = sinf(x);
     return result;
 }
-
 
 INLINE
 f32 cos(f32 x)

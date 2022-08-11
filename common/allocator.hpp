@@ -3,10 +3,25 @@
 
 #include <defines.hpp>
 #include <os/memory.hpp>
+#include <code_location.hpp>
 
-#include <memory/mallocator.hpp>
+struct AllocationLogEntry
+{
+    CodeLocation cl;
+    void *pointer;
+    usize size;
+    usize index;
+};
+
+AllocationLogEntry null_allocation_entry()
+{
+    AllocationLogEntry result = {};
+    return result;
+}
+
 #include <memory/arena_allocator.hpp>
 #include <memory/pool_allocator.hpp>
+#include <memory/mallocator.hpp>
 
 
 /*
@@ -23,9 +38,10 @@
 
     All allocators should provide functions to use withing this file:
 
-      - initialize__ gives memory to the allocator and initializes it;
-      - allocate__ allocates memory of given size withing the initialized memory buffer;
-      - deallocate__ frees allocated memory.
+      - initialize__ gives memory to the allocator and initializes it
+      - allocate__ allocates memory of given size withing the initialized memory buffer
+      - reallocate__ extends memory chunk if it's possible, but reallocates otherwise
+      - deallocate__ frees allocated memory
 
     You should not call these functions directly, but rather use macroses, to
     ensure that all meta-information about location of the call in the source

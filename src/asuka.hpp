@@ -58,12 +58,45 @@
 
 */
 
+enum PlatformCommand
+{
+    PLATFORM_COMMAND_NONE = 0,
+    PLATFORM_COMMAND_EXIT = 1,
+};
+
+struct PlatformCommandQueue
+{
+    PlatformCommand commands[32];
+    u32 command_count;
+    u64 next_command_index; // This index always gets increased, so use % to return to bounds
+};
+
+void push_command(PlatformCommandQueue *queue, PlatformCommand command)
+{
+    ASSERT_MSG(queue->command_count < ARRAY_COUNT(queue->commands), "Command buffer has ended!");
+    u64 index = (queue->next_command_index + queue->command_count) % ARRAY_COUNT(queue->commands);
+    queue->commands[index] = command;
+    queue->command_count += 1;
+}
+
+PlatformCommand pop_command(PlatformCommandQueue *queue)
+{
+    PlatformCommand result = PLATFORM_COMMAND_NONE;
+    if (queue->command_count > 0)
+    {
+        result = queue->commands[queue->next_command_index % ARRAY_COUNT(queue->commands)];
+        queue->command_count -= 1;
+        queue->next_command_index += 1;
+    }
+
+    return result;
+}
 
 struct ThreadContext
 {
-    u64 thread_id;
+    u32 thread_id;
+    PlatformCommandQueue *command_queue;
 };
-
 
 //
 // Services that the platform layer provides to the game.
@@ -154,9 +187,11 @@ struct KeyboardState
     {
         // @todo: Consider making key position in the array equal to VK_Keycode from Win32 API?
         // for easy access.
-        ButtonState buttons[19];
+        ButtonState buttons[21];
         struct
         {
+            ButtonState Esc;
+
             ButtonState Ctrl;
             ButtonState Shift;
 
@@ -325,7 +360,7 @@ struct VisiblePiece {
     v2 dimensions;
 
     Bitmap *bitmap;
-    Color32 color;
+    color32 color;
 };
 
 
@@ -405,6 +440,8 @@ struct GameState {
 
     memory::mallocator experimental_mallocator;
     void *start_p;
+
+    f32 exit_confirmation_time;
 
 #if UI_EDITOR_ENABLED
     UiEditor *ui_editor;

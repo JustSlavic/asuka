@@ -190,6 +190,68 @@ struct DebugInputRecording
 #endif // ASUKA_PLAYBACK_LOOP
 
 
+void EnableVTCodes()
+{
+    HANDLE Console = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD ConsoleMode;
+    GetConsoleMode(Console, &ConsoleMode);
+    ConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(Console, ConsoleMode);
+}
+
+
+//  =========== Saved this for later ===============
+// WIN32_FIND_DATAA FoundFile = {};
+// HANDLE FileHandle = FindFirstFile("C:\\Projects\\asuka\\tests\\acf\\positive\\*", &FoundFile);
+
+// if (FileHandle == INVALID_HANDLE_VALUE)
+// {
+//     printf("Filepath is wrong.\n");
+// }
+// else
+// {
+//     do {
+//         auto FileAttributes = FoundFile.dwFileAttributes;
+//         if (FileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+//         {
+//             // Skip directories.
+//         }
+//         else
+//         {
+//             char filename_buffer[256];
+//             memory::set(filename_buffer, 0, sizeof(filename_buffer));
+//             sprintf(filename_buffer, "positive\\%s", FoundFile.cFileName);
+
+//             auto filename = string::from(filename_buffer);
+//             if ((filename[filename.size - 4] != '.') ||
+//                 (filename[filename.size - 3] != 'a') ||
+//                 (filename[filename.size - 2] != 'c') ||
+//                 (filename[filename.size - 1] != 'f'))
+//             {
+//                 continue;
+//             }
+
+//             if (run_acf_test(filename))
+//             {
+//                 result.successfull += 1;
+//             }
+//             else
+//             {
+//                 result.failed += 1;
+//             }
+//         }
+//     } while (FindNextFile(FileHandle, &FoundFile));
+
+//     if (GetLastError() != ERROR_NO_MORE_FILES)
+//     {
+//         printf("Could not real whole directory for some reason.\n");
+//     }
+
+//     FindClose(FileHandle);
+// }
+//  =========== Saved this for later ===============
+
+
 Int32 Width(RECT Rect)
 {
     Int32 Result = Rect.right - Rect.left;

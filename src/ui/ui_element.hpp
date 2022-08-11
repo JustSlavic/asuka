@@ -3,9 +3,6 @@
 #include <math.hpp>
 
 
-namespace Asuka {
-
-
 /*
     Good to know terminology:
 
@@ -77,7 +74,7 @@ enum UiElementType
 struct UiShape
 {
     v2 size;     // @note: in Local coordinates
-    Color32 color;  // Natural element's color, but not be present for UiBitmaps, for example
+    color32 color;  // Natural element's color, but not be present for UiBitmaps, for example
 
     // @debug: Diagonal squares
     int32 n;
@@ -128,7 +125,7 @@ UiElement *allocate_ui_shape(Allocator *allocator)
     auto ui_element = allocate_ui_element(allocator, UI_ELEMENT_SHAPE);
 
     ui_element->shape.size = make_vector2(100, 100);
-    ui_element->shape.color = Color32::White;
+    ui_element->shape.color = color32::White;
     ui_element->shape.n = 1;
 
     return ui_element;
@@ -141,12 +138,10 @@ UiElement *allocate_ui_group(Allocator *allocator)
     return ui_element;
 }
 
-Rectangle2 get_bounding_box(UiElement *element);
+rect2 get_bounding_box(UiElement *element);
 void push_filter(UiShape *element, UiFilter *filter);
 matrix4 get_transform(UiElement *element);
 
-
-} // namespace Asuka
 
 #if UNITY_BUILD
 #include "ui_element.cpp"

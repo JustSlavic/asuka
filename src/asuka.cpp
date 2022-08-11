@@ -1,6 +1,9 @@
 #include "asuka.hpp"
 #include <png.hpp>
 
+#define ACF_LIB_IMPLEMENTATION
+#include <acf/acf.hpp>
+
 
 #define ASUKA_DEBUG_FOLLOWING_CAMERA 1
 
@@ -122,7 +125,7 @@ INTERNAL
 void DrawRectangle(
     OffscreenBuffer* buffer,
     v2 top_left, v2 bottom_right,
-    Color24 color,
+    color24 color,
     b32 stroke = false)
 {
     v2i tl = round_to_v2i(top_left);
@@ -156,7 +159,7 @@ void DrawRectangle(
 
 #if ASUKA_PLAYBACK_LOOP
 INTERNAL
-void DrawBorder(OffscreenBuffer* Buffer, u32 Width, Color24 Color)
+void DrawBorder(OffscreenBuffer* Buffer, u32 Width, color24 Color)
 {
     DrawRectangle(Buffer, make_vector2(0, 0), make_vector2(Buffer->Width, Width), Color);
     DrawRectangle(Buffer, make_vector2(0, Width), make_vector2(Width, Buffer->Height - Width), Color);
@@ -167,7 +170,7 @@ void DrawBorder(OffscreenBuffer* Buffer, u32 Width, Color24 Color)
 
 
 INTERNAL
-void draw_empty_rectangle_in_meters(OffscreenBuffer *buffer, Rectangle2 rect, u32 width, Color24 color, v2 offset, f32 pixels_per_meter)
+void draw_empty_rectangle_in_meters(OffscreenBuffer *buffer, rect2 rect, u32 width, color24 color, v2 offset, f32 pixels_per_meter)
 {
     f32 rect_width = get_width(rect);
     f32 rect_height = get_height(rect);
@@ -194,7 +197,7 @@ void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buf
         case UI_ELEMENT_SHAPE:
         {
             i32 n = ui_element->shape.n;
-            Rectangle2 aabb = get_bounding_box(ui_element);
+            rect2 aabb = get_bounding_box(ui_element);
             for (i32 i = 0; i < n; i++)
             {
                 v2 diagonal = (aabb.max - aabb.min) / f32(n);
@@ -202,7 +205,7 @@ void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buf
                 v2 lt = aabb.min + diagonal * f32(i);
                 v2 rb = lt + diagonal;
 
-                Color32 color = ui_element->shape.color;
+                color32 color = ui_element->shape.color;
 
                 for (u32 filter_index = 0; filter_index < ui_element->filter_count; filter_index++)
                 {
@@ -218,7 +221,7 @@ void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buf
                         case UI_FILTER_SHADOW:
                         {
                             UiFilterShadow *shadow = &filter->shadow;
-                            DrawRectangle(buffer, lt + make_vector2(shadow->distance), rb + make_vector2(shadow->distance), Color24::Black);
+                            DrawRectangle(buffer, lt + make_vector2(shadow->distance), rb + make_vector2(shadow->distance), color24::Black);
                         }
                         break;
 
@@ -245,11 +248,11 @@ void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buf
                         lt += make_vector2(5.0f);
                         rb += make_vector2(5.0f);
 
-                        color = Color32{ 0.2f, 0.3f, 0.5f, 1.0f };
+                        color = color32{ 0.2f, 0.3f, 0.5f, 1.0f };
                     }
                     else
                     {
-                        color = Color32{ 0.9f, 0.2f, 0.2f, 1.0f };
+                        color = color32{ 0.9f, 0.2f, 0.2f, 1.0f };
                     }
                 }
                 else
@@ -291,8 +294,8 @@ void ui_draw_editor(UiScene *scene, UiEditor *editor, OffscreenBuffer *buffer)
         {
             case UI_ELEMENT_SHAPE:
             {
-                Rectangle2 aabb = get_bounding_box(hovered);
-                Color24 color = { 215.0f / 255.0f, 215.0f / 255.0f, 215.0f / 255.0f };
+                rect2 aabb = get_bounding_box(hovered);
+                color24 color = { 215.0f / 255.0f, 215.0f / 255.0f, 215.0f / 255.0f };
 
                 f32 width = 2;
                 DrawRectangle(buffer, make_vector2(aabb.min.x - width, aabb.min.y - width), make_vector2(aabb.min.x, aabb.max.y + width), color);
@@ -321,8 +324,8 @@ void ui_draw_editor(UiScene *scene, UiEditor *editor, OffscreenBuffer *buffer)
         {
             case UI_ELEMENT_SHAPE:
             {
-                Rectangle2 aabb = get_bounding_box(selection);
-                Color24 color = { 3.0f / 255.0f, 215.0f / 255.0f, 252.0f / 255.0f };
+                rect2 aabb = get_bounding_box(selection);
+                color24 color = { 3.0f / 255.0f, 215.0f / 255.0f, 252.0f / 255.0f };
 
                 f32 width = 2;
                 DrawRectangle(buffer, make_vector2(aabb.min.x - width, aabb.min.y - width), make_vector2(aabb.min.x, aabb.max.y + width), color);
@@ -355,7 +358,7 @@ void ui_draw_scene(UiScene *scene, OffscreenBuffer *buffer)
 
 
 INTERNAL
-void push_piece(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, Bitmap *bitmap, Color32 color)
+void push_piece(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, Bitmap *bitmap, color32 color)
 {
     // @note offset and dimensions are in world space (in meters, bottom-up coordinate space)
     ASSERT(group->count < ARRAY_COUNT(group->assets));
@@ -371,7 +374,7 @@ void push_piece(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters,
 
 
 INTERNAL
-void push_rectangle(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, Color32 color)
+void push_rectangle(VisiblePieceGroup *group, v3 offset_in_meters, v2 dim_in_meters, color32 color)
 {
     push_piece(group, offset_in_meters, dim_in_meters, NULL, color);
 }
@@ -564,15 +567,26 @@ void handle_collision(SimEntity *a, SimEntity *b)
 }
 
 
+
+//
+//  dp                                              ╭
+//  ── = v(t)   =>   dp = v(t)dt   =>   p(t) = p0 + │v(t)dt
+//  dt                                              ╯
+//
+//  dv                                              ╭
+//  ── = a(t)   =>   dv = a(t)dt   =>   v(t) = v0 + │a(t)dt
+//  dt                                              ╯
+//
+//  p = p0 + int(v0 + int(a(t)))
+//  p = p0 + v0 * t + a * t^2 / 2
+//
 void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity, MoveSpec spec, f32 dt)
 {
     ASSERT(!is(entity, ENTITY_FLAG_NONSPATIAL));
 
-    // p = p0 + v0 * t + a * t^2 / 2
-
     v3 position = entity->position;
     v3 velocity = entity->velocity + spec.acceleration * dt;
-    v3 destination = position + velocity * dt;
+    v3 destination = entity->position + entity->velocity * dt + 0.5f * spec.acceleration * square(dt);
 
     /*
         @note:
@@ -580,7 +594,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
     // @todo: include this into common collision logic
     if (!spec.jump)
     {
-        if (destination.z < 0)
+        if (destination.z < 0 && sim_region->origin.chunk.z == 0)
         {
             /*
                 (p.x, p.y, p.z) ----- (q.x, q.y, 0) ----- (d.x, d.y, d.z)
@@ -996,7 +1010,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         hud_child_1->scale = make_vector2(1, 1);
         hud_child_1->position = make_vector2(50, 50);
         hud_child_1->shape.size = make_vector2(50, 50);
-        hud_child_1->shape.color = Color32::White;
+        hud_child_1->shape.color = color32::White;
         hud_child_1->shape.n = 1;
 
         hud_child_1->on_click = []()
@@ -1068,6 +1082,18 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     }
 
     // Game Input
+    if (GetPressCount(Input->keyboard.Esc) > 0)
+    {
+        if (game_state->exit_confirmation_time > 0)
+        {
+            push_command(thread->command_queue, PLATFORM_COMMAND_EXIT);
+        }
+        else
+        {
+            game_state->exit_confirmation_time = 1.0f; // 1 second
+        }
+    }
+    game_state->exit_confirmation_time -= dt;
 
     for (InputIndex ControllerIndex { 0 }; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++)
     {
@@ -1117,7 +1143,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         }
     }
 
-    Rectangle3 sim_bounds = rect3::from_min_max(make_vector3(-10, -6, -5), make_vector3(10, 6, 5)); // in meters
+    rect3 sim_bounds = rect3::from_min_max(make_vector3(-10, -6, -5), make_vector3(10, 6, 5)); // in meters
 
     initialize(&game_state->temp_arena, (u8 *) Memory->TransientStorage, Memory->TransientStorageSize, "sim_region");
 
@@ -1136,7 +1162,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     // Background grass
     // DrawBitmap(Buffer, { 0, 0 }, { (f32)Buffer->Width, (f32)Buffer->Height }, &game_state->grass_texture);
 
-#if 1
     // ===================== RENDERING ENTITIES ===================== //
     VisiblePieceGroup group {};
     group.pixels_per_meter = pixels_per_meter;
@@ -1281,7 +1306,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
             case ENTITY_TYPE_MONSTER:
             {
-#if 1
+#if 1 // DRAW MONSTER
                 auto *head = &game_state->monster_head;
                 auto *left_arm  = &game_state->monster_left_arm;
                 auto *right_arm = &game_state->monster_right_arm;
@@ -1291,7 +1316,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
                 push_asset(&group, right_arm, make_vector3(-3.0f, 2.5f, 0));
 
                 draw_hitpoints(entity, &group);
-#endif
+#endif // DRAW MONSTER
             }
             break;
 
@@ -1352,14 +1377,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         //     Buffer,
         //     entity_position_in_pixels - 0.5f * entity->hitbox * pixels_per_meter,
         //     entity_position_in_pixels + 0.5f * entity->hitbox * pixels_per_meter,
-        //     Color24{ 1.f, 1.f, 0.f });
-        Rectangle2 hitbox_in_pixels = Rectangle2::from_min_max(
+        //     color24{ 1.f, 1.f, 0.f });
+        rect2 hitbox_in_pixels = rect2::from_min_max(
             entity_position_in_pixels - 0.5f * entity->hitbox.xy * pixels_per_meter,
             entity_position_in_pixels + 0.5f * entity->hitbox.xy * pixels_per_meter);
 
         // @note: this draw hitboxes
         draw_empty_rectangle_in_meters(Buffer,
-            Rectangle2::from_center_dim(entity->position.xy, entity->hitbox.xy),
+            rect2::from_center_dim(entity->position.xy, entity->hitbox.xy),
             2, make_rgb(1, 1, 0), entity->position.xy, pixels_per_meter);
 
         for (u32 asset_index = 0; asset_index < group.count; asset_index++) {
@@ -1383,17 +1408,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     {
         game_state->camera_position = followed_entity->world_position;
     }
-
-#if 1
-    {
-        // draw_empty_rectangle_in_meters(Buffer, sim_bounds, 2, rgb(1, 1, 0), pixels_per_meter);
-
-        // @note: debug draw one meter square in the center fo the screen
-        // Rectangle2 debug_rect_to_draw = Rectangle2::from_center_dim(make_vector2(0, 0), make_vector2(1, 1));
-        // draw_empty_rectangle_in_meters(Buffer, debug_rect_to_draw, 2, rgb(0, 1, 0), make_vector2(0, 0), pixels_per_meter);
-    }
-#endif
-#endif
 
     // ===================== RENDERING UI ===================== //
 
@@ -1424,194 +1438,136 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
 #define ASUKA_DRAW_MEMORY_LAYOUT 1
 #define DRAW_WORLD_ARENA         0
-#define DRAW_EXPERIMENTAL_POOL   1
-#define DRAW_MALLOCATOR_MEMORY   0
+#define DRAW_EXPERIMENTAL_POOL   0
+#define DRAW_MALLOCATOR_MEMORY   1
 
 #if ASUKA_DEBUG && ASUKA_DRAW_MEMORY_LAYOUT
+
+    u32 size_per_pixel_width = 12; // bytes
+    u32 strip_height = 10;  // px
+    int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel_width;
+
+    color24 border_color = make_color24(0, 0.1, 0.1);
+    u32 line_width = 1; // px
+
+    auto debug_draw_wrapped_rectangle = [&](void *base_pointer, void *pointer, usize size, i32 strip_user_offset, color24 color, bool draw_border = false)
+    {
+        int64 start = (int64)pointer - (int64)base_pointer;
+        int64 rest = size; // in bytes
+
+        while (rest > 0)
+        {
+            int64 x = (start - (start / buffer_width_in_mapped_bytes) * buffer_width_in_mapped_bytes) / size_per_pixel_width;
+            int64 y = ((start / buffer_width_in_mapped_bytes) * strip_height);
+
+            int64 w;
+            if (x * size_per_pixel_width + rest > buffer_width_in_mapped_bytes)
+            {
+                w = buffer_width_in_mapped_bytes / size_per_pixel_width;
+                rest -= (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
+                start += (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
+            }
+            else
+            {
+                w = rest / size_per_pixel_width;
+                rest -= rest;
+                start += rest;
+            }
+
+            v2 lt = make_vector2(x, y + strip_user_offset * strip_height);
+            v2 wh = make_vector2(w, strip_height);
+
+            DrawRectangle(Buffer, lt, lt+wh, color);
+
+            if (draw_border)
+            {
+                // left-top -- right-top
+                DrawRectangle(Buffer, lt, lt + make_vector2(wh.x, line_width), border_color);
+                // right-top -- right-bottom
+                DrawRectangle(Buffer, lt + make_vector2(wh.x - line_width, 0), lt + wh, border_color);
+                // left-top -- left-bottom
+                DrawRectangle(Buffer, lt, lt + make_vector2(line_width, wh.y), border_color);
+                // left_bottom -- right-bottom
+                DrawRectangle(Buffer, lt + make_vector2(line_width, wh.y - line_width), lt + wh, border_color);
+            }
+        }
+    };
+
 #if DRAW_WORLD_ARENA
     {
-        uint64 strip_height = 20;
-
+        PERSIST i32 strip_user_offset    = 0;  // in strip count
         auto *allocator_to_draw = &game_state->world_arena;
-
-        uint64 how_many_bytes_i_want_to_see = Buffer->Width * Buffer->Height;
-        int64 size_per_pixel = how_many_bytes_i_want_to_see / (Buffer->Width * Buffer->Height);
-
-        // PERSIST int *allocations[1024];
-        // PERSIST u32 allocations_count = 0;
-
-        // f32 const chance = 0.05f;
-        // f32 roll = uniform_real(0, 1);
-        // if (roll < chance)
-        // {
-        //     u32 int_count = rand() % (20 - 5) + 5;
-        //     int *p = ALLOCATE_BUFFER(allocator_to_draw, int, int_count);
-        //     ASSERT(p);
-        //     allocations[allocations_count++] = p;
-        // }
-        // else
-        // {
-        //     if (allocations_count > 0)
-        //     {
-        //         f32 const dealloc_chance = 0.03f;
-        //         roll = uniform_real(0, 1);
-        //         if (roll < dealloc_chance)
-        //         {
-        //             u32 index_to_deallocate = rand() % allocations_count;
-        //             void *p = allocations[index_to_deallocate];
-        //             ASSERT(p);
-        //             DEALLOCATE_BUFFER(allocator_to_draw, p);
-        //             allocations[index_to_deallocate] = allocations[--allocations_count];
-        //         }
-        //     }
-        // }
-
         {
             void* start_p = allocator_to_draw->memory;
-
-            int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel;
-
             for (uint64 hash_entry_index = 0 ; hash_entry_index < ARRAY_COUNT(allocator_to_draw->hash_table); hash_entry_index++)
             {
                 AllocationLogEntry *entry = allocator_to_draw->hash_table + hash_entry_index;
                 if (entry->pointer == NULL) continue;
 
-                // Let's say I made an allocation within this memory arena.
-                // The pointer for this allocation is
-                void *allocation_pointer = entry->pointer;
-                usize allocation_size = entry->size; // bytes;
-
-                int64 start = (int64)allocation_pointer - (int64)start_p;
-                int64 rest = allocation_size; // in bytes
-
-                while (rest > 0)
-                {
-                    int64 x = (start - (start / buffer_width_in_mapped_bytes) * buffer_width_in_mapped_bytes) / size_per_pixel;
-                    int64 y = ((start / buffer_width_in_mapped_bytes) * strip_height) / size_per_pixel;
-
-                    int64 w;
-                    if (x * size_per_pixel + rest > buffer_width_in_mapped_bytes)
-                    {
-                        w = buffer_width_in_mapped_bytes / size_per_pixel;
-                        rest -= (buffer_width_in_mapped_bytes - x * size_per_pixel);
-                        start += (buffer_width_in_mapped_bytes - x * size_per_pixel);
-                    }
-                    else
-                    {
-                        w = rest / size_per_pixel;
-                        rest -= rest;
-                        start += rest;
-                    }
-
-                    v2 lt = make_vector2(x, y);
-                    v2 wh = make_vector2(w, strip_height);
-
-                    Color24 color = {};
-                    color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
-                    color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
-
-                    DrawRectangle(Buffer, lt, lt+wh, color);
-                }
+                color24 color = {};
+                color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                debug_draw_wrapped_rectangle(start_p, entry->pointer, entry->size, strip_user_offset, color, true);
             }
         }
     }
 #endif // DRAW_WORLD_ARENA
 #if DRAW_EXPERIMENTAL_POOL
     {
-        u32 strip_height         = 30; // px
-        u32 size_per_pixel_width = 5;  // bytes
-        b32 drawBucketBorders    = false;
-
         auto *allocator_to_draw = &game_state->experimental_pool;
 
-        // uint64 how_many_bytes_i_want_to_see = 2 * (Buffer->Width * Buffer->Height);
-        // int64 size_per_pixel = how_many_bytes_i_want_to_see / (Buffer->Width * Buffer->Height);
-
-        PERSIST int *allocations[1024];
-        PERSIST u32 allocations_count = 0;
-
-        f32 const chance = 0.4f;
-        f32 roll = uniform_real(0, 1);
-        if (roll < chance)
+        // Make random allocations
         {
-            u32 int_count = rand() % (20 - 5) + 5;
-            int *p = ALLOCATE_BUFFER(allocator_to_draw, int, int_count);
-            ASSERT(p);
-            allocations[allocations_count++] = p;
-        }
-        else
-        {
-            if (allocations_count > 0)
+            PERSIST int *allocations[1024];
+            PERSIST u32 allocations_count = 0;
+
+            f32 const chance = 0.4f;
+            f32 roll = uniform_real(0, 1);
+            if (roll < chance)
             {
-                f32 const dealloc_chance = 1.0f;
-                roll = uniform_real(0, 1);
-                if (roll < dealloc_chance)
+                u32 int_count = rand() % (20 - 5) + 5;
+                int *p = ALLOCATE_BUFFER(allocator_to_draw, int, int_count);
+                ASSERT(p);
+                allocations[allocations_count++] = p;
+            }
+            else
+            {
+                if (allocations_count > 0)
                 {
-                    u32 index_to_deallocate = rand() % allocations_count;
-                    void *p = allocations[index_to_deallocate];
-                    ASSERT(p);
-                    DEALLOCATE_BUFFER(allocator_to_draw, p);
-                    allocations[index_to_deallocate] = allocations[--allocations_count];
+                    f32 const dealloc_chance = 1.0f;
+                    roll = uniform_real(0, 1);
+                    if (roll < dealloc_chance)
+                    {
+                        u32 index_to_deallocate = rand() % allocations_count;
+                        void *p = allocations[index_to_deallocate];
+                        ASSERT(p);
+                        DEALLOCATE_BUFFER(allocator_to_draw, p);
+                        allocations[index_to_deallocate] = allocations[--allocations_count];
+                    }
                 }
             }
         }
 
         {
             void* start_p = allocator_to_draw->memory;
-            Color24 color = Color24::Black;
-
-            int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel_width;
-
             for (uint64 hash_entry_index = 0 ; hash_entry_index < ARRAY_COUNT(allocator_to_draw->hash_table); hash_entry_index++)
             {
                 AllocationLogEntry *entry = allocator_to_draw->hash_table + hash_entry_index;
                 if (entry->pointer == NULL) continue;
 
-                // Let's say I made an allocation within this memory arena.
-                // The pointer for this allocation is
-                void *allocation_pointer = entry->pointer;
-                usize allocation_size = entry->size; // bytes;
-
-                int64 start = (int64)allocation_pointer - (int64)start_p;
-                int64 rest = allocation_size; // in bytes
-
-                while (rest > 0)
-                {
-                    int64 x = (start - (start / buffer_width_in_mapped_bytes) * buffer_width_in_mapped_bytes) / size_per_pixel_width;
-                    int64 y = ((start / buffer_width_in_mapped_bytes) * strip_height);
-
-                    int64 w;
-                    if (x * size_per_pixel_width + rest > buffer_width_in_mapped_bytes)
-                    {
-                        w = buffer_width_in_mapped_bytes / size_per_pixel_width;
-                        rest -= (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
-                        start += (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
-                    }
-                    else
-                    {
-                        w = rest / size_per_pixel_width;
-                        rest -= rest;
-                        start += rest;
-                    }
-
-                    v2 lt = make_vector2(x, y);
-                    v2 wh = make_vector2(w, strip_height);
-
-                    Color24 random_color = {};
-                    random_color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
-                    random_color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
-
-                    DrawRectangle(Buffer, lt, lt+wh, random_color);
-                }
+                color24 color = {};
+                color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                debug_draw_wrapped_rectangle(start_p, entry->pointer, entry->size, 0, color, false);
             }
         }
 
-        if (drawBucketBorders)
+        if (true)
         {
             void* start_p = allocator_to_draw->memory;
             int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel_width;
             u32 line_width = 1;
-            Color24 color = make_rgb( 0.0, 0.2, 0.2 );
+            color24 color = make_rgb( 0.0, 0.2, 0.2 );
 
             using chunk_t = typename GameState::experimental_pool_t::memory_chunk;
 
@@ -1647,8 +1603,8 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
                     v2 tl = make_vector2(x, y);
                     v2 wh = make_vector2(w, strip_height);
-                    DrawRectangle(Buffer, tl, tl + make_vector2(wh.x, line_width), color);
-                    DrawRectangle(Buffer, tl + make_vector2(wh.x - line_width, 0), tl + wh, color);
+                    DrawRectangle(Buffer, tl, tl + make_vector2(wh.x, line_width), border_color);
+                    DrawRectangle(Buffer, tl + make_vector2(wh.x - line_width, 0), tl + wh, border_color);
                 }
             }
         }
@@ -1656,115 +1612,82 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #endif // DRAW_EXPERIMENTAL_POOL
 #if DRAW_MALLOCATOR_MEMORY
     {
-        PERSIST b32 printed = 0;
         PERSIST i32 strip_user_offset    = 0;  // in strip count
-        u32 strip_height         = 2;  // px
+        u32 strip_height         = 6;  // px
         u32 size_per_pixel_width = 20; // bytes
 
         if (GetPressCount(Input->keyboard.ArrowDown) > 0)
         {
             strip_user_offset += 1;
-            printed = 0;
         }
         if (GetPressCount(Input->keyboard.ArrowUp) > 0)
         {
             strip_user_offset -= 1;
-            printed = 0;
         }
-
-        // if (!printed) osOutputDebugString("strip offset: %d\n", strip_user_offset);
-        printed = 1;
 
         auto *allocator_to_draw = &game_state->experimental_mallocator;
 
-        PERSIST int *allocations[2048];
-        PERSIST u32 allocations_count = 0;
+        // PERSIST int *allocations[2048];
+        // PERSIST u32 allocations_count = 0;
 
-        int *last_allocation = 0;
+        // int *last_allocation = 0;
 
-        f32 const chance = 0.8f;
-        f32 roll = uniform_real(0, 1);
+        // f32 const chance = 0.8f;
+        // f32 roll = uniform_real(0, 1);
 
-        if ((roll < chance) && (allocations_count < ARRAY_COUNT(allocations)))
+        // if ((roll < chance) && (allocations_count < ARRAY_COUNT(allocations)))
+        // {
+        //     u32 int_count = rand() % 290 + 10;
+        //     int *p = ALLOCATE_BUFFER(allocator_to_draw, int, int_count);
+        //     ASSERT(p);
+        //     allocations[allocations_count++] = p;
+        //     last_allocation = p;
+        // }
+        // else
+        // {
+        //     if (allocations_count > 0)
+        //     {
+        //         u32 index_to_deallocate = rand() % allocations_count;
+        //         void *p = allocations[index_to_deallocate];
+        //         ASSERT(p);
+        //         DEALLOCATE_BUFFER(allocator_to_draw, p);
+        //         allocations[index_to_deallocate] = allocations[allocations_count - 1];
+        //         allocations[allocations_count - 1] = 0;
+        //         allocations_count--;
+        //     }
+        // }
+
+        // acf parsed_acf = {};
+        // bool success = parse_acf(string::from("{ a = 10 b = 20 c = 30 d = \"Hmm...\" }"), &parsed_acf);
+
+        for (uint64 hash_entry_index = 0;
+            hash_entry_index < ARRAY_COUNT(allocator_to_draw->hash_table);
+            hash_entry_index++)
         {
-            u32 int_count = rand() % 290 + 10;
-            int *p = ALLOCATE_BUFFER(allocator_to_draw, int, int_count);
-            ASSERT(p);
-            allocations[allocations_count++] = p;
-            last_allocation = p;
-        }
-        else
-        {
-            if (allocations_count > 0)
+            AllocationLogEntry *entry = allocator_to_draw->hash_table + hash_entry_index;
+
+            if ((entry->pointer != 0) &&
+                (game_state->start_p == NULL))
             {
-                u32 index_to_deallocate = rand() % allocations_count;
-                void *p = allocations[index_to_deallocate];
-                ASSERT(p);
-                DEALLOCATE_BUFFER(allocator_to_draw, p);
-                allocations[index_to_deallocate] = allocations[allocations_count - 1];
-                allocations[allocations_count - 1] = 0;
-                allocations_count--;
+                game_state->start_p = entry->pointer;
+            }
+            else if (entry->pointer != NULL && entry->pointer < game_state->start_p)
+            {
+                game_state->start_p = entry->pointer;
             }
         }
 
-        if (allocations_count > 0)
         {
-            if (game_state->start_p == NULL) game_state->start_p = allocations[0];
-            for (uint32 i = 0; i < allocations_count; i++)
-            {
-                if (allocations[i] < game_state->start_p) game_state->start_p = allocations[i];
-            }
-
-            int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel_width;
-
+            void* start_p = game_state->start_p;
             for (uint64 hash_entry_index = 0 ; hash_entry_index < ARRAY_COUNT(allocator_to_draw->hash_table); hash_entry_index++)
             {
                 AllocationLogEntry *entry = allocator_to_draw->hash_table + hash_entry_index;
                 if (entry->pointer == NULL) continue;
 
-                // Let's say I made an allocation within this memory arena.
-                // The pointer for this allocation is
-                void *allocation_pointer = entry->pointer;
-                usize allocation_size = entry->size; // bytes;
-
-                int64 start = (int64)allocation_pointer - (int64)game_state->start_p;
-                int64 rest = allocation_size; // in bytes
-
-                while (rest > 0)
-                {
-                    int64 x = (start - (start / buffer_width_in_mapped_bytes) * buffer_width_in_mapped_bytes) / size_per_pixel_width;
-                    int64 y = ((start / buffer_width_in_mapped_bytes) * strip_height);
-
-                    y -= strip_user_offset * strip_height;
-
-                    int64 w;
-                    if (x * size_per_pixel_width + rest > buffer_width_in_mapped_bytes)
-                    {
-                        w = buffer_width_in_mapped_bytes / size_per_pixel_width;
-                        rest -= (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
-                        start += (buffer_width_in_mapped_bytes - x * size_per_pixel_width);
-                    }
-                    else
-                    {
-                        w = rest / size_per_pixel_width;
-                        rest -= rest;
-                        start += rest;
-                    }
-
-                    v2 lt = make_vector2(x, y);
-                    v2 wh = make_vector2(w, strip_height);
-
-                    Color24 color = {};
-                    color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
-                    color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
-
-                    if (allocation_pointer == last_allocation)
-                    {
-                        color = Color24::Red;
-                    }
-
-                    DrawRectangle(Buffer, lt, lt+wh, color);
-                }
+                color24 color = {};
+                color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                debug_draw_wrapped_rectangle(start_p, entry->pointer, entry->size, strip_user_offset, color, true);
             }
         }
     }
@@ -1773,31 +1696,40 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     // ===================== RENDERING SIGNALING BORDERS ================= //
 
-#if ASUKA_PLAYBACK_LOOP
-    Color24 BorderColor {};
+    color24 BorderColor {};
     u32 BorderWidth = 10;
-    b32 BorderVisible {};
+    b32 BorderVisible = false;
 
-    switch (Input->PlaybackLoopState) {
-        case PLAYBACK_LOOP_IDLE: {
-            BorderVisible = false;
-            break;
-        }
-        case PLAYBACK_LOOP_RECORDING: {
+    if (game_state->exit_confirmation_time > 0)
+    {
+        BorderVisible = true;
+        BorderColor = make_rgb(0.5f + 0.5f * game_state->exit_confirmation_time, 0.2, 0.2);
+    }
+
+#if ASUKA_PLAYBACK_LOOP
+    switch (Input->PlaybackLoopState)
+    {
+        case PLAYBACK_LOOP_RECORDING:
+        {
             BorderVisible = true;
             BorderColor = make_rgb(1.0f, 244.0f / 255.0f, 43.0f / 255.0f);
-            break;
         }
-        case PLAYBACK_LOOP_PLAYBACK: {
+        break;
+
+        case PLAYBACK_LOOP_PLAYBACK:
+        {
             BorderVisible = true;
             BorderColor = make_rgb(29.0f / 255.0f, 166.0f / 255.0f, 8.0f / 255.0f);
-            break;
         }
+        break;
     }
+#endif // ASUKA_PLAYBACK_LOOP
 
-    if (BorderVisible) {
+    if (BorderVisible)
+    {
         DrawBorder(Buffer, BorderWidth, BorderColor);
     }
+
 #if UI_EDITOR_ENABLED
     else if (game_state->ui_editor_enabled)
     {
@@ -1805,7 +1737,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     }
 #endif // UI_EDITOR_ENABLED
 
-#endif // ASUKA_PLAYBACK_LOOP
 
 #if 0
     [](auto Buffer)

@@ -1,11 +1,8 @@
-#ifndef ASUKA_COMMON_MATH_COMPLEX_HPP
-#define ASUKA_COMMON_MATH_COMPLEX_HPP
+#pragma once
 
 #include <defines.hpp>
 #include "vector2.hpp"
 
-
-namespace Asuka {
 
 
 struct complex {
@@ -44,7 +41,3 @@ complex operator * (complex a, complex b)
     complex result { a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re };
     return result;
 }
-
-} // namespace Asuka
-
-#endif // ASUKA_COMMON_MATH_COMPLEX_HPP

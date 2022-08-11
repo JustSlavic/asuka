@@ -15,7 +15,6 @@
 namespace memory
 {
 
-
 struct arena_allocator {
     byte *memory;
     usize size; // bytes

@@ -70,8 +70,6 @@ Chunk* get_chunk(World* world, i32 chunk_x, i32 chunk_y, i32 chunk_z, memory::ar
 
         if (arena && chunk->next_in_hashtable == NULL)
         {
-            osOutputDebugString("Allocate Chunk at (%d, %d, %d)\n", chunk_x, chunk_y, chunk_z);
-
             chunk->next_in_hashtable = ALLOCATE_STRUCT(arena, Chunk);
         }
 
@@ -125,8 +123,6 @@ EntityBlock *add_entity_block_to_chunk(World *world, Chunk *chunk, memory::arena
 
     if (world->next_free_block)
     {
-        osOutputDebugString("Reused free entity block from world.\n");
-
         EntityBlock *next_free_block = world->next_free_block;
         world->next_free_block = world->next_free_block->next_block;
 
@@ -134,8 +130,6 @@ EntityBlock *add_entity_block_to_chunk(World *world, Chunk *chunk, memory::arena
     }
     else
     {
-        osOutputDebugString("Allocated entity block from memory arena.\n");
-
         chunk->entities = ALLOCATE_STRUCT(arena, EntityBlock);
     }
 
@@ -156,7 +150,6 @@ void push_entity_into_chunk(World *world, Chunk *chunk, u32 low_index, memory::a
     }
 
     block->entities[block->entity_count++] = low_index;
-    osOutputDebugString("Pushed Entity #%d to (%d %d %d)\n", low_index, chunk->chunk_x, chunk->chunk_y, chunk->chunk_z);
 }
 
 
@@ -172,8 +165,6 @@ void remove_entity_from_chunk(World *world, Chunk *chunk, u32 storage_index)
             if (block->entities[idx] == storage_index)
             {
                 // Found entity to remove!
-                osOutputDebugString("Removed Entity #%d\n", storage_index);
-
                 block->entities[idx] = first_block->entities[first_block->entity_count - 1];
                 first_block->entity_count -= 1;
 
