@@ -5,6 +5,7 @@
 #include <os/memory.hpp>
 #include <code_location.hpp>
 
+#ifdef ASUKA_DEBUG
 struct AllocationLogEntry
 {
     CodeLocation cl;
@@ -18,6 +19,83 @@ AllocationLogEntry null_allocation_entry()
     AllocationLogEntry result = {};
     return result;
 }
+
+struct AllocationLog
+{
+    AllocationLogEntry hash_table[1024];
+    usize allocation_count = 0;
+};
+
+INLINE
+void initialize_allocation_log(AllocationLog *log)
+{
+    memory::set(log->hash_table, 0, sizeof(log->hash_table));
+    log->allocation_count = 0;
+}
+
+INLINE
+AllocationLogEntry *get_allocation_entry(AllocationLog *log, void *pointer)
+{
+    AllocationLogEntry *result = NULL;
+
+    uint64 hash = (uint64) pointer;
+    for (uint64 offset = 0; offset < ARRAY_COUNT(log->hash_table); offset++)
+    {
+        uint64 index = (hash + offset) % ARRAY_COUNT(log->hash_table);
+        AllocationLogEntry *entry = log->hash_table + index;
+        if (entry->pointer == pointer || entry->pointer == NULL)
+        {
+            result = entry;
+            break;
+        }
+    }
+    return result;
+}
+
+INLINE
+void push_allocation_entry(AllocationLog *log, AllocationLogEntry entry)
+{
+    ASSERT(log->allocation_count < ARRAY_COUNT(log->hash_table));
+
+    AllocationLogEntry *hash_slot = NULL;
+    uint64 hash = (uint64) entry.pointer;
+    for (uint64 offset = 0; offset < ARRAY_COUNT(log->hash_table); offset++)
+    {
+        uint64 index = (hash + offset) % ARRAY_COUNT(log->hash_table);
+        AllocationLogEntry *slot = log->hash_table + index;
+        if (slot->pointer == NULL)
+        {
+            hash_slot = slot;
+            log->allocation_count += 1;
+            break;
+        }
+    }
+
+    ASSERT(hash_slot);
+    *hash_slot = entry;
+}
+
+INLINE
+void pop_allocation_entry(AllocationLog *log, void *pointer)
+{
+    AllocationLogEntry *hash_slot = NULL;
+    uint64 hash = (uint64) pointer;
+    for (uint64 offset = 0; offset < ARRAY_COUNT(log->hash_table); offset++)
+    {
+        uint64 index = (hash + offset) % ARRAY_COUNT(log->hash_table);
+        AllocationLogEntry *entry = log->hash_table + index;
+        if (entry->pointer == pointer)
+        {
+            hash_slot = entry;
+            log->allocation_count -= 1;
+            break;
+        }
+    }
+
+    ASSERT(hash_slot->pointer);
+    *hash_slot = null_allocation_entry();
+}
+#endif // ASUKA_DEBUG
 
 #include <memory/arena_allocator.hpp>
 #include <memory/pool_allocator.hpp>

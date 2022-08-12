@@ -1438,13 +1438,13 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
 #define ASUKA_DRAW_MEMORY_LAYOUT 1
 #define DRAW_WORLD_ARENA         0
-#define DRAW_EXPERIMENTAL_POOL   0
-#define DRAW_MALLOCATOR_MEMORY   1
+#define DRAW_EXPERIMENTAL_POOL   1
+#define DRAW_MALLOCATOR_MEMORY   0
 
 #if ASUKA_DEBUG && ASUKA_DRAW_MEMORY_LAYOUT
 
-    u32 size_per_pixel_width = 12; // bytes
-    u32 strip_height = 10;  // px
+    u32 size_per_pixel_width = 1; // bytes
+    u32 strip_height = 10; // px
     int64 buffer_width_in_mapped_bytes = Buffer->Width * size_per_pixel_width;
 
     color24 border_color = make_color24(0, 0.1, 0.1);
@@ -1534,7 +1534,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             {
                 if (allocations_count > 0)
                 {
-                    f32 const dealloc_chance = 1.0f;
+                    f32 const dealloc_chance = 0.8f;
                     roll = uniform_real(0, 1);
                     if (roll < dealloc_chance)
                     {
@@ -1550,14 +1550,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         {
             void* start_p = allocator_to_draw->memory;
-            for (uint64 hash_entry_index = 0 ; hash_entry_index < ARRAY_COUNT(allocator_to_draw->hash_table); hash_entry_index++)
+            for (uint64 hash_entry_index = 0 ; hash_entry_index < ARRAY_COUNT(allocator_to_draw->log.hash_table); hash_entry_index++)
             {
-                AllocationLogEntry *entry = allocator_to_draw->hash_table + hash_entry_index;
+                AllocationLogEntry *entry = allocator_to_draw->log.hash_table + hash_entry_index;
                 if (entry->pointer == NULL) continue;
 
                 color24 color = {};
-                color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
-                color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->log.hash_table);
+                color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->log.hash_table);
                 debug_draw_wrapped_rectangle(start_p, entry->pointer, entry->size, 0, color, false);
             }
         }
@@ -1627,44 +1627,44 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         auto *allocator_to_draw = &game_state->experimental_mallocator;
 
-        // PERSIST int *allocations[2048];
-        // PERSIST u32 allocations_count = 0;
+        PERSIST int *allocations[2048];
+        PERSIST u32 allocations_count = 0;
 
-        // int *last_allocation = 0;
+        int *last_allocation = 0;
 
-        // f32 const chance = 0.8f;
-        // f32 roll = uniform_real(0, 1);
+        f32 const chance = 0.8f;
+        f32 roll = uniform_real(0, 1);
 
-        // if ((roll < chance) && (allocations_count < ARRAY_COUNT(allocations)))
-        // {
-        //     u32 int_count = rand() % 290 + 10;
-        //     int *p = ALLOCATE_BUFFER(allocator_to_draw, int, int_count);
-        //     ASSERT(p);
-        //     allocations[allocations_count++] = p;
-        //     last_allocation = p;
-        // }
-        // else
-        // {
-        //     if (allocations_count > 0)
-        //     {
-        //         u32 index_to_deallocate = rand() % allocations_count;
-        //         void *p = allocations[index_to_deallocate];
-        //         ASSERT(p);
-        //         DEALLOCATE_BUFFER(allocator_to_draw, p);
-        //         allocations[index_to_deallocate] = allocations[allocations_count - 1];
-        //         allocations[allocations_count - 1] = 0;
-        //         allocations_count--;
-        //     }
-        // }
+        if ((roll < chance) && (allocations_count < ARRAY_COUNT(allocations)))
+        {
+            u32 int_count = rand() % 290 + 10;
+            int *p = ALLOCATE_BUFFER(allocator_to_draw, int, int_count);
+            ASSERT(p);
+            allocations[allocations_count++] = p;
+            last_allocation = p;
+        }
+        else
+        {
+            if (allocations_count > 0)
+            {
+                u32 index_to_deallocate = rand() % allocations_count;
+                void *p = allocations[index_to_deallocate];
+                ASSERT(p);
+                DEALLOCATE_BUFFER(allocator_to_draw, p);
+                allocations[index_to_deallocate] = allocations[allocations_count - 1];
+                allocations[allocations_count - 1] = 0;
+                allocations_count--;
+            }
+        }
 
         // acf parsed_acf = {};
         // bool success = parse_acf(string::from("{ a = 10 b = 20 c = 30 d = \"Hmm...\" }"), &parsed_acf);
 
         for (uint64 hash_entry_index = 0;
-            hash_entry_index < ARRAY_COUNT(allocator_to_draw->hash_table);
+            hash_entry_index < ARRAY_COUNT(allocator_to_draw->log.hash_table);
             hash_entry_index++)
         {
-            AllocationLogEntry *entry = allocator_to_draw->hash_table + hash_entry_index;
+            AllocationLogEntry *entry = allocator_to_draw->log.hash_table + hash_entry_index;
 
             if ((entry->pointer != 0) &&
                 (game_state->start_p == NULL))
@@ -1679,14 +1679,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         {
             void* start_p = game_state->start_p;
-            for (uint64 hash_entry_index = 0 ; hash_entry_index < ARRAY_COUNT(allocator_to_draw->hash_table); hash_entry_index++)
+            for (uint64 hash_entry_index = 0 ; hash_entry_index < ARRAY_COUNT(allocator_to_draw->log.hash_table); hash_entry_index++)
             {
-                AllocationLogEntry *entry = allocator_to_draw->hash_table + hash_entry_index;
+                AllocationLogEntry *entry = allocator_to_draw->log.hash_table + hash_entry_index;
                 if (entry->pointer == NULL) continue;
 
                 color24 color = {};
-                color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
-                color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->hash_table);
+                color.g = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->log.hash_table);
+                color.b = (f32) hash_entry_index / ARRAY_COUNT(allocator_to_draw->log.hash_table);
                 debug_draw_wrapped_rectangle(start_p, entry->pointer, entry->size, strip_user_offset, color, true);
             }
         }

@@ -48,48 +48,9 @@ struct pool_allocator
 
 #ifdef ASUKA_DEBUG
     char const *name;
-    AllocationLogEntry hash_table[1024];
-    usize allocation_count = 0;
+    AllocationLog log;
 #endif // ASUKA_DEBUG
 };
-
-
-#if ASUKA_DEBUG
-
-template <usize ChunkSize>
-AllocationLogEntry *get_allocation_entry(pool_allocator<ChunkSize> *allocator, void *pointer)
-{
-    AllocationLogEntry *result = NULL;
-
-    uint64 hash = (uint64) pointer;
-    for (uint64 offset = 0; offset < ARRAY_COUNT(allocator->hash_table); offset++)
-    {
-        uint64 index = (hash + offset) % ARRAY_COUNT(allocator->hash_table);
-        AllocationLogEntry *entry = allocator->hash_table + index;
-        if (entry->pointer == pointer || entry->pointer == NULL)
-        {
-            result = entry;
-            break;
-        }
-    }
-    return result;
-}
-
-template <usize ChunkSize>
-void push_allocation_entry(pool_allocator<ChunkSize> *allocator, AllocationLogEntry entry)
-{
-    AllocationLogEntry *hash_slot = get_allocation_entry(allocator, entry.pointer);
-    *hash_slot = entry;
-}
-
-template <usize ChunkSize>
-void pop_allocation_entry(pool_allocator<ChunkSize> *allocator, void *pointer)
-{
-    AllocationLogEntry *hash_slot = get_allocation_entry(allocator, pointer);
-    *hash_slot = null_allocation_entry();
-}
-
-#endif // ASUKA_DEBUG
 
 
 template <usize ChunkSize>
@@ -129,6 +90,7 @@ void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size
 
 #if ASUKA_DEBUG
     allocator->name = name;
+    initialize_allocation_log(&allocator->log);
 #endif // ASUKA_DEBUG
 }
 
@@ -151,15 +113,16 @@ void *allocate__(pool_allocator<ChunkSize> *allocator, usize requested_size, usi
 
             allocator->used += sizeof(chunk_t);
 
+#if ASUKA_DEBUG
+            push_allocation_entry(&allocator->log, {cl, result, requested_size});
+#endif // ASUKA_DEBUG
+
 #if ASUKA_ASAN
             ASAN_UNPOISON_MEMORY_REGION(result, ChunkSize);
 #endif // ASUKA_ASAN
         }
     }
 
-#if ASUKA_DEBUG
-    push_allocation_entry(allocator, {cl, result, requested_size});
-#endif // ASUKA_DEBUG
     return result;
 }
 
@@ -183,8 +146,7 @@ void deallocate__(pool_allocator<ChunkSize> *allocator, void *memory_to_free)
 #endif // ASUKA_ASAN
 
 #if ASUKA_DEBUG
-    pop_allocation_entry(allocator, memory_to_free);
-    allocator->allocation_count -= 1;
+    pop_allocation_entry(&allocator->log, memory_to_free);
 #endif // ASUKA_DEBUG
 }
 

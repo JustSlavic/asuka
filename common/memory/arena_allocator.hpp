@@ -22,49 +22,9 @@ struct arena_allocator {
 
 #if ASUKA_DEBUG
     char const *name;
-    AllocationLogEntry hash_table[1024];
-    usize allocation_count = 0;
+    AllocationLog log;
 #endif // ASUKA_DEBUG
 };
-
-
-#if ASUKA_DEBUG
-
-INLINE
-AllocationLogEntry *get_allocation_entry(arena_allocator *allocator, void *pointer)
-{
-    AllocationLogEntry *result = NULL;
-
-    uint64 hash = (uint64) pointer;
-    for (uint64 offset = 0; offset < ARRAY_COUNT(allocator->hash_table); offset++)
-    {
-        uint64 index = (hash + offset) % ARRAY_COUNT(allocator->hash_table);
-        AllocationLogEntry *entry = allocator->hash_table + index;
-        if (entry->pointer == pointer || entry->pointer == NULL)
-        {
-            result = entry;
-            break;
-        }
-    }
-    return result;
-}
-
-INLINE
-void push_allocation_entry(arena_allocator *allocator, AllocationLogEntry entry)
-{
-    AllocationLogEntry *hash_slot = get_allocation_entry(allocator, entry.pointer);
-    *hash_slot = entry;
-}
-
-
-INLINE
-void pop_allocation_entry(arena_allocator *allocator, void *pointer)
-{
-    AllocationLogEntry *hash_slot = get_allocation_entry(allocator, pointer);
-    *hash_slot = null_allocation_entry();
-}
-
-#endif // ASUKA_DEBUG
 
 
 INLINE
@@ -82,8 +42,7 @@ void initialize__(arena_allocator *allocator, void* memory, usize size)
 
 #if ASUKA_DEBUG
     allocator->name = name;
-    set(allocator->hash_table, 0, sizeof(allocator->hash_table));
-    allocator->allocation_count = 0;
+    initialize_allocation_log(&allocator->log);
 #endif // ASUKA_DEBUG
 
 #if ASUKA_ASAN
@@ -108,7 +67,7 @@ void* allocate__(arena_allocator *allocator, usize requested_size, usize alignme
         allocator->used += requested_size + padding;
 
 #if ASUKA_DEBUG
-        allocator->allocation_count += 1;
+        push_allocation_entry(&allocator->log, {cl, result, requested_size});
 #endif // ASUKA_DEBUG
 
 #if ASUKA_ASAN
@@ -116,9 +75,6 @@ void* allocate__(arena_allocator *allocator, usize requested_size, usize alignme
 #endif // ASUKA_ASAN
     }
 
-#if ASUKA_DEBUG
-    push_allocation_entry(allocator, {cl, result, requested_size});
-#endif // ASUKA_DEBUG
     return result;
 }
 
@@ -131,8 +87,7 @@ void deallocate__(arena_allocator *allocator, void *memory_to_free)
 {
     // @note: deallocate does nothing in the arena allocation strategy!
 #if ASUKA_DEBUG
-    pop_allocation_entry(allocator, memory_to_free);
-    allocator->allocation_count -= 1;
+    pop_allocation_entry(&allocator->log, memory_to_free);
 #endif // ASUKA_DEBUG
 }
 
