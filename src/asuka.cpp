@@ -157,9 +157,47 @@ void DrawRectangle(
 }
 
 
+INTERNAL
+void DrawRectangle(
+    OffscreenBuffer* buffer,
+    v2 top_left, v2 bottom_right,
+    color32 color)
+{
+    v2i tl = round_to_v2i(top_left);
+    v2i br = round_to_v2i(bottom_right);
+
+    if (tl.x < 0) tl.x = 0;
+    if (tl.y < 0) tl.y = 0;
+    if (br.x > buffer->Width)  br.x = buffer->Width;
+    if (br.y > buffer->Height) br.y = buffer->Height;
+
+    v2i dimensions = br - tl;
+
+    u8* Row = (u8*)buffer->Memory + tl.y*buffer->Pitch + tl.x*buffer->BytesPerPixel;
+
+    for (int y = 0; y < dimensions.y; y++)
+    {
+        u32* Pixel = (u32*) Row;
+        for (int x = 0; x < dimensions.x; x++)
+        {
+            struct pix { u8 b, g, r, a; };
+            pix* p = (pix*) Pixel;
+
+            p->r = (u8)(((1.0f - color.a) * (p->r / 255.f) + color.a * color.r) * 255.0f);
+            p->g = (u8)(((1.0f - color.a) * (p->g / 255.f) + color.a * color.g) * 255.0f);
+            p->b = (u8)(((1.0f - color.a) * (p->b / 255.f) + color.a * color.b) * 255.0f);
+
+            Pixel++;
+        }
+
+        Row += buffer->Pitch;
+    }
+}
+
+
 #if ASUKA_PLAYBACK_LOOP
 INTERNAL
-void DrawBorder(OffscreenBuffer* Buffer, u32 Width, color24 Color)
+void DrawBorder(OffscreenBuffer* Buffer, u32 Width, color32 Color)
 {
     DrawRectangle(Buffer, make_vector2(0, 0), make_vector2(Buffer->Width, Width), Color);
     DrawRectangle(Buffer, make_vector2(0, Width), make_vector2(Width, Buffer->Height - Width), Color);
@@ -1696,14 +1734,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
     // ===================== RENDERING SIGNALING BORDERS ================= //
 
-    color24 BorderColor {};
+    color32 BorderColor {};
     u32 BorderWidth = 10;
     b32 BorderVisible = false;
 
     if (game_state->exit_confirmation_time > 0)
     {
         BorderVisible = true;
-        BorderColor = make_rgb(0.5f + 0.5f * game_state->exit_confirmation_time, 0.2, 0.2);
+        BorderColor = make_rgba(0.9, 0.2, 0.1, clamp(game_state->exit_confirmation_time, 0, 1));
     }
 
 #if ASUKA_PLAYBACK_LOOP
@@ -1712,14 +1750,14 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         case PLAYBACK_LOOP_RECORDING:
         {
             BorderVisible = true;
-            BorderColor = make_rgb(1.0f, 244.0f / 255.0f, 43.0f / 255.0f);
+            BorderColor = make_rgba(1.0f, 244.0f / 255.0f, 43.0f / 255.0f, 1.0f);
         }
         break;
 
         case PLAYBACK_LOOP_PLAYBACK:
         {
             BorderVisible = true;
-            BorderColor = make_rgb(29.0f / 255.0f, 166.0f / 255.0f, 8.0f / 255.0f);
+            BorderColor = make_rgba(29.0f / 255.0f, 166.0f / 255.0f, 8.0f / 255.0f, 1.0f);
         }
         break;
     }
@@ -1733,7 +1771,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #if UI_EDITOR_ENABLED
     else if (game_state->ui_editor_enabled)
     {
-        DrawBorder(Buffer, 2, make_color24(0, 0, 0));
+        DrawBorder(Buffer, 2, make_color32(0, 0, 0, 1));
     }
 #endif // UI_EDITOR_ENABLED
 
