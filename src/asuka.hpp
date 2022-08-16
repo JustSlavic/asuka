@@ -2,7 +2,6 @@
 
 #include <defines.hpp>
 #include <math.hpp>
-#include <index.hpp>
 #include <world.hpp>
 #include <sim_region.hpp>
 #include <bitmap.hpp>
@@ -275,18 +274,16 @@ struct Input
 };
 
 
-using InputIndex = Index<ControllerInput>;
-
 INLINE
-ControllerInput *GetControllerInput(Input *Input, InputIndex ControllerIndex)
+ControllerInput *GetControllerInput(Input *Input, u32 ControllerIndex)
 {
     ASSERT(ControllerIndex < ARRAY_COUNT(Input->ControllerInputs));
-    return &Input->ControllerInputs[ControllerIndex.index];
+    return &Input->ControllerInputs[ControllerIndex];
 }
 
 
 INLINE
-ControllerInput *GetGamepadInput(Input *Input, i32 GamepadIndex)
+ControllerInput *GetGamepadInput(Input *Input, u32 GamepadIndex)
 {
     ASSERT(GamepadIndex < ARRAY_COUNT(Input->GamepadInputs));
     return &Input->GamepadInputs[GamepadIndex];

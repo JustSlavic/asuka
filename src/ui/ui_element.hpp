@@ -108,7 +108,6 @@ struct UiElement
     u32 filter_count;
 };
 
-
 template <typename Allocator>
 UiElement *allocate_ui_element(Allocator *allocator, UiElementType type)
 {
@@ -141,7 +140,6 @@ UiElement *allocate_ui_group(Allocator *allocator)
 rect2 get_bounding_box(UiElement *element);
 void push_filter(UiShape *element, UiFilter *filter);
 matrix4 get_transform(UiElement *element);
-
 
 #if UNITY_BUILD
 #include "ui_element.cpp"

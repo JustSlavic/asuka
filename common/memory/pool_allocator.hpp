@@ -78,9 +78,9 @@ void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size
         chunk_t *next_chunk = header + 1;
         header->next_chunk  = next_chunk;
 
-#if ASUKA_ASAN
-        ASAN_POISON_MEMORY_REGION(header, sizeof(chunk_t));
-#endif // ASUKA_ASAN
+// #if ASUKA_ASAN
+//         ASAN_POISON_MEMORY_REGION(header, sizeof(chunk_t));
+// #endif // ASUKA_ASAN
 
         header = next_chunk;
     }
@@ -117,9 +117,9 @@ void *allocate__(pool_allocator<ChunkSize> *allocator, usize requested_size, usi
             push_allocation_entry(&allocator->log, {cl, result, requested_size});
 #endif // ASUKA_DEBUG
 
-#if ASUKA_ASAN
-            ASAN_UNPOISON_MEMORY_REGION(result, ChunkSize);
-#endif // ASUKA_ASAN
+// #if ASUKA_ASAN
+//             ASAN_UNPOISON_MEMORY_REGION(result, ChunkSize);
+// #endif // ASUKA_ASAN
         }
     }
 
@@ -141,13 +141,13 @@ void deallocate__(pool_allocator<ChunkSize> *allocator, void *memory_to_free)
 
     allocator->used -= sizeof(chunk_t);
 
-#if ASUKA_ASAN
-    // ASAN_POISON_MEMORY_REGION(header->padding, sizeof(header->padding));
-#endif // ASUKA_ASAN
-
 #if ASUKA_DEBUG
     pop_allocation_entry(&allocator->log, memory_to_free);
 #endif // ASUKA_DEBUG
+
+// #if ASUKA_ASAN
+//     ASAN_POISON_MEMORY_REGION(header->padding, sizeof(header->padding));
+// #endif // ASUKA_ASAN
 }
 
 

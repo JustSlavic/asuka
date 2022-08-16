@@ -17,27 +17,17 @@ namespace memory
 
 struct mallocator
 {
-#if ASUKA_DEBUG
     char const *name;
+
+#if ASUKA_DEBUG
     AllocationLog log;
 #endif // ASUKA_DEBUG
 };
 
-#if ASUKA_DEBUG
-GLOBAL mallocator global_mallocator_instance = {"malloc"};
-#else
-GLOBAL mallocator global_mallocator_instance = {};
-#endif
 
-#if ASUKA_DEBUG
 INLINE void initialize__(mallocator *allocator, void *memory, usize size, char const *name = "mallocator")
-#else
-INLINE void initialize__(mallocator *allocator, void *memory, usize size)
-#endif // ASUKA_DEBUG
 {
-#if ASUKA_DEBUG
     allocator->name = name;
-#endif // ASUKA_DEBUG
 }
 
 #if ASUKA_DEBUG

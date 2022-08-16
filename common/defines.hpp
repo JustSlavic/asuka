@@ -181,7 +181,7 @@ typedef double float64;
 #define INVALID_CODE_PATH(...)  ASSERT_FAIL("%s:%d (%s) Invalid code path!", __FILE__, __LINE__, __FUNCTION__);
 #define NOT_IMPLEMENTED(...)    ASSERT_FAIL("%s:%d (%s) Not implemented yet!", __FILE__, __LINE__, __FUNCTION__);
 
-#define STATIC_ASSERT(COND)           static_assert(COND, "")
+#define STATIC_ASSERT(COND)           static_assert(COND)
 #define STATIC_ASSERT_MSG(COND, MSG)  static_assert(COND, MSG)
 
 #define ASUKA_PLAYBACK_LOOP ASUKA_DEBUG
@@ -211,8 +211,8 @@ typedef double float64;
 #ifdef ASUKA_OS_MACOS
 #endif // ASUKA_OS_MACOS
 
-#define STRINGIFY2(X)    #X
-#define STRINGIFY(X)     STRINGIFY2(X)
+#define STRINGIFY_(X)    #X
+#define STRINGIFY(X)     STRINGIFY_(X)
 
 #define CONCAT_(A, B)    A##B
 #define CONCAT(A, B)     CONCAT_(A, B)

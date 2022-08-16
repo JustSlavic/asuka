@@ -1,0 +1,9 @@
+#newtype vector2(float, float)
+
+window_width = 200
+window_height = 200
+
+window_text = "Hello from acf config!"
+list_of_int = [ 1 2 3 4 5 ]
+
+position = vector2(0, 0)

@@ -1,9 +1,6 @@
 #include "asuka.hpp"
 #include <png.hpp>
 
-#define ACF_LIB_IMPLEMENTATION
-#include <acf/acf.hpp>
-
 
 #define ASUKA_DEBUG_FOLLOWING_CAMERA 1
 
@@ -626,9 +623,6 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
     v3 velocity = entity->velocity + spec.acceleration * dt;
     v3 destination = entity->position + entity->velocity * dt + 0.5f * spec.acceleration * square(dt);
 
-    /*
-        @note:
-    */
     // @todo: include this into common collision logic
     if (!spec.jump)
     {
@@ -660,7 +654,7 @@ void move_entity(GameState *game_state, SimRegion *sim_region, SimEntity *entity
         }
     }
 
-    // @todo: restructure this code when you will implement more sofisticated collision code
+    // @todo: restructure this code when you will implement more sophisticated collision code
 
     // ================= COLLISION DETECTION ====================== //
 
@@ -825,7 +819,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     i32 room_width_in_tiles = 16;
     i32 room_height_in_tiles = 9;
 
-    // ===================== INITIALIZATION ===================== //
+// ===================== INITIALIZATION ===================== //
 
     if (!Memory->IsInitialized)
     {
@@ -1079,23 +1073,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         hud_child_2_2->shape.color = make_color32(0.6, 0.3, 0.8, 1.0);
         push_child(&hud_child_2->group, hud_child_2_2);
 
-        // push_child(game_state->game_hud->root, hud_child_2);
-
-
-        // auto shadow_2 = allocate_struct(arena, UiFilter);
-        // shadow_2->type = UI_FILTER_SHADOW;
-        // shadow_2->shadow.angle = 45;
-        // shadow_2->shadow.distance = 10;
-
-        // push_filter(hud_child_2, shadow_2);
-
-        // auto tint_2 = allocate_struct(arena, UiFilter);
-        // tint_2->type = UI_FILTER_TINT;
-        // tint_2->tint.multiply = V4(0, 1, 1, 1);
-        // tint_2->tint.add = V4(0.2, 0, 0, 0);
-
-        // push_filter(hud_child_2, tint_2);
-
 #if UI_EDITOR_ENABLED
         game_state->ui_editor = ALLOCATE_STRUCT(ui_arena, UiEditor);
         game_state->ui_editor_enabled = false;
@@ -1110,16 +1087,15 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     f32 character_speed = 2.5f; // [m/s]
     f32 character_mass = 80.0f; // [kg]
 
-    // Engine Input
+    // Game Input
 
+#if UI_EDITOR_ENABLED
     if (GetPressCount(Input->keyboard.F1))
     {
-#if UI_EDITOR_ENABLED
         TOGGLE(game_state->ui_editor_enabled);
-#endif // UI_EDITOR_ENABLED
     }
+#endif // UI_EDITOR_ENABLED
 
-    // Game Input
     if (GetPressCount(Input->keyboard.Esc) > 0)
     {
         if (game_state->exit_confirmation_time > 0)
@@ -1133,10 +1109,10 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     }
     game_state->exit_confirmation_time -= dt;
 
-    for (InputIndex ControllerIndex { 0 }; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++)
+    for (u32 ControllerIndex = 0; ControllerIndex < ARRAY_COUNT(Input->ControllerInputs); ControllerIndex++)
     {
         ControllerInput* ControllerInput = GetControllerInput(Input, ControllerIndex);
-        PlayerRequest *request = game_state->player_for_controller + ControllerIndex.index;
+        PlayerRequest *request = game_state->player_for_controller + ControllerIndex;
 
         if (request->entity_index == 0)
         {
@@ -1153,7 +1129,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         else
         {
             // ALL CONTROLLER PROCESSING FOR THIS PLAYER GOES HERE //
-            v3 sword_speed {};
+            v3 sword_speed = {};
             if (GetPressCount(ControllerInput->X))
             {
                 sword_speed += make_vector3(-1, 0, 0);

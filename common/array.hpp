@@ -23,28 +23,12 @@
 //
 
 
-template <typename T>
-struct buffer_
+// @experimental "free on demand"
+enum array_flags
 {
-    T *data;
-    usize size;
-};
-
-
-template <typename T, usize Size>
-struct static_array
-{
-    using value_t = T;
-
-    T data[Size];
-
-    T & operator [] (int32 index)
-    {
-        ASSERT_MSG(index < Size, "Attempt to access memory out of bounds.");
-
-        T & result = data[index];
-        return result;
-    }
+    ARRAY_FLAG_OWNER = (1 << 0),
+    ARRAY_FLAG_NULL_TERMINATED = (1 << 1),
+    ARRAY_FLAG_FREE_ON_SCOPE_EXIT = (1 << 2), // Same as owner?
 };
 
 
@@ -88,6 +72,18 @@ struct array
         return data[size++] = t;
     }
 
+    T& top ()
+    {
+        ASSERT_MSG(size > 0, "Attempt to access memory of zero-sized array.");
+        return data[size - 1];
+    }
+
+    T& pop ()
+    {
+        ASSERT_MSG(size > 0, "Attempt to pop zero-sized array.");
+        return data[--size];
+    }
+
     template <typename U> STATIC
     array<T> from(array<U> s)
     {
@@ -102,7 +98,7 @@ struct array
     STATIC
     array<char> from(char const* s)
     {
-        static_assert(type::is_same<T, char>::value, "This from can be called only for strings.");
+        static_assert(type::is_same<T, char>::value, "This function can be called only for strings.");
         array<char> result;
         result.data = (char *) s;
         result.size = cstring::size_no0(s);
@@ -142,12 +138,8 @@ struct array
 };
 
 using byte_array = array<memory::byte>;
-using byte_string = array<memory::byte>;
-using string = array<char>;
-// @todo: Utf8 support
-// using utf8_string = array<utf8_char>;
 
-// ============================================================
+// ========================== ARRAY ==================================
 
 template <typename T, typename Allocator>
 array<T> allocate_array_(Allocator *allocator, usize count)
@@ -188,6 +180,39 @@ void deallocate_array(Allocator *allocator, array<T>& a)
     a.capacity = 0;
 }
 
+template <typename T, typename Allocator>
+array<T> copy_array(Allocator *allocator, array<T> source)
+{
+    array<T> result = allocate_array_<T>(allocator, source.capacity);
+    memory::copy(result.data, source.data, source.size * sizeof(T));
+    result.size = source.size;
+    result.capacity = source.capacity;
+    return result;
+}
+
+// ============================= STRINGS ===============================
+
+namespace cstring
+{
+
+usize size_no0(const char *str) {
+    usize size = 0;
+    while (str[size]) { size += 1; }
+
+    return size;
+}
+
+usize size_with0(const char *s) {
+    usize size = size_no0(s) + 1;
+    return size;
+}
+
+} // namespacec cstring
+
+using string = array<char>;
+// @todo: Utf8 support
+// using utf8_string = array<utf8_char>;
+
 template <typename Allocator>
 string allocate_string_(Allocator allocator, usize count)
 {
@@ -209,6 +234,44 @@ template <typename Allocator>
 void deallocate_string(Allocator *allocator, string& s)
 {
     deallocate_array(allocator, s);
+}
+
+template <typename Allocator>
+string copy_string(Allocator *allocator, string source)
+{
+    string result = allocate_string_(allocator, source.capacity);
+    memory::copy(result.data, source.data, source.size);
+    result.size = source.size;
+    result.capacity = source.capacity;
+    return result;
+}
+
+// ============================================================
+
+template <typename Allocator>
+string to_string(Allocator *allocator, int32 n)
+{
+    string result = allocate_string(allocator, 12);
+
+    if (n < 0)
+    {
+        result.push('-');
+        n = -n;
+    }
+
+    int32 d = 1000000000;
+    while (d > 0)
+    {
+        char c = (char) (n / d);
+        if (c > 0)
+        {
+            result.push('0' + c);
+        }
+        n %= d;
+        d /= 10;
+    }
+
+    return result;
 }
 
 // ============================================================
@@ -240,37 +303,6 @@ string make_string(byte_array array)
     return result;
 }
 
-template <typename T, typename Allocator>
-array<T> copy_array(Allocator *allocator, array<T> source)
-{
-    array<T> result = allocate_array_<T>(allocator, source.capacity);
-    for (auto& v : source)
-    {
-        result.push(v);
-    }
-    return result;
-}
-
-template <typename T>
-byte_string to_byte_string(array<T> s) {
-    byte_string result;
-    result.data = (memory::byte *) s.data_;
-    result.size = s.size_ * sizeof(T);
-    result.capacity = s.capacity_ * sizeof(T);
-
-    return result;
-}
-
-template <typename T>
-array<T> from_byte_string(byte_string s) {
-    array<T> result;
-    result.data = (T *) s.data;
-    result.size = s.size / sizeof(T);
-    result.capacity = s.capacity / sizeof(T);
-
-    return result;
-}
-
 template <typename T>
 b32 operator == (array<T> lhs, array<T> rhs)
 {
@@ -281,6 +313,32 @@ b32 operator == (array<T> lhs, array<T> rhs)
     }
 
     return same;
+}
+
+bool operator == (string left, char const *right)
+{
+    for (usize i = 0; i < left.get_size(); i++)
+    {
+        if (right[i] == 0) { return false; }
+        if (left[i] != right[i]) { return false; }
+    }
+
+    return (right[left.get_size()] == 0);
+}
+
+bool operator == (char const *left, string right)
+{
+    return (right == left);
+}
+
+bool operator != (string left, char const *right)
+{
+    return !(left == right);
+}
+
+bool operator != (char const *left, string right)
+{
+    return !(right == left);
 }
 
 template <typename T>

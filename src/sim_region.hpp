@@ -41,8 +41,9 @@ union EntityReference
 
 enum SimEntityFlags
 {
-    ENTITY_FLAG_COLLIDABLE = (1 << 0),
-    ENTITY_FLAG_NONSPATIAL = (1 << 1),
+    ENTITY_FLAG_COLLIDABLE   = (1 << 0),
+    ENTITY_FLAG_NONSPATIAL   = (1 << 1),
+    ENTITY_FLAG_FREE_FALLING = (1 << 2),
 };
 
 struct SimEntity

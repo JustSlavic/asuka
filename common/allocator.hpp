@@ -1,9 +1,9 @@
-#ifndef ASUKA_ALLOCATOR_HPP
-#define ASUKA_ALLOCATOR_HPP
+#pragma once
 
 #include <defines.hpp>
 #include <os/memory.hpp>
 #include <code_location.hpp>
+
 
 #ifdef ASUKA_DEBUG
 struct AllocationLogEntry
@@ -97,6 +97,7 @@ void pop_allocation_entry(AllocationLog *log, void *pointer)
 }
 #endif // ASUKA_DEBUG
 
+
 #include <memory/arena_allocator.hpp>
 #include <memory/pool_allocator.hpp>
 #include <memory/mallocator.hpp>
@@ -134,6 +135,7 @@ extern "C" void __asan_unpoison_memory_region(void *, size_t);
 
 
 namespace memory {
+
 
 #define ALLOCATE_(ALLOCATOR, SIZE, ALIGNMENT) \
     memory::allocate_(ALLOCATOR, SIZE, ALIGNMENT, CODE_LOCATION_FUNC)
@@ -255,6 +257,3 @@ void deallocate_buffer(Allocator *allocator, void *memory, CodeLocation cl)
 
 
 } // namespace memory
-
-
-#endif // ASUKA_ALLOCATOR_HPP
