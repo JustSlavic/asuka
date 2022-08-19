@@ -2,7 +2,9 @@
 
 #include <byte.hpp>
 
+
 namespace memory {
+
 
 INLINE
 usize get_padding(void *pointer, usize alignment)
@@ -23,7 +25,7 @@ void *align_pointer(void *pointer, usize alignment)
 INLINE
 void *align_pointer(void *pointer, usize alignment, usize *padding)
 {
-    ASSERT_MSG(padding, "Padding argument is not optional, use 'void *align_pointer(void *pointer, usize alignment)' insted.\n");
+    ASSERT_MSG(padding, "Padding argument is not optional, use 'void *align_pointer(void *pointer, usize alignment)' instead.\n");
 
     *padding = get_padding(pointer, alignment);
     uint8 *result = (uint8 *)pointer + *padding;
@@ -36,6 +38,7 @@ struct AlignPointerResult
     byte *pointer;
     usize padding;
 };
+
 
 INLINE
 AlignPointerResult get_aligned_pointer(void *pointer, usize alignment)
@@ -54,6 +57,7 @@ void  free_pages(void *memory);
 
 void set(void *memory, u8 value, usize size);
 void copy(void *destination, void *source, usize size);
+
 
 } // namespace memory
 

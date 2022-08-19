@@ -19,76 +19,89 @@ struct arena_allocator {
     byte *memory;
     usize size; // bytes
     usize used; // bytes
+    usize last_allocation_size; // @note: saved last allocation size for reallocation capability
+
+    char const *name;
 
 #if ASUKA_DEBUG
-    char const *name;
     AllocationLog log;
 #endif // ASUKA_DEBUG
 };
 
 
 INLINE
-#if ASUKA_DEBUG
 void initialize__(arena_allocator *allocator, void* memory, usize size, char const* name = "arena")
-#else // ASUKA_DEBUG
-void initialize__(arena_allocator *allocator, void* memory, usize size)
-#endif // ASUKA_DEBUG
 {
-    auto aligned = get_aligned_pointer(memory, 8); // @todo: what is MAX_ALIGN should be?
-
-    allocator->memory = aligned.pointer;
-    allocator->size = size - aligned.padding;
+    allocator->memory = (byte *) memory;
+    allocator->size = size;
     allocator->used = 0;
+    allocator->last_allocation_size = 0;
+
+    allocator->name = name;
 
 #if ASUKA_DEBUG
-    allocator->name = name;
     initialize_allocation_log(&allocator->log);
 #endif // ASUKA_DEBUG
-
-#if ASUKA_ASAN
-    ASAN_POISON_MEMORY_REGION(memory, size);
-#endif // ASUKA_ASAN
 }
 
 
 INLINE
-#if ASUKA_DEBUG
 void* allocate__(arena_allocator *allocator, usize requested_size, usize alignment, CodeLocation cl)
-#else // ASUKA_DEBUG
-void* allocate__(arena_allocator *allocator, usize requested_size, usize alignment)
-#endif // ASUKA_DEBUG
 {
-    void *result = NULL;
+    byte *result = NULL;
 
     usize padding = get_padding(allocator->memory + allocator->used, alignment);
     if ((allocator->used + padding + requested_size) <= allocator->size)
     {
         result = (allocator->memory + allocator->used + padding);
         allocator->used += requested_size + padding;
+        allocator->last_allocation_size = requested_size;
 
 #if ASUKA_DEBUG
         push_allocation_entry(&allocator->log, {cl, result, requested_size});
 #endif // ASUKA_DEBUG
-
-#if ASUKA_ASAN
-        ASAN_UNPOISON_MEMORY_REGION(result, requested_size + padding);
-#endif // ASUKA_ASAN
     }
 
     return result;
 }
 
+
 INLINE
-#if ASUKA_DEBUG
 void deallocate__(arena_allocator *allocator, void *memory_to_free, CodeLocation cl)
-#else // ASUKA_DEBUG
-void deallocate__(arena_allocator *allocator, void *memory_to_free)
-#endif // ASUKA_DEBUG
 {
-    // @note: deallocate does nothing in the arena allocation strategy!
+    // @note: deallocate does nothing in the arena allocator!
 #if ASUKA_DEBUG
     pop_allocation_entry(&allocator->log, memory_to_free);
 #endif // ASUKA_DEBUG
+}
+
+
+INLINE
+void *reallocate__(arena_allocator *allocator, void *pointer, usize new_size, usize alignment, CodeLocation cl)
+{
+    void *result = NULL;
+
+    usize last_allocation_size = allocator->last_allocation_size;
+    byte *last_allocation = allocator->memory + allocator->used - last_allocation_size;
+
+    if (pointer == last_allocation)
+    {
+        result = pointer;
+
+        if (new_size > last_allocation_size)
+        {
+            allocator->used += (new_size - last_allocation_size);
+            allocator->last_allocation_size = new_size;
+        }
+    }
+    else
+    {
+        result = allocate__(allocator, new_size, alignment, cl);
+        memory::copy(result, pointer, last_allocation_size);
+        deallocate__(allocator, pointer, cl);
+    }
+
+    return result;
 }
 
 

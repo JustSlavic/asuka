@@ -11,8 +11,7 @@
 
 #include <defines.hpp>
 
-namespace memory
-{
+namespace memory {
 
 
 struct mallocator
@@ -25,37 +24,49 @@ struct mallocator
 };
 
 
-INLINE void initialize__(mallocator *allocator, void *memory, usize size, char const *name = "mallocator")
+INLINE
+void initialize__(mallocator *allocator, void *memory, usize size, char const *name = "mallocator")
 {
     allocator->name = name;
 }
 
-#if ASUKA_DEBUG
-INLINE void *allocate__(mallocator *allocator, usize requested_size, usize alignment, CodeLocation cl)
-#else
-INLINE void *allocate__(mallocator *allocator, usize requested_size, usize alignment)
-#endif
+
+INLINE
+void *allocate__(mallocator *allocator, usize size, usize alignment, CodeLocation cl)
 {
-    void *result = malloc(requested_size);
+    void *result = malloc(size);
 
 #if ASUKA_DEBUG
-    push_allocation_entry(&allocator->log, {cl, result, requested_size});
+    push_allocation_entry(&allocator->log, {cl, result, size});
 #endif // ASUKA_DEBUG
 
     return result;
 }
 
-#if ASUKA_DEBUG
-INLINE void deallocate__(mallocator *allocator, void *memory_to_free, CodeLocation cl)
-#else
-INLINE void deallocate__(mallocator *allocator, void *memory_to_free)
-#endif
+
+INLINE
+void deallocate__(mallocator *allocator, void *memory_to_free, CodeLocation cl)
 {
+    free(memory_to_free);
+
 #if ASUKA_DEBUG
     pop_allocation_entry(&allocator->log, memory_to_free);
 #endif // ASUKA_DEBUG
+}
 
-    free(memory_to_free);
+
+INLINE
+void *reallocate__(mallocator *allocator, void *pointer, usize new_size, usize alignment, CodeLocation cl)
+{
+    void *result = realloc(pointer, new_size);
+
+#if ASUKA_DEBUG
+    if (result != pointer)
+    {
+        pop_allocation_entry(&allocator->log, pointer);
+        push_allocation_entry(&allocator->log, {cl, result, new_size});
+    }
+#endif // ASUKA_DEBUG
 }
 
 

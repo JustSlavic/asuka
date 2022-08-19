@@ -355,7 +355,4 @@ array<T> make_copy(Allocator *allocator, array<T> source)
     return result;
 }
 
-
-#include "string.hpp"
-
 #define STRING_PRINT_(STRING) (int) STRING.size, STRING.data

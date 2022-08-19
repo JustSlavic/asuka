@@ -8,8 +8,8 @@
 
 struct CodeLocation
 {
-    char const *function;
     char const *filename;
+    char const *function;
     int32 line;
 };
 
@@ -25,7 +25,7 @@ CodeLocation make_code_location(char const *file, int32 line, char const *func)
 {
     CodeLocation cl = {};
     cl.filename = file;
-    cl.line = line;
     cl.function = func;
+    cl.line = line;
     return cl;
 }

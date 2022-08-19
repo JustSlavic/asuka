@@ -874,13 +874,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         memory::arena_allocator *ui_arena = &game_state->ui_arena;
 
         initialize(
-            &game_state->experimental_pool,
-            Memory->CustomHeapStorage,
-            Memory->CustomHeapStorageSize,
-            "experimental"
-        );
-
-        initialize(
             arena,
             (u8 *) Memory->PermanentStorage + sizeof(GameState),
             (Memory->PermanentStorageSize - sizeof(GameState)) / 2,
@@ -1671,9 +1664,6 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
             }
         }
 
-        // acf parsed_acf = {};
-        // bool success = parse_acf(string::from("{ a = 10 b = 20 c = 30 d = \"Hmm...\" }"), &parsed_acf);
-
         for (uint64 hash_entry_index = 0;
             hash_entry_index < ARRAY_COUNT(allocator_to_draw->log.hash_table);
             hash_entry_index++)
@@ -1785,6 +1775,7 @@ namespace Game
 INTERNAL
 void Game_OutputSound_(SoundOutputBuffer *SoundBuffer, GameState* game_state) {
 #if IN_CODE_TEXTURES
+    // @todo: Embed sound into executable
 #else
     sound_sample_t* SampleOut = SoundBuffer->Samples;
 

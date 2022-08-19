@@ -432,12 +432,6 @@ struct GameState {
 
     UiScene *game_hud;
 
-    using experimental_pool_t = memory::pool_allocator<20 * sizeof(int)>;
-    experimental_pool_t experimental_pool;
-
-    memory::mallocator experimental_mallocator;
-    void *start_p;
-
     f32 exit_confirmation_time;
 
 #if UI_EDITOR_ENABLED

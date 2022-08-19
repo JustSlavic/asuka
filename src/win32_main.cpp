@@ -1192,9 +1192,6 @@ int WINAPI WinMain(
     GameMemory.PermanentStorage = Platform::AllocateMemory(BaseAddress, TotalSize);
     GameMemory.TransientStorage = (u8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
 
-    GameMemory.CustomHeapStorageSize = MEGABYTES(1);
-    GameMemory.CustomHeapStorage = Platform::AllocateMemory((void *) TERABYTES(2), GameMemory.CustomHeapStorageSize);
-
 #if ASUKA_PLAYBACK_LOOP
     u64 InitialGameMemorySize = GameMemory.PermanentStorageSize;
 
@@ -1502,9 +1499,9 @@ int WINAPI WinMain(
                 }
             }
 
-            // while (SecondsElapsedForFrame < TargetSecondsPerFrame) {
-            //     SecondsElapsedForFrame = os::get_seconds(os::get_wall_clock() - LastClockTimepoint);
-            // }
+            while (SecondsElapsedForFrame < TargetSecondsPerFrame) {
+                SecondsElapsedForFrame = os::get_seconds(os::get_wall_clock() - LastClockTimepoint);
+            }
 
             if (SecondsElapsedForFrame < TargetSecondsPerFrame) {
                 // @todo: Slept for good time!

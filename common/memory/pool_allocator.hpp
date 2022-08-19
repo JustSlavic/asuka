@@ -43,22 +43,18 @@ struct pool_allocator
     byte *memory;
     usize size; // bytes
     usize used; // bytes
+    char const *name;
 
     memory_chunk *free_list;
 
 #ifdef ASUKA_DEBUG
-    char const *name;
     AllocationLog log;
 #endif // ASUKA_DEBUG
 };
 
 
 template <usize ChunkSize>
-#ifdef ASUKA_DEBUG
 void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size, char const *name = "pool")
-#else // ASUKA_DEBUG
-void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size)
-#endif // ASUKA_DEBUG
 {
     ASSERT_MSG(memory, "Initializing allocator with NULL!\n");
 
@@ -67,8 +63,9 @@ void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size
     allocator->memory = (byte *) memory;
     allocator->size   = size;
     allocator->used   = 0;
+    allocator->name = name;
 
-    auto aligned = get_aligned_pointer(memory, 8); // @todo: What is MAX_ALIGN should be?
+    auto aligned = get_aligned_pointer(memory, 8); // @note: 8 is "MAX_ALIGN"
     chunk_t *first_header = (chunk_t *) aligned.pointer;
     usize chunk_count = (size - aligned.padding) / sizeof(chunk_t);
 
@@ -77,11 +74,6 @@ void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size
     {
         chunk_t *next_chunk = header + 1;
         header->next_chunk  = next_chunk;
-
-// #if ASUKA_ASAN
-//         ASAN_POISON_MEMORY_REGION(header, sizeof(chunk_t));
-// #endif // ASUKA_ASAN
-
         header = next_chunk;
     }
 
@@ -89,17 +81,12 @@ void initialize__(pool_allocator<ChunkSize> *allocator, void *memory, usize size
     allocator->free_list = first_header;
 
 #if ASUKA_DEBUG
-    allocator->name = name;
     initialize_allocation_log(&allocator->log);
 #endif // ASUKA_DEBUG
 }
 
 template <usize ChunkSize>
-#if ASUKA_DEBUG
 void *allocate__(pool_allocator<ChunkSize> *allocator, usize requested_size, usize alignment, CodeLocation cl)
-#else
-void *allocate__(pool_allocator<ChunkSize> *allocator, usize requested_size, usize alignment)
-#endif // ASUKA_DEBUG
 {
     using chunk_t = typename pool_allocator<ChunkSize>::memory_chunk;
 
@@ -110,28 +97,20 @@ void *allocate__(pool_allocator<ChunkSize> *allocator, usize requested_size, usi
         {
             result = allocator->free_list->memory;
             allocator->free_list = allocator->free_list->next_chunk;
-
             allocator->used += sizeof(chunk_t);
 
 #if ASUKA_DEBUG
             push_allocation_entry(&allocator->log, {cl, result, requested_size});
 #endif // ASUKA_DEBUG
-
-// #if ASUKA_ASAN
-//             ASAN_UNPOISON_MEMORY_REGION(result, ChunkSize);
-// #endif // ASUKA_ASAN
         }
     }
 
     return result;
 }
 
+
 template <usize ChunkSize>
-#if ASUKA_DEBUG
 void deallocate__(pool_allocator<ChunkSize> *allocator, void *memory_to_free, CodeLocation cl)
-#else
-void deallocate__(pool_allocator<ChunkSize> *allocator, void *memory_to_free)
-#endif
 {
     using chunk_t = typename pool_allocator<ChunkSize>::memory_chunk;
 
@@ -144,10 +123,14 @@ void deallocate__(pool_allocator<ChunkSize> *allocator, void *memory_to_free)
 #if ASUKA_DEBUG
     pop_allocation_entry(&allocator->log, memory_to_free);
 #endif // ASUKA_DEBUG
+}
 
-// #if ASUKA_ASAN
-//     ASAN_POISON_MEMORY_REGION(header->padding, sizeof(header->padding));
-// #endif // ASUKA_ASAN
+
+template <usize ChunkSize>
+void *reallocate__(pool_allocator<ChunkSize> *allocator, void *pointer, usize new_size, usize alignment, CodeLocation cl)
+{
+    // There's no need to reallocate, because in pool allocator, all chunks are the same size.
+    return pointer;
 }
 
 
