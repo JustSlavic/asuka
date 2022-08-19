@@ -1077,6 +1077,11 @@ int WINAPI WinMain(
     }
 #endif
 
+    int32 NumberOfMonitors = GetSystemMetrics(SM_CMONITORS);
+
+    int32 PrimaryMonitorWidth  = GetSystemMetrics(SM_CXSCREEN);
+    int32 PrimaryMonitorHeight = GetSystemMetrics(SM_CYSCREEN);
+
     // @todo: Use this value to implement double clicking
     UINT DoubleClickTimeMs = GetDoubleClickTime();
 
@@ -1138,8 +1143,8 @@ int WINAPI WinMain(
         WindowClass.lpszClassName,        // ClassName
         "AsukaWindow",                    // WindowName
         WindowStyle,                      // Style
-        CW_USEDEFAULT,                    // X,
-        CW_USEDEFAULT,                    // Y,
+        (PrimaryMonitorWidth - Platform::Width(WindowRectangle)) / 2,   // X
+        (PrimaryMonitorHeight - Platform::Height(WindowRectangle)) / 2, // Y
         Platform::Width(WindowRectangle), // Width
         Platform::Height(WindowRectangle),// Height
         0,                                // WndParent
@@ -1446,12 +1451,15 @@ int WINAPI WinMain(
             }
 
             // Checking if there's room for one more Game_Input
-            if (((Global_DebugInputRecording.RecordedInputsCount + 1) * sizeof(Game::Input)) < Global_DebugInputRecording.InputRecordingSize) {
+            if (((Global_DebugInputRecording.RecordedInputsCount + 1) * sizeof(Game::Input)) < Global_DebugInputRecording.InputRecordingSize)
+            {
                 Game::Input* RecordedInputs = (Game::Input*)Global_DebugInputRecording.InputRecording;
                 RecordedInputs[Global_DebugInputRecording.RecordedInputsCount] = *NewInput;
                 RecordedInputs[Global_DebugInputRecording.RecordedInputsCount].PlaybackLoopState = Game::PLAYBACK_LOOP_PLAYBACK;
                 Global_DebugInputRecording.RecordedInputsCount++;
-            } else {
+            }
+            else
+            {
                 ASSERT_FAIL("The space for storing input is ran out. Increase it in code above (it's debug code, nobody cares)\n");
             }
         }
