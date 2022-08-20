@@ -83,11 +83,6 @@ typedef __int16 int16;
 typedef __int32 int32;
 typedef __int64 int64;
 
-typedef __int8  Int8;
-typedef __int16 Int16;
-typedef __int32 Int32;
-typedef __int64 Int64;
-
 typedef unsigned __int8  u8;
 typedef unsigned __int16 u16;
 typedef unsigned __int32 u32;
@@ -98,19 +93,11 @@ typedef unsigned __int16 uint16;
 typedef unsigned __int32 uint32;
 typedef unsigned __int64 uint64;
 
-typedef unsigned __int8  UInt8;
-typedef unsigned __int16 UInt16;
-typedef unsigned __int32 UInt32;
-typedef unsigned __int64 UInt64;
-
 typedef float  f32;
 typedef double f64;
 
 typedef float  float32;
 typedef double float64;
-
-typedef float  Float32;
-typedef double Float64;
 
 #define ASUKA_DEBUG_BREAK __debugbreak
 #define FORCE_INLINE __forceinline
@@ -199,8 +186,6 @@ typedef double float64;
 
 #ifdef ASUKA_OS_LINUX
 
-#define VA_ARGS(...) , ##__VA_ARGS__
-
 #define osOutputDebugString(MSG, ...) \
 {  \
     fprintf(stdout, MSG, ##__VA_ARGS__); \
@@ -288,14 +273,6 @@ struct Defer {
     ~Defer() { cb(); }
 };
 #define defer Defer CONCAT2(defer__, __LINE__) = [&]()
-
-#define DECLARE_FLAGS(NAME, ENUM_TYPE) \
-struct CONCAT2(NAME, _Flags) { \
-    u32 flags; \
-    void set(ENUM_TYPE flag) { flags |= flag; } \
-    void unset(ENUM_TYPE flag) { flags &= (~flag); } \
-    b32  is(ENUM_TYPE flag) { return flags & flag; } \
-}
 
 #define TOGGLE(X) { (X) = !(X); } void(0)
 

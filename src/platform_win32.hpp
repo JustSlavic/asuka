@@ -252,16 +252,16 @@ void EnableVTCodes()
 //  =========== Saved this for later ===============
 
 
-Int32 Width(RECT Rect)
+int32 Width(RECT Rect)
 {
-    Int32 Result = Rect.right - Rect.left;
+    int32 Result = Rect.right - Rect.left;
     return Result;
 }
 
 
-Int32 Height(RECT Rect)
+int32 Height(RECT Rect)
 {
-    Int32 Result = Rect.bottom - Rect.top;
+    int32 Result = Rect.bottom - Rect.top;
     return Result;
 }
 

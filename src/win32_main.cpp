@@ -942,9 +942,9 @@ struct WorkQueueEntry
     char const *Str;
 };
 
-GLOBAL UInt32 volatile FinishedWorkCount;
-GLOBAL UInt32 volatile NextEntryToDo;
-GLOBAL UInt32 volatile WorkCount;
+GLOBAL uint32 volatile FinishedWorkCount;
+GLOBAL uint32 volatile NextEntryToDo;
+GLOBAL uint32 volatile WorkCount;
 GLOBAL WorkQueueEntry WorkQueue[32];
 
 void PushIntoWorkQueue(HANDLE SemaphoreHandle, char const *Str)
