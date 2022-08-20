@@ -1086,7 +1086,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     f32 character_speed = 2.5f; // [m/s]
     f32 character_mass = 80.0f; // [kg]
 
-    // Game Input
+    // ============== Game Input ==============
 
 #if UI_EDITOR_ENABLED
     if (GetPressCount(Input->keyboard.F1))
@@ -1449,9 +1449,9 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 #endif
     // ===================== RENDERING MEMORY LAYOUT ===================== //
 
-#define ASUKA_DRAW_MEMORY_LAYOUT 1
+#define ASUKA_DRAW_MEMORY_LAYOUT 0
 #define DRAW_WORLD_ARENA         0
-#define DRAW_EXPERIMENTAL_POOL   1
+#define DRAW_EXPERIMENTAL_POOL   0
 #define DRAW_MALLOCATOR_MEMORY   0
 
 #if ASUKA_DEBUG && ASUKA_DRAW_MEMORY_LAYOUT
