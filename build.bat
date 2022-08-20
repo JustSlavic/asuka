@@ -47,7 +47,7 @@ rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /I../common /Fexaudio2_demo ../xaudio2/
 
 
 REM OpenGL
-rem cl %COMMON_CL_FLAGS% %COMMON_MY_FLAGS% /I../common /Feopengl_demo ../opengl/opengl.cpp /link /PDB:opengl.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% opengl32.lib
+cl %COMMON_CL_FLAGS% %COMMON_FLAGS% %WARNINGS% /I../common /Feopengl_demo ../opengl/opengl.cpp /link /PDB:opengl.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% opengl32.lib
 
 REM D3D11
 rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /I../common /Fed3d11_demo ../d3d11/d3d11.cpp /link /PDB:d3d11.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% D3D11.lib D3DCompiler.lib
