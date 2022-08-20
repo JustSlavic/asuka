@@ -281,7 +281,6 @@ ControllerInput *GetControllerInput(Input *Input, u32 ControllerIndex)
     return &Input->ControllerInputs[ControllerIndex];
 }
 
-
 INLINE
 ControllerInput *GetGamepadInput(Input *Input, u32 GamepadIndex)
 {
@@ -421,6 +420,7 @@ struct GameState {
     Bitmap shadow_texture;
     Bitmap fireball_texture;
     Bitmap sword_texture;
+    Bitmap cursor_texture;
 
     Bitmap monster_head;
     Bitmap monster_left_arm;

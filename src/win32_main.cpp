@@ -1108,7 +1108,7 @@ int WINAPI WinMain(
     Win32_ResizeDIBSection(&Global_BackBuffer, Resolution[0], Resolution[1]);
 
 #ifdef ASUKA_DEBUG
-    Global_CursorIsVisible = true;
+    Global_CursorIsVisible = false;
 #endif
 
     WNDCLASSA WindowClass{};

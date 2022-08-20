@@ -862,6 +862,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_state->shadow_texture      = Asuka::load_png_file("shadow.png");
         game_state->fireball_texture    = Asuka::load_png_file("fireball.png");
         game_state->sword_texture       = Asuka::load_png_file("sword.png");
+        game_state->cursor_texture      = Asuka::load_png_file("sword_cursor.png");
 
         game_state->player_textures[0]  = Asuka::load_png_file("character_1.png");
         game_state->player_textures[1]  = Asuka::load_png_file("character_2.png");
@@ -1741,31 +1742,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     }
 #endif // UI_EDITOR_ENABLED
 
-
-#if 0
-    [](auto Buffer)
-    {
-        for (u32 i = 0; i < 100000; i++)
-        {
-            f32 r = uniform_real(0, 1);
-            f32 phi = uniform_real(0, 1) * 2 * PI;
-
-            i32 PixelX = (int)(sqrt(r) * cos(phi) * (Buffer->Height / 2 - 1) + Buffer->Width / 2);
-            i32 PixelY = (int)(sqrt(r) * sin(phi) * (Buffer->Height / 2 - 1) + Buffer->Height / 2);
-
-            // if ((PixelX >= 0 && PixelX < Buffer->Width) &&
-            //     (PixelY >= 0 && PixelY < Buffer->Height))
-            {
-                auto Pixel = (u8 *) Buffer->Memory + PixelY * Buffer->Pitch + PixelX * Buffer->BytesPerPixel;
-                *(u32 *)(Pixel) = 0;
-            }
-            // else
-            {
-                // osOutputDebugString("(%d, %d)\n", PixelX, PixelY);
-            }
-        }
-    }(Buffer);
-#endif
+    DrawBitmap(Buffer, Input->mouse.position.x, Input->mouse.position.y, &game_state->cursor_texture);
 }
 
 
