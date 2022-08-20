@@ -108,35 +108,6 @@ struct UiElement
     u32 filter_count;
 };
 
-template <typename Allocator>
-UiElement *allocate_ui_element(Allocator *allocator, UiElementType type)
-{
-    auto ui_element = ALLOCATE_STRUCT(allocator, UiElement);
-    ui_element->type = type;
-    ui_element->scale = make_vector2(1, 1);
-
-    return ui_element;
-}
-
-template <typename Allocator>
-UiElement *allocate_ui_shape(Allocator *allocator)
-{
-    auto ui_element = allocate_ui_element(allocator, UI_ELEMENT_SHAPE);
-
-    ui_element->shape.size = make_vector2(100, 100);
-    ui_element->shape.color = color32::White;
-    ui_element->shape.n = 1;
-
-    return ui_element;
-}
-
-template <typename Allocator>
-UiElement *allocate_ui_group(Allocator *allocator)
-{
-    auto ui_element = allocate_ui_element(allocator, UI_ELEMENT_GROUP);
-    return ui_element;
-}
-
 rect2 get_bounding_box(UiElement *element);
 void push_filter(UiShape *element, UiFilter *filter);
 matrix4 get_transform(UiElement *element);

@@ -8,11 +8,12 @@ UiScene *ui_allocate_scene(memory::arena_allocator *allocator)
 }
 
 
-void push_child(UiGroup *group, UiElement *child)
+void push_child(UiElement *parent, UiElement *child)
 {
-    ASSERT(group->children_count < ARRAY_COUNT(group->children));
+    ASSERT(parent->type == UI_ELEMENT_GROUP);
+    ASSERT(parent->group.children_count < ARRAY_COUNT(parent->group.children));
 
-    group->children[group->children_count++] = child;
+    parent->group.children[parent->group.children_count++] = child;
 }
 
 

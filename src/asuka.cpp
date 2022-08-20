@@ -1027,45 +1027,50 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
 
         // ======================== UI =======================
 
-        game_state->game_hud = ui_allocate_scene(ui_arena);
+        auto *hud = ui_allocate_scene(ui_arena);
+        game_state->game_hud = hud;
 
-        game_state->game_hud->root = allocate_ui_group(ui_arena);
+        auto *root = ALLOCATE_STRUCT(ui_arena, UiElement);
+        root->type = UI_ELEMENT_GROUP;
+        root->scale = make_vector2(1, 1);
 
-        auto hud_child_1 = allocate_ui_shape(ui_arena);
-        hud_child_1->type = UI_ELEMENT_SHAPE;
-        hud_child_1->scale = make_vector2(1, 1);
-        hud_child_1->position = make_vector2(50, 50);
-        hud_child_1->shape.size = make_vector2(50, 50);
-        hud_child_1->shape.color = color32::White;
-        hud_child_1->shape.n = 1;
+        hud->root = root;
 
-        hud_child_1->on_click = []()
+        auto *child_1 = ALLOCATE_STRUCT(ui_arena, UiElement);
+        child_1->type = UI_ELEMENT_SHAPE;
+        child_1->scale = make_vector2(1, 1);
+        child_1->position = make_vector2(50, 50);
+        child_1->shape.size = make_vector2(50, 50);
+        child_1->shape.color = color32::White;
+        child_1->shape.n = 1;
+        child_1->on_click = []()
         {
             osOutputDebugString("CLICKED!\n");
         };
+        push_child(root, child_1);
 
-        push_child(&game_state->game_hud->root->group, hud_child_1);
-
-
-        auto hud_child_2 = allocate_ui_group(ui_arena);
+        auto *hud_child_2 = ALLOCATE_STRUCT(ui_arena, UiElement);
+        hud_child_2->type = UI_ELEMENT_GROUP;
         hud_child_2->scale = make_vector2(20, 20);
-        push_child(&game_state->game_hud->root->group, hud_child_2);
+        push_child(root, hud_child_2);
 
-        auto hud_child_2_1 = allocate_ui_shape(ui_arena);
+        auto *hud_child_2_1 = ALLOCATE_STRUCT(ui_arena, UiElement);
         hud_child_2_1->type = UI_ELEMENT_SHAPE;
         hud_child_2_1->scale = make_vector2(1, 1);
         hud_child_2_1->position = make_vector2(200, 10);
         hud_child_2_1->shape.size = make_vector2(25, 100);
         hud_child_2_1->shape.color = make_color32(0.6, 0.3, 0.8, 1.0);
-        push_child(&hud_child_2->group, hud_child_2_1);
+        hud_child_2_1->shape.n = 1;
+        push_child(hud_child_2, hud_child_2_1);
 
-        auto hud_child_2_2 = allocate_ui_shape(ui_arena);
+        auto *hud_child_2_2 = ALLOCATE_STRUCT(ui_arena, UiElement);
         hud_child_2_2->type = UI_ELEMENT_SHAPE;
         hud_child_2_2->scale = make_vector2(1, 1);
         hud_child_2_2->position = make_vector2(225, 110);
         hud_child_2_2->shape.size = make_vector2(25, 100);
         hud_child_2_2->shape.color = make_color32(0.6, 0.3, 0.8, 1.0);
-        push_child(&hud_child_2->group, hud_child_2_2);
+        hud_child_2_2->shape.n = 1;
+        push_child(hud_child_2, hud_child_2_2);
 
 #if UI_EDITOR_ENABLED
         game_state->ui_editor = ALLOCATE_STRUCT(ui_arena, UiEditor);
