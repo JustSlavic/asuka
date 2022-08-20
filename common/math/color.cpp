@@ -1,17 +1,21 @@
 #include "color.hpp"
 
 
-color24 color24::White { 1.f, 1.f, 1.f };
-color24 color24::Black { 0.f, 0.f, 0.f };
-color24 color24::Red   { 1.f, 0.f, 0.f };
-color24 color24::Green { 0.f, 1.f, 0.f };
-color24 color24::Blue  { 0.f, 0.f, 1.f };
+color24 color24::white   { 1.0f, 1.0f, 1.0f };
+color24 color24::black   { 0.0f, 0.0f, 0.0f };
+color24 color24::red     { 1.0f, 0.0f, 0.0f };
+color24 color24::green   { 0.0f, 1.0f, 0.0f };
+color24 color24::blue    { 0.0f, 0.0f, 1.0f };
+color24 color24::yellow  { 1.0f, 1.0f, 0.0f };
+color24 color24::cyan    { 0.0f, 1.0f, 1.0f };
+color24 color24::magenta { 1.0f, 0.0f, 1.0f };
 
 
-color32 color32::White { 1.0f, 1.0f, 1.0f, 1.0f };
-color32 color32::Black { 1.0f, 1.0f, 1.0f, 1.0f };
-
-color32 color32::Red   { 1.0f, 0.0f, 0.0f, 1.0f };
-color32 color32::Green { 0.0f, 1.0f, 0.0f, 1.0f };
-color32 color32::Blue  { 0.0f, 0.0f, 1.0f, 1.0f };
-
+color32 color32::white   { 1.0f, 1.0f, 1.0f, 1.0f };
+color32 color32::black   { 1.0f, 1.0f, 1.0f, 1.0f };
+color32 color32::red     { 1.0f, 0.0f, 0.0f, 1.0f };
+color32 color32::green   { 0.0f, 1.0f, 0.0f, 1.0f };
+color32 color32::blue    { 0.0f, 0.0f, 1.0f, 1.0f };
+color32 color32::yellow  { 1.0f, 1.0f, 0.0f, 1.0f };
+color32 color32::cyan    { 0.0f, 1.0f, 1.0f, 1.0f };
+color32 color32::magenta { 1.0f, 0.0f, 1.0f, 1.0f };

@@ -15,7 +15,7 @@
 struct Vertex
 {
     f32 x, y, z;
-    asuka::Color32 color;
+    color32 color;
 };
 
 GLOBAL bool Running;
@@ -122,8 +122,10 @@ int WINAPI WinMain(
     i32 ClientWidth = 800;
     i32 ClientHeight = 600;
     RECT WindowRectangle { 0, 0, ClientWidth, ClientHeight };
-    if (!AdjustWindowRect(&WindowRectangle, WS_OVERLAPPEDWINDOW, false)) {
-        // @error: handle not correct window size ?
+    if (!AdjustWindowRect(&WindowRectangle, WS_OVERLAPPEDWINDOW, false))
+    {
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, "System error! AdjustWindowRect failed.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
         return 1;
     }
 
@@ -142,8 +144,10 @@ int WINAPI WinMain(
         0                 //
     );
 
-    if (!Window) {
-        // Handle error
+    if (!Window)
+    {
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, "System error! Could not create a window.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
         return 1;
     }
 
@@ -261,9 +265,9 @@ int WINAPI WinMain(
 
     Vertex Vertices[3] =
     {
-        {  0.0f,   0.5f, 0.0f, Color32{ 1.0f, 0.0f, 0.0f, 1.0f } },
-        {  0.45f, -0.5f, 0.0f, Color32{ 0.0f, 1.0f, 0.0f, 1.0f } },
-        { -0.45f, -0.5f, 0.0f, Color32{ 0.0f, 0.0f, 1.0f, 1.0f } },
+        {  0.0f,   0.5f, 0.0f, color32{ 1.0f, 0.0f, 0.0f, 1.0f } },
+        {  0.45f, -0.5f, 0.0f, color32{ 0.0f, 1.0f, 0.0f, 1.0f } },
+        { -0.45f, -0.5f, 0.0f, color32{ 0.0f, 0.0f, 1.0f, 1.0f } },
     };
 
     D3D11_BUFFER_DESC BufferDescription {};
@@ -291,14 +295,14 @@ int WINAPI WinMain(
     D3D11_DeviceContext->IASetInputLayout(InputLayout);
 
     Running = true;
-    Int32 FrameCounter = 0;
+    int32 FrameCounter = 0;
     while (Running)
     {
         Win32_ProcessPendingMessages();
 
         // Clear the back buffer to a deep blue
-        Color32 BackgroundColor = { 0.0f, 0.2f, 0.4f, 1.0f };
-        D3D11_DeviceContext->ClearRenderTargetView(D3D11_BackBuffer, BackgroundColor.array_);
+        color32 BackgroundColor = { 0.0f, 0.2f, 0.4f, 1.0f };
+        D3D11_DeviceContext->ClearRenderTargetView(D3D11_BackBuffer, BackgroundColor.e);
 
         // Do 3D rendering on the back buffer here
         u32 Stride = sizeof(Vertex);

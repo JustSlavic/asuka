@@ -256,7 +256,7 @@ void ui_draw_element(UiScene *scene, UiElement *ui_element, OffscreenBuffer *buf
                         case UI_FILTER_SHADOW:
                         {
                             UiFilterShadow *shadow = &filter->shadow;
-                            DrawRectangle(buffer, lt + make_vector2(shadow->distance), rb + make_vector2(shadow->distance), color24::Black);
+                            DrawRectangle(buffer, lt + make_vector2(shadow->distance), rb + make_vector2(shadow->distance), color24::black);
                         }
                         break;
 
@@ -1041,7 +1041,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         child_1->scale = make_vector2(1, 1);
         child_1->position = make_vector2(50, 50);
         child_1->shape.size = make_vector2(50, 50);
-        child_1->shape.color = color32::White;
+        child_1->shape.color = color32::white;
         child_1->shape.n = 1;
         child_1->on_click = []()
         {
