@@ -130,19 +130,18 @@ int WINAPI WinMain(
     }
 
     HWND Window = CreateWindowExA(
-        0,                //
-        WindowClass.lpszClassName, //
-        "D3D11 Window",   //
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE, //
-        CW_USEDEFAULT,    // X,
-        CW_USEDEFAULT,    // Y,
-        Width(WindowRectangle),
-        Height(WindowRectangle),
-        0,                //
-        0,                //
-        Instance,         //
-        0                 //
-    );
+        0,                                // ExStyle
+        WindowClass.lpszClassName,        // ClassName
+        "D3D11 Window",                   // WindowName
+        WS_OVERLAPPEDWINDOW | WS_VISIBLE, // Style
+        CW_USEDEFAULT,                    // X,
+        CW_USEDEFAULT,                    // Y,
+        Width(WindowRectangle),           // Width
+        Height(WindowRectangle),          // Height
+        0,                                // WndParent
+        0,                                // Menu
+        Instance,                         // Instance
+        NULL);                            // Param
 
     if (!Window)
     {
@@ -220,33 +219,67 @@ int WINAPI WinMain(
     ID3DBlob *PS = NULL;
     ID3DBlob *ShaderErrors = NULL;
 
-    if (FAILED(D3DCompileFromFile(
-        L"shaders.shader", // pFileName
-        NULL,             // pDefines
-        NULL,             // pInclude
-        "VShader",        // pEntrypoint
-        "vs_4_0",         // pTarget
-        0,                // Flags1
-        0,                // Flags2
-        &VS,              // ppCode
-        &ShaderErrors     // ppErrorMsgs
-    )))
+    char const Shader[] = R"HLSL(
+struct VOut
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+
+VOut VShader(float4 position : POSITION, float4 color : COLOR)
+{
+    VOut output;
+
+    output.position = position;
+    output.color = color;
+
+    return output;
+}
+
+
+float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
+{
+    return color;
+}
+)HLSL";
+
+    HRESULT VertexShaderCompilationResult = D3DCompile(
+        Shader,         // SrcData
+        sizeof(Shader), // SrcDataSize
+        NULL,           // SourceName
+        NULL,           // Defines
+        NULL,           // Include
+        "VShader",      // Entrypoint
+        "vs_4_0",       // Target,
+        0,              // Flags1
+        0,              // Flags2
+        &VS,            // Code
+        &ShaderErrors); // ErrorMsgs
+
+    if (FAILED(VertexShaderCompilationResult))
     {
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, "Compilation HLSL error.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
         return 1;
     }
 
-    if (FAILED(D3DCompileFromFile(
-        L"shaders.shader", // pFileName
-        NULL,             // pDefines
-        NULL,             // pInclude
-        "PShader",        // pEntrypoint
-        "ps_4_0",         // pTarget
-        0,                // Flags1
-        0,                // Flags2
-        &PS,              // ppCode
-        &ShaderErrors     // ppErrorMsgs
-    )))
+    HRESULT PixelShaderCompilationResult = D3DCompile(
+        Shader,         // SrcData
+        sizeof(Shader), // SrcDataSize
+        NULL,           // SourceName
+        NULL,           // Defines
+        NULL,           // Include
+        "PShader",      // Entrypoint
+        "ps_4_0",       // Target
+        0,              // Flags1
+        0,              // Flags2
+        &PS,            // Code
+        &ShaderErrors); // ErrorMsgs
+
+    if (FAILED(PixelShaderCompilationResult))
     {
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, "Compilation HLSL error.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
         return 1;
     }
 
