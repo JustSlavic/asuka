@@ -277,6 +277,9 @@ int WINAPI WinMain(
     LPSTR CmdLine,
     int CmdShow)
 {
+    int32 PrimaryMonitorWidth  = GetSystemMetrics(SM_CXSCREEN);
+    int32 PrimaryMonitorHeight = GetSystemMetrics(SM_CYSCREEN);
+
     WNDCLASSA WindowClass {};
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = MainWindowCallback;
@@ -295,7 +298,7 @@ int WINAPI WinMain(
 
     CurrentClientWidth  = 800;
     CurrentClientHeight = 600;
-    RECT WindowRectangle { 0, 0, (LONG) CurrentClientWidth, (LONG) CurrentClientHeight };
+    RECT WindowRectangle = { 0, 0, (LONG) CurrentClientWidth, (LONG) CurrentClientHeight };
     if (!AdjustWindowRect(&WindowRectangle, WS_OVERLAPPEDWINDOW, false))
     {
         MessageBeep(MB_ICONERROR);
@@ -308,8 +311,8 @@ int WINAPI WinMain(
         WindowClass.lpszClassName,        // ClassName
         "OpenGL Window",                   // WindowName
         WS_OVERLAPPEDWINDOW | WS_VISIBLE, // Style
-        CW_USEDEFAULT,                    // X,
-        CW_USEDEFAULT,                    // Y,
+        (PrimaryMonitorWidth - Width(WindowRectangle)) / 2,   // X
+        (PrimaryMonitorHeight - Height(WindowRectangle)) / 2, // Y
         Width(WindowRectangle),           // Width
         Height(WindowRectangle),          // Height
         0,                                // WndParent

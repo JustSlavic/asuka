@@ -105,6 +105,9 @@ int WINAPI WinMain(
     LPSTR CmdLine,
     int CmdShow)
 {
+    int32 PrimaryMonitorWidth  = GetSystemMetrics(SM_CXSCREEN);
+    int32 PrimaryMonitorHeight = GetSystemMetrics(SM_CYSCREEN);
+
     WNDCLASSA WindowClass {};
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = MainWindowCallback;
@@ -121,7 +124,7 @@ int WINAPI WinMain(
 
     i32 ClientWidth = 800;
     i32 ClientHeight = 600;
-    RECT WindowRectangle { 0, 0, ClientWidth, ClientHeight };
+    RECT WindowRectangle = { 0, 0, ClientWidth, ClientHeight };
     if (!AdjustWindowRect(&WindowRectangle, WS_OVERLAPPEDWINDOW, false))
     {
         MessageBeep(MB_ICONERROR);
@@ -134,8 +137,8 @@ int WINAPI WinMain(
         WindowClass.lpszClassName,        // ClassName
         "D3D11 Window",                   // WindowName
         WS_OVERLAPPEDWINDOW | WS_VISIBLE, // Style
-        CW_USEDEFAULT,                    // X,
-        CW_USEDEFAULT,                    // Y,
+        (PrimaryMonitorWidth - Width(WindowRectangle)) / 2,   // X
+        (PrimaryMonitorHeight - Height(WindowRectangle)) / 2, // Y
         Width(WindowRectangle),           // Width
         Height(WindowRectangle),          // Height
         0,                                // WndParent
