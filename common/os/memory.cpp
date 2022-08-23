@@ -35,7 +35,7 @@ void set(void *memory, u8 value, usize size) {
     }
 }
 
-void copy(void *destination, void *source, usize size) {
+void copy(void *destination, void const *source, usize size) {
     u8 *d = (u8 *)destination;
     u8 *s = (u8 *)source;
     for (usize i = 0; i < size; i++) {

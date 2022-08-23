@@ -56,7 +56,7 @@ void *allocate_pages(void *base_address, u64 size);
 void  free_pages(void *memory);
 
 void set(void *memory, u8 value, usize size);
-void copy(void *destination, void *source, usize size);
+void copy(void *destination, void const *source, usize size);
 
 
 } // namespace memory
