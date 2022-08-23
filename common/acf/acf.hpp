@@ -173,7 +173,8 @@ struct acf
     {
         acf result = {};
         result.type = acf_type_t::custom;
-        result.value.custom_value.newtype_name = copy_array(&acf_mallocator, name);
+        // @nocommit
+        // result.value.custom_value.newtype_name = array<acf>::copy_from(&acf_mallocator, name);
 
         return result;
     }
@@ -222,7 +223,8 @@ struct acf
     {
         acf result = {};
         result.type = acf_type_t::string;
-        result.value.string_value = copy_array(&acf_mallocator, string::from(str));
+        // @nocommit
+        // result.value.string_value = copy_array(&acf_mallocator, string::from(str));
 
         return result;
     }
@@ -233,8 +235,8 @@ struct acf
         acf result = {};
         result.type = acf_type_t::string;
 
-
-        result.value.string_value = copy_array(&acf_mallocator, str);
+        // @nocommit
+        // result.value.string_value = copy_array(&acf_mallocator, str);
 
         return result;
     }
@@ -246,13 +248,6 @@ struct acf
         result.type = acf_type_t::type;
         result.value.type_value = value;
 
-        return result;
-    }
-
-    STATIC
-    acf from(os::filepath filename)
-    {
-        acf result = {};
         return result;
     }
 
@@ -357,7 +352,8 @@ struct acf
 
     void push(char const *k, acf v)
     {
-        push(string::from(k), v);
+        // @nocommit
+        // push(string::from(k), v);
     }
 
     void push(string k, acf v)
@@ -438,7 +434,8 @@ struct acf
             {
                 if (!value.string_value.is_empty())
                 {
-                    deallocate_array(&acf_mallocator, value.string_value);
+                    // @nocommit
+                    // deallocate_array(&acf_mallocator, value.string_value);
                 }
             }
             break;
@@ -464,7 +461,8 @@ struct acf
                     auto& k = value.object_value.keys[i];
                     if (!k.is_empty())
                     {
-                        deallocate_array(&acf_mallocator, k);
+                        // @nocommit
+                        // deallocate_array(&acf_mallocator, k);
                     }
                 }
                 if (!value.object_value.keys.is_empty())
@@ -488,7 +486,8 @@ struct acf
             {
                 if (!value.custom_value.newtype_name.is_empty())
                 {
-                    deallocate_array(&acf_mallocator, value.custom_value.newtype_name);
+                    // @nocommit
+                    // deallocate_array(&acf_mallocator, value.custom_value.newtype_name);
                 }
                 for (usize i = 0; i < value.custom_value.newtype_arguments.get_size(); i++)
                 {
@@ -951,7 +950,8 @@ struct acf_lexer
 INTERNAL
 void register_acf_keyword(acf_lexer *lexer, char const *keyword, acf_token_type type)
 {
-    lexer->keywords[lexer->keyword_count] = string::from(keyword);
+    // @nocommit
+    // lexer->keywords[lexer->keyword_count] = string::from(keyword);
     lexer->keyword_types[lexer->keyword_count] = type;
 
     lexer->keyword_count += 1;
@@ -968,7 +968,8 @@ void register_acf_new_type(acf_lexer *lexer, string type_name, acf_constructor_a
 INTERNAL
 void register_acf_new_type(acf_lexer *lexer, char const *type_name, acf_constructor_arguments args)
 {
-    register_acf_new_type(lexer, string::from(type_name), args);
+    // @nocommit
+    // register_acf_new_type(lexer, string::from(type_name), args);
 }
 
 INTERNAL

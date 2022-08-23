@@ -5,6 +5,7 @@
 #include <type.hpp>
 #include <allocator.hpp>
 
+
 //
 // @note: Arrays are non-owners of data. They are just spans of values (when copied, data shares between instances).
 // You should free it manually via your allocator, which allocated buffer of the array.
@@ -23,21 +24,9 @@
 //
 
 
-// @experimental "free on demand"
-enum array_flags
-{
-    ARRAY_FLAG_OWNER = (1 << 0),
-    ARRAY_FLAG_NULL_TERMINATED = (1 << 1),
-    ARRAY_FLAG_FREE_ON_SCOPE_EXIT = (1 << 2), // Same as owner?
-};
-
-
 template <typename T>
 struct array
 {
-    using value_t = T; // For arrays
-    using char_t  = T; // For strings
-
     T *data;
     usize size;
     usize capacity;
@@ -65,76 +54,6 @@ struct array
         ASSERT_MSG(index < size, "Attempt to access array memory out of bounds.");
         return data[index];
     }
-
-    T& push (T const& t)
-    {
-        ASSERT_MSG(size < capacity, "Attempt to access array memory out of bounds.");
-        return data[size++] = t;
-    }
-
-    T& top ()
-    {
-        ASSERT_MSG(size > 0, "Attempt to access memory of zero-sized array.");
-        return data[size - 1];
-    }
-
-    T& pop ()
-    {
-        ASSERT_MSG(size > 0, "Attempt to pop zero-sized array.");
-        return data[--size];
-    }
-
-    template <typename U> STATIC
-    array<T> from(array<U> s)
-    {
-        array<T> result;
-        result.data = (T *) s.data;
-        result.size = s.size * sizeof(T) / sizeof(U);
-        result.capacity = s.capacity * sizeof(T) / sizeof(U);
-
-        return result;
-    }
-
-    STATIC
-    array<char> from(char const* s)
-    {
-        static_assert(type::is_same<T, char>::value, "This function can be called only for strings.");
-        array<char> result;
-        result.data = (char *) s;
-        result.size = cstring::size_no0(s);
-        result.capacity = result.size;
-
-        return result;
-    }
-
-    template <typename T, bool IsConst>
-    struct iterator_
-    {
-    private:
-        using ptr_t = typename type::sfinae_if<IsConst, T const*, T *>::type;
-        using ref_t = typename type::sfinae_if<IsConst, T const&, T &>::type;
-
-        ptr_t data;
-        usize index;
-
-    public:
-        iterator_(ptr_t data, usize index_) : data(data), index(index_) {}
-        iterator_& operator ++ () { index += 1; return *this; }
-        iterator_  operator ++ (int) { iterator_ result = *this; index += 1; return result; }
-        bool operator == (iterator_ other) const { return (data == other.data) && (index == other.index); }
-        bool operator != (iterator_ other) const { return !(*this == other); }
-        ref_t operator * () const { return data[index]; }
-    };
-
-    using iterator = iterator_<T, false>;
-    using const_iterator = iterator_<T, true>;
-
-    const_iterator cbegin() const { return const_iterator(data, 0); }
-    const_iterator cend() const { return const_iterator(data, size); }
-    const_iterator begin() const { return const_iterator(data, 0); }
-    const_iterator end() const { return const_iterator(data, size); }
-    iterator begin() { return iterator(data, 0); }
-    iterator end() { return iterator(data, size); }
 };
 
 using byte_array = array<memory::byte>;
@@ -192,43 +111,44 @@ array<T> copy_array(Allocator *allocator, array<T> source)
 
 // ============================= STRINGS ===============================
 
-namespace cstring
-{
+namespace cstring {
 
-usize size_no0(const char *str) {
+usize size_no0(const char *str)
+{
     usize size = 0;
     while (str[size]) { size += 1; }
 
     return size;
 }
 
-usize size_with0(const char *s) {
+usize size_with0(const char *s)
+{
     usize size = size_no0(s) + 1;
     return size;
 }
 
 } // namespacec cstring
 
-using string = array<char>;
 // @todo: Utf8 support
-// using utf8_string = array<utf8_char>;
-
-template <typename Allocator>
-string allocate_string_(Allocator allocator, usize count)
+struct string
 {
-    static_assert(type::is_same<array<char>, string>::value);
-    string result = allocate_array_<char>(allocator, count);
-    return result;
-}
+    char *data;
+    usize size;
 
-template <typename Allocator>
-string allocate_string(Allocator allocator, usize count)
-{
-    static_assert(type::is_same<array<char>, string>::value);
-    string result = allocate_array<char>(allocator, count);
-    return result;
+    bool is_empty() const { return (size == 0); }
+    bool is_valid() const { return (data != 0) && (size != 0); }
 
-}
+    template <typename Allocator> STATIC
+    string copy_from(Allocator *allocator, char const *s)
+    {
+        string result;
+        result.size = cstring::size_with0(s); // @todo: or without 0 ?
+        result.data = ALLOCATE_BUFFER_(allocator, char, result.size);
+        memory::copy(result.data, s, result.size);
+
+        return result;
+    }
+};
 
 template <typename Allocator>
 void deallocate_string(Allocator *allocator, string& s)
@@ -244,6 +164,40 @@ string copy_string(Allocator *allocator, string source)
     result.size = source.size;
     result.capacity = source.capacity;
     return result;
+}
+
+struct string_view
+{
+    char const *data;
+    usize size;
+
+    string_view(string const& s)
+    {
+        data = s.data;
+        size = s.size;
+    }
+
+    string_view(char const *s)
+    {
+        data = s;
+        size = cstring::size_no0(s);
+    }
+
+    bool is_empty() const { return (size == 0); }
+    bool is_valid() const { return (data != 0) && (size != 0); }
+};
+
+bool operator == (string_view left, string_view right)
+{
+    if (left.size != right.size)
+    {
+        return false;
+    }
+    for (usize index = 0; index < left.size; index++)
+    {
+        if (left.data[index] != right.data[index]) return false;
+    }
+    return true;
 }
 
 // ============================================================
@@ -277,33 +231,6 @@ string to_string(Allocator *allocator, int32 n)
 // ============================================================
 
 template <typename T>
-array<T> make_array(T *data, usize size)
-{
-    array<T> result = {};
-    result.data = data;
-    result.size = size;
-    result.capacity = size;
-
-    return result;
-}
-
-string make_string(char *data, usize size)
-{
-    auto result = make_array<char>(data, size);
-    return result;
-}
-
-string make_string(byte_array array)
-{
-    string result = {};
-    result.data = (char *) array.data;
-    result.size = array.size;
-    result.capacity = array.capacity;
-
-    return result;
-}
-
-template <typename T>
 b32 operator == (array<T> lhs, array<T> rhs)
 {
     b32 same = (lhs.get_size() == rhs.get_size());
@@ -313,17 +240,6 @@ b32 operator == (array<T> lhs, array<T> rhs)
     }
 
     return same;
-}
-
-bool operator == (string left, char const *right)
-{
-    for (usize i = 0; i < left.get_size(); i++)
-    {
-        if (right[i] == 0) { return false; }
-        if (left[i] != right[i]) { return false; }
-    }
-
-    return (right[left.get_size()] == 0);
 }
 
 bool operator == (char const *left, string right)

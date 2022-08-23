@@ -1012,10 +1012,6 @@ THREAD_FUNCTION(ThreadTest)
 }
 
 
-#define ACF_LIB_IMPLEMENTATION
-#include <acf/acf.hpp>
-
-
 int WINAPI WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,

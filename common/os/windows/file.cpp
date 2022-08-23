@@ -9,8 +9,9 @@ namespace os {
 namespace internal {
 
 
-byte_array load_entire_file(const char* filename) {
-    byte_array result {};
+byte_array load_entire_file(const char* filename)
+{
+    byte_array result = {};
 
     HANDLE FileHandle = CreateFileA(
         filename,
@@ -21,7 +22,8 @@ byte_array load_entire_file(const char* filename) {
         FILE_ATTRIBUTE_NORMAL,
         NULL);
 
-    if (FileHandle == INVALID_HANDLE_VALUE) {
+    if (FileHandle == INVALID_HANDLE_VALUE)
+    {
         // @todo: log error
         return result;
     }
@@ -30,7 +32,8 @@ byte_array load_entire_file(const char* filename) {
 
     LARGE_INTEGER FileSize;
     BOOL GetSizeResult = GetFileSizeEx(FileHandle, &FileSize);
-    if (GetSizeResult == 0) {
+    if (GetSizeResult == 0)
+    {
         // @todo: log error
         return result;
     }
@@ -42,18 +45,22 @@ byte_array load_entire_file(const char* filename) {
     DWORD BytesRead;
     BOOL ReadFileResult = ReadFile(FileHandle, Memory, (DWORD)FileSize.QuadPart, &BytesRead, NULL);
 
-    if (ReadFileResult == FALSE && BytesRead == FileSize.QuadPart) {
+    if (ReadFileResult == FALSE && BytesRead == FileSize.QuadPart)
+    {
         // @todo: log error
         VirtualFree(Memory, 0, MEM_RELEASE);
         return result;
     }
 
-    result = make_array((memory::byte *) Memory, FileSize.QuadPart);
+    result.data = (memory::byte *) Memory;
+    result.size = FileSize.QuadPart;
+    result.capacity = FileSize.QuadPart;
     return result;
 }
 
 
-bool write_file(const char* filename, byte_array file) {
+bool write_file(const char* filename, byte_array file)
+{
     HANDLE FileHandle = CreateFileA(
         filename,
         GENERIC_WRITE,
