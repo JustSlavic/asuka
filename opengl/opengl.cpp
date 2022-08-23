@@ -8,6 +8,13 @@
 #include <gl/gl.h>
 
 
+struct Vertex
+{
+    f32 x, y, z;
+    color32 color;
+};
+
+
 // ===========================================
 
 
@@ -355,10 +362,10 @@ int WINAPI WinMain(
     InitializeOpenGLFunctions();
 
     f32 vertices[] = {
-        -0.5f, -0.5f, 0.0f,  // bottom left
-         0.5f, -0.5f, 0.0f,  // bottom right
-         0.5f,  0.5f, 0.0f,  // top right
-        -0.5f,  0.5f, 0.0f,  // top left
+        -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f, 1.0f, // bottom left
+         0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f, 1.0f, // bottom right
+         0.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f, 1.0f, // top right
+        -0.5f,  0.5f, 0.0f,  1.0f, 1.0f, 0.0f, 1.0f, // top left
     };
 
     u32 vertex_buffer_id = 0;
@@ -384,46 +391,71 @@ int WINAPI WinMain(
     {
         glGenVertexArrays(1, &vertex_array_id);
         glBindVertexArray(vertex_array_id);
-        glEnableVertexAttribArray(0);
-
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
-        // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,  , NULL);
-        glVertexAttribPointer(
-            0,             // Index
-            3,             // Count
-            GL_FLOAT,      // Type
-            GL_FALSE,      // Normalized?
-            3*sizeof(f32), // Stride
-            NULL           // Offset
-        );
+
+        uint32 attrib_index = 0;
+        uint64 offset = 0;
+        {
+            uint32 count = 3; // Because it's vector3
+
+            glEnableVertexAttribArray(attrib_index);
+            // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,  , NULL);
+            glVertexAttribPointer(
+                attrib_index,      // Index
+                count,             // Count
+                GL_FLOAT,          // Type
+                GL_FALSE,          // Normalized?
+                sizeof(Vertex),    // Stride
+                (void *) offset);  // Offset
+
+            attrib_index += 1;
+            offset += (count * sizeof(float));
+        }
+        {
+            uint32 count = 4; // Because it's color32
+
+            glEnableVertexAttribArray(attrib_index);
+            glVertexAttribPointer(
+                attrib_index,      // Index
+                count,             // Count
+                GL_FLOAT,          // Type
+                GL_FALSE,          // Normalized?
+                sizeof(Vertex),    // Stride
+                (void *) offset);  // Offset
+
+            attrib_index += 1;
+            offset += (count * sizeof(float));
+        }
     }
 
-    const char *vertex_shader =
-R"GLSL(
+    const char *vertex_shader = R"GLSL(
 #version 400
 
 in vec3 vertex_position;
+in vec4 vertex_color;
 out vec4 fragment_position;
+out vec4 fragment_color;
 
 void main()
 {
     fragment_position = vec4(vertex_position, 1.0);
+    fragment_color = vertex_color;
     gl_Position = vec4(vertex_position, 1.0);
 }
 
 )GLSL";
 
-    const char *fragment_shader =
-R"GLSL(
-
+    const char *fragment_shader = R"GLSL(
 #version 400
 
 in vec4 fragment_position;
-out vec4 fragment_color;
+in vec4 fragment_color;
+out vec4 result_fragment_color;
 
 void main()
 {
-    fragment_color = vec4(fragment_position.rgb * 2.0, 1.0);
+    result_fragment_color = fragment_color;
+    // result_fragment_color = vec4(fragment_position.rgb * 2.0, 1.0);
 }
 
 )GLSL";
@@ -456,7 +488,7 @@ void main()
             ViewportNeedsResize = false;
         }
 
-        glClearColor(27.0f/255.0f, 83.0f/255.0f, 161.0f/255.0f, 1.0f);
+        glClearColor(0.0f, 0.2f, 0.4f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(shader_program_id);

@@ -291,31 +291,58 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
     D3D11_Device->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &PixelShader);
     defer { PixelShader->Release(); };
 
-    D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
-    D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
+    D3D11_RASTERIZER_DESC RasterizerDescription = {};
+    RasterizerDescription.CullMode = D3D11_CULL_BACK;
+    RasterizerDescription.FillMode = D3D11_FILL_SOLID;
+    RasterizerDescription.FrontCounterClockwise = TRUE;
 
-    ID3D11Buffer *VertexBuffer = NULL;
+    ID3D11RasterizerState* RasterizerState;
+    D3D11_Device->CreateRasterizerState(&RasterizerDescription, &RasterizerState);
+    D3D11_DeviceContext->RSSetState(RasterizerState);
 
-    Vertex Vertices[3] =
+    Vertex Vertices[] =
     {
-        {  0.0f,   0.5f, 0.0f, color32{ 1.0f, 0.0f, 0.0f, 1.0f } },
-        {  0.45f, -0.5f, 0.0f, color32{ 0.0f, 1.0f, 0.0f, 1.0f } },
-        { -0.45f, -0.5f, 0.0f, color32{ 0.0f, 0.0f, 1.0f, 1.0f } },
+        { -0.5f, -0.5f, 0.0f, color32{ 0.0f, 0.0f, 1.0f, 1.0f } }, // bottom left
+        {  0.5f, -0.5f, 0.0f, color32{ 0.0f, 1.0f, 0.0f, 1.0f } }, // bottom right
+        {  0.5f,  0.5f, 0.0f, color32{ 1.0f, 0.0f, 0.0f, 1.0f } }, // top right
+        { -0.5f,  0.5f, 0.0f, color32{ 1.0f, 1.0f, 0.0f, 1.0f } }, // top left
     };
 
-    D3D11_BUFFER_DESC BufferDescription {};
+    ID3D11Buffer *VertexBuffer = NULL;
+    {
+        D3D11_BUFFER_DESC BufferDescription = {};
 
-    BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
-    BufferDescription.ByteWidth = sizeof(Vertex) * ARRAY_COUNT(Vertices);
-    BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
+        BufferDescription.ByteWidth = sizeof(Vertices);
+        BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-    D3D11_Device->CreateBuffer(&BufferDescription, NULL, &VertexBuffer);
+        D3D11_Device->CreateBuffer(&BufferDescription, NULL, &VertexBuffer);
 
-    D3D11_MAPPED_SUBRESOURCE MappedSubresource {};
-    D3D11_DeviceContext->Map(VertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
-    memcpy(MappedSubresource.pData, Vertices, sizeof(Vertices));
-    D3D11_DeviceContext->Unmap(VertexBuffer, NULL);
+        D3D11_MAPPED_SUBRESOURCE MappedSubresource {};
+        D3D11_DeviceContext->Map(VertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+        memcpy(MappedSubresource.pData, Vertices, sizeof(Vertices));
+        D3D11_DeviceContext->Unmap(VertexBuffer, NULL);
+    }
+
+    u32 Indices[] = {
+        0, 1, 2,
+        2, 3, 0,
+    };
+
+    ID3D11Buffer *IndexBuffer = NULL;
+    {
+        D3D11_BUFFER_DESC BufferDescription = {};
+
+        BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
+        BufferDescription.ByteWidth = sizeof(Indices);
+        BufferDescription.Usage     = D3D11_USAGE_IMMUTABLE;
+        BufferDescription.BindFlags = D3D11_BIND_INDEX_BUFFER;
+
+        D3D11_SUBRESOURCE_DATA IndexData = { Indices };
+
+        D3D11_Device->CreateBuffer(&BufferDescription, &IndexData, &IndexBuffer);
+    }
 
     D3D11_INPUT_ELEMENT_DESC InputDescription[] =
     {
@@ -325,7 +352,6 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 
     ID3D11InputLayout *InputLayout = NULL;
     D3D11_Device->CreateInputLayout(InputDescription, 2, VS->GetBufferPointer(), VS->GetBufferSize(), &InputLayout);
-    D3D11_DeviceContext->IASetInputLayout(InputLayout);
 
     Running = true;
     int32 FrameCounter = 0;
@@ -340,9 +366,17 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         // Do 3D rendering on the back buffer here
         u32 Stride = sizeof(Vertex);
         u32 Offset = 0;
+
         D3D11_DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
+        D3D11_DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+        D3D11_DeviceContext->IASetInputLayout(InputLayout);
+
+        D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
+        D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
+
         D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        D3D11_DeviceContext->Draw(3, 0);
+        D3D11_DeviceContext->DrawIndexedInstanced(ARRAYSIZE(Indices), 2, 0, 0, 0);
+        // D3D11_DeviceContext->Draw(3, 0);
 
         // Switch the back buffer and the front buffer
         D3D11_SwapChain->Present(0, 0);
