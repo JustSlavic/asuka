@@ -97,12 +97,12 @@
         },
         {
             "name":       "Preprocessor",
-            "scope":      "meta.preprocessor",
+            "scope":      "keyword.control.import",
             "foreground": "#D5D4FF"
         },
         {
             "name":       "Declaration name",
-            "scope":      "entity.name.type, entity.name.class, entity.name.struct, entity.name.enum, entity.name.union",
+            "scope":      "entity.name.type, entity.name.class, entity.name.struct, entity.name.enum, entity.name.union, entity.name.namespace",
             "foreground": "var(orange)"
         },
         {
