@@ -34,67 +34,67 @@ typedef GL_GEN_BUFFERS(OpenGL_GenBuffers);
 GLOBAL OpenGL_GenBuffers *glGenBuffers;
 
 // Bind a named buffer object
-#define GL_BIND_BUFFER(name) void name(GLenum target, GLuint buffer);
+#define GL_BIND_BUFFER(name) void name(GLenum target, GLuint buffer)
 typedef GL_BIND_BUFFER(OpenGL_BindBuffer);
 GLOBAL OpenGL_BindBuffer *glBindBuffer;
 
 // Creates and initializes a buffer object's data store
-#define GL_BUFFER_DATA(name) void name(GLenum target, intptr size, const void *data, GLenum usage);
+#define GL_BUFFER_DATA(name) void name(GLenum target, intptr size, const void *data, GLenum usage)
 typedef GL_BUFFER_DATA(OpenGL_BufferData);
 GLOBAL OpenGL_BufferData *glBufferData;
 
 // Generate vertex array object names
-#define GL_GEN_VERTEX_ARRAY(name) void name(GLsizei n, GLuint *arrays);
+#define GL_GEN_VERTEX_ARRAY(name) void name(GLsizei n, GLuint *arrays)
 typedef GL_GEN_VERTEX_ARRAY(OpenGL_GenVertexArray);
 GLOBAL OpenGL_GenVertexArray *glGenVertexArrays;
 
 // Bind a vertex array object
-#define GL_BIND_VERTEX_ARRAY(name) void name(GLuint array);
+#define GL_BIND_VERTEX_ARRAY(name) void name(GLuint array)
 typedef GL_BIND_VERTEX_ARRAY(OpenGL_BindVertexArray);
 GLOBAL OpenGL_BindVertexArray *glBindVertexArray;
 
 // Define an array of generic vertex attribute data
-#define GL_VERTEX_ATTRIB_POINTER(name) void name(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+#define GL_VERTEX_ATTRIB_POINTER(name) void name(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer)
 typedef GL_VERTEX_ATTRIB_POINTER(OpenGL_VertexAttribPointer);
 GLOBAL OpenGL_VertexAttribPointer *glVertexAttribPointer;
 
 // Enable or disable a generic vertex attribute array
-#define GL_ENABLE_VERTEX_ATTRIB_ARRAY(name) void name(GLuint index);
+#define GL_ENABLE_VERTEX_ATTRIB_ARRAY(name) void name(GLuint index)
 typedef GL_ENABLE_VERTEX_ATTRIB_ARRAY(OpenGL_EnableVertexAttribArray);
 GLOBAL OpenGL_EnableVertexAttribArray *glEnableVertexAttribArray;
 
 // Creates a shader object
-#define GL_CREATE_SHADER(name) GLuint name(GLenum shaderType);
+#define GL_CREATE_SHADER(name) GLuint name(GLenum shaderType)
 typedef GL_CREATE_SHADER(OpenGL_CreateShader);
 GLOBAL OpenGL_CreateShader *glCreateShader;
 
 // Replaces the source code in a shader object
-#define GL_SHADER_SOURCE(name) void name(GLuint shader, GLsizei count, char const **string, GLint const *length);
+#define GL_SHADER_SOURCE(name) void name(GLuint shader, GLsizei count, char const **string, GLint const *length)
 typedef GL_SHADER_SOURCE(OpenGL_ShaderSource);
 GLOBAL OpenGL_ShaderSource *glShaderSource;
 
 // Compiles a shader object
-#define GL_COMPILE_SHADER(name) void name(GLuint shader);
+#define GL_COMPILE_SHADER(name) void name(GLuint shader)
 typedef GL_COMPILE_SHADER(OpenGL_CompileShader);
 GLOBAL OpenGL_CompileShader *glCompileShader;
 
 // Creates a program object
-#define GL_CREATE_PROGRAM(name) GLuint name(void);
+#define GL_CREATE_PROGRAM(name) GLuint name(void)
 typedef GL_CREATE_PROGRAM(OpenGL_CreateProgram);
 GLOBAL OpenGL_CreateProgram *glCreateProgram;
 
 // Attaches a shader object to a program object
-#define GL_ATTACH_SHADER(name) void name(GLuint program, GLuint shader);
+#define GL_ATTACH_SHADER(name) void name(GLuint program, GLuint shader)
 typedef GL_ATTACH_SHADER(OpenGL_AttachShader);
 GLOBAL OpenGL_AttachShader *glAttachShader;
 
 // Links a program object
-#define GL_LINK_PROGRAM(name) void name( GLuint program);
+#define GL_LINK_PROGRAM(name) void name( GLuint program)
 typedef GL_LINK_PROGRAM(OpenGL_LinkProgram);
 GLOBAL OpenGL_LinkProgram *glLinkProgram;
 
 // Installs a program object as part of current rendering state
-#define GL_USE_PROGRAM(name) void name(GLuint program);
+#define GL_USE_PROGRAM(name) void name(GLuint program)
 typedef GL_USE_PROGRAM(OpenGL_UseProgram);
 GLOBAL OpenGL_UseProgram *glUseProgram;
 
@@ -188,6 +188,7 @@ uint32 compile_shader(char const *source_code, GLenum shader_type)
 
 
 GLOBAL BOOL Running;
+GLOBAL BOOL Wireframe;
 
 GLOBAL UINT CurrentClientWidth;
 GLOBAL UINT CurrentClientHeight;
@@ -243,16 +244,38 @@ void Win32_ProcessPendingMessages() {
 
         switch (Message.message) {
             case WM_MOUSEMOVE:
-                break;
+            break;
+
             case WM_SYSKEYDOWN:
             case WM_SYSKEYUP:
             case WM_KEYDOWN:
             case WM_KEYUP:
-                break;
-            default: {
-                DispatchMessageA(&Message);
-                break;
+            {
+                u32 VKCode  = (u32)Message.wParam;
+                b32 WasDown = (Message.lParam & (1 << 30)) != 0;
+                b32 IsDown  = (Message.lParam & (1 << 31)) == 0;
+                if (WasDown != IsDown)
+                {
+                    if (VKCode == 'W')
+                    {
+                        if (IsDown)
+                        {
+                            TOGGLE(Wireframe);
+                        }
+                    }
+                    if (VKCode == VK_ESCAPE)
+                    {
+                        Running = false;
+                    }
+                }
             }
+            break;
+
+            default:
+            {
+                DispatchMessageA(&Message);
+            }
+            break;
         }
     }
 }
@@ -504,6 +527,12 @@ void main()
     while (Running)
     {
         Win32_ProcessPendingMessages();
+
+        if (Wireframe) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        } else {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
 
         if (ViewportNeedsResize) {
             glViewport(0, 0, CurrentClientWidth, CurrentClientHeight);

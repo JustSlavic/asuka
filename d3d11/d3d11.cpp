@@ -208,8 +208,7 @@ int WINAPI WinMain(
 
     // Viewport
 
-    D3D11_VIEWPORT Viewport {};
-
+    D3D11_VIEWPORT Viewport = {};
     Viewport.TopLeftX = 0;
     Viewport.TopLeftY = 0;
     Viewport.Width = (f32) ClientWidth;
