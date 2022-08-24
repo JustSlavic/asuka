@@ -103,6 +103,19 @@ contexts:
       scope: comment.at
 
   strings:
+    - match: '(R)(")(GLSL)(\()'
+      captures:
+        1: punctuation
+        2: punctuation.definition.string.begin.c
+        3: keyword.embedded-language.glsl
+        4: punctuation
+      embed: scope:source.glsl
+      embed_scope: source.inline-glsl
+      escape: '(\)GLSL)(")'
+      escape_captures:
+        1: punctuation
+        2: punctuation.definition.string.end.c
+
     - match: '(L|u8|u|U)?(")'
       captures:
         1: storage.type.string.c
@@ -301,7 +314,9 @@ contexts:
       scope: keyword.operator.arithmetic.c
     - match: '->'
       scope: punctuation.accessor.c
-    - match: \+\=|-\=|\*\=|/\=|%\=|&\=|\|\=|\^\=|>>\=|<<\=
+    - match: '::'
+      scope: punctuation.accessor.double-colon.c++
+    - match: '\+\=|-\=|\*\=|/\=|%\=|&\=|\|\=|\^\=|>>\=|<<\='
       scope: keyword.operator.assignment.augmented.c
     - match: <<|>>|&&|\|\|
       scope: keyword.operator.arithmetic.c

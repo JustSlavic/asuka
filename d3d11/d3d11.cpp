@@ -305,10 +305,10 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 
     Vertex Vertices[] =
     {
-        { -0.5f, -0.5f, 0.0f, color32{ 0.0f, 0.0f, 1.0f, 1.0f } }, // bottom left
-        {  0.5f, -0.5f, 0.0f, color32{ 0.0f, 1.0f, 0.0f, 1.0f } }, // bottom right
-        {  0.5f,  0.5f, 0.0f, color32{ 1.0f, 0.0f, 0.0f, 1.0f } }, // top right
-        { -0.5f,  0.5f, 0.0f, color32{ 1.0f, 1.0f, 0.0f, 1.0f } }, // top left
+        { -0.5f, -0.5f, 0.0f, color32::blue }, // bottom left
+        {  0.5f, -0.5f, 0.0f, color32::green }, // bottom right
+        {  0.5f,  0.5f, 0.0f, color32::red }, // top right
+        { -0.5f,  0.5f, 0.0f, color32::yellow }, // top left
     };
 
     ID3D11Buffer *VertexBuffer = NULL;
@@ -378,8 +378,8 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
 
         D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        D3D11_DeviceContext->DrawIndexedInstanced(ARRAYSIZE(Indices), 2, 0, 0, 0);
         // D3D11_DeviceContext->Draw(3, 0);
+        D3D11_DeviceContext->DrawIndexedInstanced(ARRAYSIZE(Indices), 2, 0, 0, 0);
 
         // Switch the back buffer and the front buffer
         D3D11_SwapChain->Present(0, 0);

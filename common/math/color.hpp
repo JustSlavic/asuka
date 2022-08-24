@@ -8,6 +8,7 @@ struct color24 {
     struct { f32 r; f32 g; f32 b; };
 
     STATIC color24 white;
+    STATIC color24 gray;
     STATIC color24 black;
 
     STATIC color24 red;
@@ -28,6 +29,7 @@ struct color32 {
     };
 
     STATIC color32 white;
+    STATIC color32 gray;
     STATIC color32 black;
 
     STATIC color32 red;

@@ -1,0 +1,264 @@
+%YAML 1.2
+---
+# See http://www.sublimetext.com/docs/syntax.html
+file_extensions:
+  - glsl
+scope: source.glsl
+
+variables:
+  # number digits
+  bin_digit: '[01]'
+  oct_digit: '[0-7]'
+  dec_digit: '\d'
+  hex_digit: '\h'
+
+  dec_digits: '{{dec_digit}}+'
+
+  # number exponents
+  dec_exponent: '(?:[eE][-+]?{{dec_digit}}*)'
+  hex_exponent: '(?:[pP][-+]?{{dec_digit}}*)'
+
+  # number suffixes
+  bin_suffix: '[2-9a-zA-Z_][[:alnum:]_]*'
+  oct_suffix: '[8-9g-zG-Z_][[:alnum:]_]*'
+  dec_suffix: '[a-zA-Z_][[:alnum:]_]*'
+  hex_suffix: '[g-zG-Z_][[:alnum:]_]*'
+  double_suffix: '[fFlL]'
+  float_suffix: '[fF]'
+  integer_suffix: '[lL]{1,2}[uU]?|[uU][lL]{0,2}'
+
+  identifier: '\b[[:alpha:]_][[:alnum:]_]*\b' # upper and lowercase
+  glsl_types: 'float|vec2|vec3|vec4'
+  glsl_keywords: 'gl_Position'
+
+contexts:
+  main:
+    - include: preprocessor
+    - include: global
+
+  global:
+    - include: comments
+    - include: keywords
+    - include: operators
+    - include: function-definition
+    - include: block
+    - include: statements
+
+  function-definition:
+    - match: '({{identifier}})\s*(\()'
+      captures:
+        1: entity.name.function.glsl
+        2: punctuation
+      push:
+        - match: ','
+          scope: punctuation
+        - match: '\)'
+          scope: punctuation
+          pop: true
+
+  line_comment:
+    - meta_scope: comment.line.example-c
+    - match: $
+      pop: true
+
+  keywords:
+    - match: '\b(in|out)\b'
+      scope: keyword.control.glsl
+    - match: '{{glsl_keywords}}'
+      scope: keyword.glsl
+
+  statements:
+    - include: expressions
+
+  expressions:
+    - include: early-expressions
+    - include: late-expressions
+
+  early-expressions:
+    - include: comments
+    - include: operators
+    - include: keywords
+    - include: numbers
+    - match: ','
+      scope: punctuation.separator.c
+    - match: '\)|\}'
+      scope: invalid.illegal.stray-bracket-end.c
+
+  late-expressions:
+    - include: function-call
+    - match: ';'
+      scope: punctuation.terminator.c
+
+  operators:
+    - match: (?:\+\+|--)
+      scope: keyword.operator.arithmetic.c
+    - match: \+|\-|/|%|\||\^|~|!
+      scope: keyword.operator.arithmetic.c
+    - match: '\+\=|\-\=|\*\=|/\=|%\=|&\=|\|\=|\^\=|>>\=|<<\='
+      scope: keyword.operator.assignment.augmented.c
+    - match: \=
+      scope: keyword.operator.assignment.c
+
+  function-call:
+    - match: '(?={{identifier}}\s*\()'
+      push:
+        - meta_content_scope: meta.function-call.glsl
+        - match: '({{identifier}})\s*(?=\()'
+          captures:
+            1: variable.function.glsl
+        - match: '\('
+          scope: meta.group.glsl punctuation.section.group.begin.glsl
+          set:
+            - meta_content_scope: meta.function-call.glsl meta.group.glsl
+            - match: '\)'
+              scope: meta.function-call.glsl meta.group.glsl punctuation.section.group.end.glsl
+              pop: true
+            - include: expressions
+
+  block:
+    - match: '\{'
+      scope: punctuation.section.block.begin.c
+      push:
+        - meta_scope: meta.block.c
+        - match: (?=^\s*#\s*(elif|else|endif)\b)
+          pop: true
+        - match: '\}'
+          scope: punctuation.section.block.end.c
+          pop: true
+        - include: statements
+
+  comments:
+    - match: ^/\* =(\s*.*?)\s*= \*/$\n?
+      scope: comment.block.c
+      captures:
+        1: meta.toc-list.banner.block.c
+    - match: /\*
+      scope: punctuation.definition.comment.c
+      push:
+        - meta_scope: comment.block.c
+        - include: comment-tags
+        - match: \*/
+          scope: punctuation.definition.comment.c
+          pop: true
+        - match: ^\s*(\*)(?!/)
+          captures:
+            1: punctuation.definition.comment.c
+    - match: \*/(?!\*)
+      scope: invalid.illegal.stray-comment-end.c
+    - match: ^// =(\s*.*?)\s*=\s*$\n?
+      scope: comment.line.banner.c
+      captures:
+        1: meta.toc-list.banner.line.c
+    - match: //
+      scope: punctuation.definition.comment.c
+      push:
+        - meta_scope: comment.line.double-slash.c
+        - include: comment-tags
+        - match: '(\\)$\n'
+          captures:
+            1: punctuation.separator.continuation.c
+        - match: \n
+          pop: true
+
+  comment-tags:
+    - match: '@todo:?'
+      scope: comment.todo
+    - match: '@note:?'
+      scope: comment.note
+    - match: '@nocommit\b'
+      scope: comment.nocommit
+    - match: '@\w+:?'
+      scope: comment.at
+
+  preprocessor:
+    - match: '\#{{identifier}}'
+      scope: meta.preprocessor.macro.glsl keyword.control.import
+      push:
+        - match: $
+          pop: true
+        - include: expressions
+
+  numbers:
+    # https://en.cppreference.com/w/c/language/floating_constant
+    # decimal floats
+    - match: |-
+        (?x:
+          \b({{dec_digits}})
+          (?:
+            ( (\.)
+              (?:
+                # 1.1, 1.1e1, 1.1e-1, 1.1f, 1.1e1f, 1.1e-1f, 1.1L, 1.1e1L, 1.1e-1L
+                {{dec_digit}}+ {{dec_exponent}}?
+                # 1.e1, 1.e-1, 1.e1f, 1.e-1f, 1.e1L, 1.e-1L
+                | {{dec_exponent}}
+                # 1., 1.f, 1.L # but not `..`
+                | (?!\.)
+              )
+              # 1e1 1e1f 1e1L
+              | {{dec_exponent}}
+            ) ({{double_suffix}})?
+            # 1f
+            | ({{float_suffix}})
+          ) ({{dec_suffix}})?
+          # .1, .1e1, .1e-1, .1f, .1e1f, .1e-1f, .1L, .1e1L, .1e-1L
+          | ( (\.) {{dec_digit}}+ {{dec_exponent}}? ) (?: ({{double_suffix}}) | ({{dec_suffix}}) )?
+        )
+      scope: meta.number.float.decimal.c
+      captures:
+        1: constant.numeric.value.c
+        2: constant.numeric.value.c
+        3: punctuation.separator.decimal.c
+        4: constant.numeric.suffix.c
+        5: constant.numeric.suffix.c
+        6: invalid.illegal.numeric.suffix.c
+        7: constant.numeric.value.c
+        8: punctuation.separator.decimal.c
+        9: constant.numeric.suffix.c
+        10: invalid.illegal.numeric.suffix.c
+
+    # hexadecimal float (C99)
+    - match: \b(0[xX])({{hex_digit}}*(\.){{hex_digit}}*{{hex_exponent}})(?:([fFlL]\b)|({{dec_suffix}}))?
+      scope: meta.number.float.hexadecimal.c
+      captures:
+        1: constant.numeric.base.c
+        2: constant.numeric.value.c
+        3: punctuation.separator.decimal.c
+        4: constant.numeric.suffix.c
+        5: invalid.illegal.numeric.suffix.c
+
+    # https://en.cppreference.com/w/c/language/integer_constant
+
+    # binary integer (C23)
+    - match: \b(0[bB])({{bin_digit}}*)(?:({{integer_suffix}})|({{bin_suffix}}))?
+      scope: meta.number.integer.binary.c
+      captures:
+        1: constant.numeric.base.c
+        2: constant.numeric.value.c
+        3: constant.numeric.suffix.c
+        4: invalid.illegal.numeric.suffix.c
+
+    # hexadecimal integer
+    - match: \b(0[xX])({{hex_digit}}*)(?:({{integer_suffix}})|({{hex_suffix}}))?
+      scope: meta.number.integer.hexadecimal.c
+      captures:
+        1: constant.numeric.base.c
+        2: constant.numeric.value.c
+        3: constant.numeric.suffix.c
+        4: invalid.illegal.numeric.suffix.c
+
+    # octal integer
+    - match: \b(0)({{oct_digit}}+)(?:({{integer_suffix}})|({{oct_suffix}}))?
+      scope: meta.number.integer.octal.c
+      captures:
+        1: constant.numeric.base.c
+        2: constant.numeric.value.c
+        3: constant.numeric.suffix.c
+        4: invalid.illegal.numeric.suffix.c
+
+    # decimal integer
+    - match: \b({{dec_digits}})(?:({{integer_suffix}})|({{dec_suffix}}))?
+      scope: meta.number.integer.decimal.c
+      captures:
+        1: constant.numeric.value.c
+        2: constant.numeric.suffix.c
+        3: invalid.illegal.numeric.suffix.c

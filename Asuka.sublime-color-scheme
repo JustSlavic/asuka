@@ -4,6 +4,7 @@
     "variables":
     {
         "fg": "#CECECE",
+        "bg": "#0E1415",
         "active": "#CD974B",
 
         "black": "hsl(0, 0%, 0%)",
@@ -29,7 +30,7 @@
         "comment-green": "#55BB52",
         "string-green": "#95CB82",
         "constant-purple": "#AFAFDF",
-        "punctuation-grey": "#707D7D",
+        "punctuation-grey": "#606D6D",
 
         "todo-yellow": "#cfcf1f",
         "note-blue": "#719DD7",
@@ -37,7 +38,7 @@
     "globals":
     {
         "foreground":                  "var(fg)",
-        "background":                  "#0E1415",
+        "background":                  "var(bg)",
         "caret":                       "var(active)",
         "line_highlight":              "#ffffff20",
         "misspelling":                 "#f00",
@@ -80,16 +81,27 @@
             "scope":      "punctuation",
             "foreground": "var(punctuation-grey)"
         },
-        {
-            "name":       "ACF Keyword",
-            "scope":      "keyword.acf",
-            "foreground": "var(constant-purple)"
-        },
         // {
         //     "name":       "Keyword",
         //     "scope":      "keyword",
         //     "foreground": "var(orange)"
         // },
+        {
+            "name":       "Keyword",
+            "scope":      "keyword.control.glsl, keyword.embedded-language",
+            "foreground": "var(orange)"
+        },
+        {
+            "name": "Inline GLSL",
+            "scope": "source.inline-glsl",
+            "foreground": "color(var(fg) blenda(#000000 90% hsl))",
+            "background": "var(black)",
+        },
+        {
+            "name": "Keywords GLSL",
+            "scope": "keyword.glsl",
+            "foreground": "var(red)",
+        },
         {
             "name":       "Macro",
             "scope":      "asuka.macro",

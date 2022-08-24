@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include <defines.hpp>
+#include <math/vector3.hpp>
 #include <math/color.hpp>
 
 #include <windows.h>
@@ -281,7 +282,7 @@ int WINAPI WinMain(
     int32 PrimaryMonitorHeight = GetSystemMetrics(SM_CYSCREEN);
 
     WNDCLASSA WindowClass {};
-    WindowClass.style = CS_HREDRAW | CS_VREDRAW;
+    WindowClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
     WindowClass.lpfnWndProc = MainWindowCallback;
     WindowClass.hInstance = Instance;
     WindowClass.lpszClassName = "AsukaWindowClass";
@@ -364,11 +365,22 @@ int WINAPI WinMain(
 
     InitializeOpenGLFunctions();
 
-    f32 vertices[] = {
-        -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f, 1.0f, // bottom left
-         0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f, 1.0f, // bottom right
-         0.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f, 1.0f, // top right
-        -0.5f,  0.5f, 0.0f,  1.0f, 1.0f, 0.0f, 1.0f, // top left
+    struct Vertex
+    {
+        vector3 position;
+        color32 color;
+    };
+
+    Vertex vertices[] =
+    {
+        { { -0.5f, -0.5f, 0.0f }, color32::blue }, // bottom left
+        { {  0.5f, -0.5f, 0.0f }, color32::green }, // bottom right
+        { {  0.5f,  0.5f, 0.0f }, color32::red }, // top right
+        { { -0.5f,  0.5f, 0.0f }, color32::yellow }, // top left
+        { { -1.0f,  1.0f, 0.0f }, color32::gray },
+        { {  1.0f,  1.0f, 0.0f }, color32::magenta },
+        { {  1.0f, -1.0f, 0.0f }, color32::cyan },
+        { { -1.0f, -1.0f, 0.0f }, color32{ 0.0f, 0.5f, 0.0f, 0.0f, } },
     };
 
     u32 vertex_buffer_id = 0;
@@ -381,6 +393,14 @@ int WINAPI WinMain(
     u32 indices[] = {
         0, 1, 2,  // first triangle
         2, 3, 0,  // second triangle
+        4, 2, 3,
+        4, 0, 3,
+        5, 4, 2,
+        6, 5, 2,
+        6, 2, 1,
+        0, 6, 1,
+        6, 0, 7,
+        4, 7, 0,
     };
 
     u32 index_buffer_id = 0;
@@ -402,7 +422,6 @@ int WINAPI WinMain(
             uint32 count = 3; // Because it's vector3
 
             glEnableVertexAttribArray(attrib_index);
-            // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,  , NULL);
             glVertexAttribPointer(
                 attrib_index,      // Index
                 count,             // Count
@@ -502,7 +521,7 @@ void main()
         glDrawArrays(GL_TRIANGLES, 0, 3);
 #else
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
+        glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
 #endif
 
         SwapBuffers(DeviceContext);
