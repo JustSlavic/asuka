@@ -39,6 +39,7 @@ contexts:
   global:
     - include: comments
     - include: keywords
+    - include: layout
     - include: operators
     - include: function-definition
     - include: block
@@ -98,6 +99,18 @@ contexts:
       scope: keyword.operator.assignment.augmented.c
     - match: \=
       scope: keyword.operator.assignment.c
+
+  layout:
+    - match: 'layout'
+      scope: keyword.control.glsl
+    - match: '\('
+      scope: meta.group.glsl punctuation.section.group.begin.glsl
+      push:
+        - include: operators
+        - include: numbers
+        - match: '\)'
+          scope: meta.group.glsl punctuation.section.group.end.glsl
+          pop: true
 
   function-call:
     - match: '(?={{identifier}}\s*\()'

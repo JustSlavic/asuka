@@ -476,8 +476,9 @@ int WINAPI WinMain(
     const char *vertex_shader = R"GLSL(
 #version 400
 
-in vec3 vertex_position;
-in vec4 vertex_color;
+layout (location = 0) in vec3 vertex_position;
+layout (location = 1) in vec4 vertex_color;
+
 out vec4 fragment_position;
 out vec4 fragment_color;
 
