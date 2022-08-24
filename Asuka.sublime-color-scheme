@@ -78,7 +78,7 @@
         },
         {
             "name":       "Punctuation",
-            "scope":      "punctuation",
+            "scope":      "punctuation, comment.block.preprocessor.if-branch.c",
             "foreground": "var(punctuation-grey)"
         },
         // {
