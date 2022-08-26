@@ -3,6 +3,7 @@
 #include <defines.hpp>
 #include <math/vector3.hpp>
 #include <math/color.hpp>
+#include <os/file.hpp>
 
 #include <windows.h>
 
@@ -19,6 +20,23 @@ struct Vertex
 // ===========================================
 
 
+#define WGL_DRAW_TO_WINDOW_ARB            0x2001
+#define WGL_SUPPORT_OPENGL_ARB            0x2010
+#define WGL_DOUBLE_BUFFER_ARB             0x2011
+#define WGL_PIXEL_TYPE_ARB                0x2013
+#define WGL_COLOR_BITS_ARB                0x2014
+#define WGL_DEPTH_BITS_ARB                0x2022
+#define WGL_STENCIL_BITS_ARB              0x2023
+#define WGL_TYPE_RGBA_ARB                 0x202B
+#define WGL_CONTEXT_MAJOR_VERSION_ARB     0x2091
+#define WGL_CONTEXT_MINOR_VERSION_ARB     0x2092
+#define WGL_CONTEXT_PROFILE_MASK_ARB      0x9126
+#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB  0x00000001
+#define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+
+
+#define GL_MAJOR_VERSION                  0x821B
+#define GL_MINOR_VERSION                  0x821C
 #define GL_ARRAY_BUFFER                   0x8892
 #define GL_STATIC_DRAW                    0x88E4
 #define GL_ELEMENT_ARRAY_BUFFER           0x8893
@@ -27,6 +45,7 @@ struct Vertex
 #define GL_COMPILE_STATUS                 0x8B81
 #define GL_VALIDATE_STATUS                0x8B83
 #define GL_INFO_LOG_LENGTH                0x8B84
+
 
 // Generate buffer object names
 #define GL_GEN_BUFFERS(name) void name(GLsizei n, GLuint *buffers)
@@ -88,6 +107,11 @@ GLOBAL OpenGL_CreateProgram *glCreateProgram;
 typedef GL_ATTACH_SHADER(OpenGL_AttachShader);
 GLOBAL OpenGL_AttachShader *glAttachShader;
 
+// Detaches a shader object from a program object to which it is attached
+#define GL_DETACH_SHADER(name) void name(GLuint program, GLuint shader)
+typedef GL_DETACH_SHADER(OpenGL_DetachShader);
+GLOBAL OpenGL_DetachShader *glDetachShader;
+
 // Links a program object
 #define GL_LINK_PROGRAM(name) void name( GLuint program)
 typedef GL_LINK_PROGRAM(OpenGL_LinkProgram);
@@ -128,6 +152,31 @@ GLOBAL OpenGL_ValidateProgram *glValidateProgram;
 typedef GL_GET_PROGRAMIV(OpenGL_GetProgramiv);
 GLOBAL OpenGL_GetProgramiv *glGetProgramiv;
 
+// Get string which you need to parse, to get what extensions are there
+#define WGL_GET_EXTENSIONS_STRING_ARB(name) const char *WINAPI name(HDC hdc)
+typedef WGL_GET_EXTENSIONS_STRING_ARB(WGL_GetExtensionsStringARB);
+GLOBAL WGL_GetExtensionsStringARB *wglGetExtensionsStringARB;
+
+// Extension for choosing pixel formats
+#define WGL_CHOOSE_PIXEL_FORMAT_ARB(name) BOOL WINAPI name(HDC hdc, const int *piAttribIList, const FLOAT *pfAttribFList, UINT nMaxFormats, int *piFormats, UINT *nNumFormats)
+typedef WGL_CHOOSE_PIXEL_FORMAT_ARB(WGL_ChoosePixelFormatARB);
+GLOBAL WGL_ChoosePixelFormatARB *wglChoosePixelFormatARB;
+
+// Extension function for creating OpenGL context with attributes
+#define WGL_CREATE_CONTEXT_ATTRIBS_ARB(name) HGLRC WINAPI name(HDC hdc, HGLRC hShareContext, int const *attribList)
+typedef WGL_CREATE_CONTEXT_ATTRIBS_ARB(WGL_CreateContextAttribsARB);
+GLOBAL WGL_CreateContextAttribsARB *wglCreateContextAttribsARB;
+
+// Extension function that sets swap interval
+#define WGL_SWAP_INTERVAL_EXT(name) BOOL name(int interval)
+typedef WGL_SWAP_INTERVAL_EXT(WGL_SwapInterval);
+GLOBAL WGL_SwapInterval *wglSwapIntervalEXT;
+
+// Extension function that gets swap interval
+#define WGL_GET_SWAP_INTERVAL_EXT(name) int name(void)
+typedef WGL_GET_SWAP_INTERVAL_EXT(WGL_GetSwapInterval);
+GLOBAL WGL_GetSwapInterval *wglGetSwapIntervalEXT;
+
 
 void InitializeOpenGLFunctions()
 {
@@ -143,6 +192,7 @@ void InitializeOpenGLFunctions()
     glCompileShader = (OpenGL_CompileShader *) wglGetProcAddress("glCompileShader");
     glCreateProgram = (OpenGL_CreateProgram *) wglGetProcAddress("glCreateProgram");
     glAttachShader = (OpenGL_AttachShader *) wglGetProcAddress("glAttachShader");
+    glDetachShader = (OpenGL_DetachShader *) wglGetProcAddress("glDetachShader");
     glLinkProgram = (OpenGL_LinkProgram *) wglGetProcAddress("glLinkProgram");
     glUseProgram = (OpenGL_UseProgram *) wglGetProcAddress("glUseProgram");
     glGetShaderiv = (OpenGL_GetShaderiv *) wglGetProcAddress("glGetShaderiv");
@@ -183,6 +233,14 @@ uint32 compile_shader(char const *source_code, GLenum shader_type)
     return id;
 }
 
+int32 is_shader_program_valid(uint32 program)
+{
+    glValidateProgram(program);
+    int32 program_valid;
+    glGetProgramiv(program, GL_VALIDATE_STATUS, &program_valid);
+
+    return program_valid;
+}
 
 // ===========================================
 
@@ -352,17 +410,37 @@ int WINAPI WinMain(
     }
 
     HDC DeviceContext = GetDC(Window);
+    HGLRC TempRenderContext = {};
     HGLRC RenderContext = {};
 
     {
         PIXELFORMATDESCRIPTOR DesiredPixelFormat = {};
-        DesiredPixelFormat.nSize = sizeof(DesiredPixelFormat);
-        DesiredPixelFormat.nVersion = 1;
-        DesiredPixelFormat.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER;
-        DesiredPixelFormat.iPixelType = PFD_TYPE_RGBA;
-        DesiredPixelFormat.cColorBits = 32;
-        DesiredPixelFormat.cAlphaBits = 8;
-        DesiredPixelFormat.iLayerType = PFD_MAIN_PLANE;
+        DesiredPixelFormat.nSize = sizeof(DesiredPixelFormat); // WORD  nSize;
+        DesiredPixelFormat.nVersion = 1; // WORD  nVersion;
+        DesiredPixelFormat.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER; // DWORD dwFlags;
+        DesiredPixelFormat.iPixelType = PFD_TYPE_RGBA; // BYTE  iPixelType;
+        DesiredPixelFormat.cColorBits = 32; // BYTE  cColorBits;
+        // BYTE  cRedBits;
+        // BYTE  cRedShift;
+        // BYTE  cGreenBits;
+        // BYTE  cGreenShift;
+        // BYTE  cBlueBits;
+        // BYTE  cBlueShift;
+        DesiredPixelFormat.cAlphaBits = 8; // BYTE  cAlphaBits;
+        // BYTE  cAlphaShift;
+        // BYTE  cAccumBits;
+        // BYTE  cAccumRedBits;
+        // BYTE  cAccumGreenBits;
+        // BYTE  cAccumBlueBits;
+        // BYTE  cAccumAlphaBits;
+        DesiredPixelFormat.cDepthBits = 24; // BYTE  cDepthBits;
+        DesiredPixelFormat.cStencilBits = 8; // BYTE  cStencilBits;
+        // BYTE  cAuxBuffers;
+        DesiredPixelFormat.iLayerType = PFD_MAIN_PLANE; // BYTE  iLayerType;
+        // BYTE  bReserved;
+        // DWORD dwLayerMask;
+        // DWORD dwVisibleMask;
+        // DWORD dwDamageMask;
 
         int SuggestedPixelFormatIndex = ChoosePixelFormat(DeviceContext, &DesiredPixelFormat);
         PIXELFORMATDESCRIPTOR SuggestedPixelFormat;
@@ -370,8 +448,50 @@ int WINAPI WinMain(
 
         if (SetPixelFormat(DeviceContext, SuggestedPixelFormatIndex, &SuggestedPixelFormat))
         {
-            RenderContext = wglCreateContext(DeviceContext);
-            if (!wglMakeCurrent(DeviceContext, RenderContext))
+            TempRenderContext = wglCreateContext(DeviceContext);
+            if (wglMakeCurrent(DeviceContext, TempRenderContext))
+            {
+                // wglGetExtensionsStringARB = (WGL_GetExtensionsStringARB *) wglGetProcAddress("wglGetExtensionsStringARB");
+                // char const *WglExtensionString = wglGetExtensionsStringARB(DeviceContext);
+                // Check if extension is available in the string
+                // OutputDebugStringA(WglExtensionString);
+
+                int WglAttributeList[] =
+                {
+                    WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+                    WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+                    WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+                    WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+                    WGL_COLOR_BITS_ARB, 32,
+                    WGL_DEPTH_BITS_ARB, 24,
+                    WGL_STENCIL_BITS_ARB, 8,
+                    0, // End
+                };
+
+                i32 PixelFormat;
+                u32 NumberFormats;
+
+                wglChoosePixelFormatARB = (WGL_ChoosePixelFormatARB *) wglGetProcAddress("wglChoosePixelFormatARB");
+                wglChoosePixelFormatARB(DeviceContext, WglAttributeList, NULL, 1, &PixelFormat, &NumberFormats);
+
+                int WglContextAttribList[] =
+                {
+                    WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+                    WGL_CONTEXT_MINOR_VERSION_ARB, 0,
+                    WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+                    0, // End
+                };
+
+                wglCreateContextAttribsARB = (WGL_CreateContextAttribsARB *) wglGetProcAddress("wglCreateContextAttribsARB");
+                RenderContext = wglCreateContextAttribsARB(DeviceContext, 0, WglContextAttribList);
+                wglMakeCurrent(DeviceContext, RenderContext);
+                wglDeleteContext(TempRenderContext);
+
+                // @todo Check if 'WGL_EXT_swap_control' extension is available
+                wglSwapIntervalEXT = (WGL_SwapInterval *) wglGetProcAddress("wglSwapIntervalEXT");
+                wglGetSwapIntervalEXT = (WGL_GetSwapInterval *) wglGetProcAddress("wglGetSwapIntervalEXT");
+            }
+            else
             {
                 MessageBeep(MB_ICONERROR);
                 MessageBoxA(0, "System error! Could not initialize OpenGL.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
@@ -388,6 +508,21 @@ int WINAPI WinMain(
 
     InitializeOpenGLFunctions();
 
+    GLubyte const *str = glGetString(GL_VENDOR);
+    osOutputDebugString("%s\n", str);
+    str = glGetString(GL_RENDERER);
+    osOutputDebugString("%s\n", str);
+    str = glGetString(GL_VERSION);
+    osOutputDebugString("%s\n", str);
+
+    int32 GL_MajorVersion, GL_MinorVersion;
+    glGetIntegerv(GL_MAJOR_VERSION, &GL_MajorVersion);
+    glGetIntegerv(GL_MINOR_VERSION, &GL_MinorVersion);
+
+    wglSwapIntervalEXT(0);
+
+    osOutputDebugString("GL_MAJOR: %d\nGL_MINOR: %d\n", GL_MajorVersion, GL_MinorVersion);
+
     struct Vertex
     {
         vector3 position;
@@ -396,14 +531,10 @@ int WINAPI WinMain(
 
     Vertex vertices[] =
     {
-        { { -0.5f, -0.5f, 0.0f }, color32::blue }, // bottom left
-        { {  0.5f, -0.5f, 0.0f }, color32::green }, // bottom right
-        { {  0.5f,  0.5f, 0.0f }, color32::red }, // top right
-        { { -0.5f,  0.5f, 0.0f }, color32::yellow }, // top left
-        { { -1.0f,  1.0f, 0.0f }, color32::gray },
-        { {  1.0f,  1.0f, 0.0f }, color32::magenta },
-        { {  1.0f, -1.0f, 0.0f }, color32::cyan },
-        { { -1.0f, -1.0f, 0.0f }, color32{ 0.0f, 0.5f, 0.0f, 0.0f, } },
+        { { -0.5f, -0.5f, -1.0f }, color32::blue },  // 0 bottom left
+        { {  0.5f, -0.5f, -1.0f }, color32::green }, // 1 bottom right
+        { {  0.5f,  0.5f, -1.0f }, color32{ 1.0f, 0.0f, 0.0f, 0.0f } },   // 2 top right
+        { { -0.5f,  0.5f, -1.0f }, color32::yellow }, // 3 top left
     };
 
     u32 vertex_buffer_id = 0;
@@ -416,14 +547,6 @@ int WINAPI WinMain(
     u32 indices[] = {
         0, 1, 2,  // first triangle
         2, 3, 0,  // second triangle
-        4, 2, 3,
-        4, 0, 3,
-        5, 4, 2,
-        6, 5, 2,
-        6, 2, 1,
-        0, 6, 1,
-        6, 0, 7,
-        4, 7, 0,
     };
 
     u32 index_buffer_id = 0;
@@ -473,7 +596,125 @@ int WINAPI WinMain(
         }
     }
 
-    const char *vertex_shader = R"GLSL(
+    // Cube mesh rendering
+    vector3 cube_vertices[] =
+    {
+        {  1.0f,  1.0f, -0.5f },
+        {  1.0f, -1.0f, -0.5f },
+        {  1.0f,  1.0f,  0.5f },
+        {  1.0f, -1.0f,  0.5f },
+        { -1.0f,  1.0f, -0.5f },
+        { -1.0f, -1.0f, -0.5f },
+        { -1.0f,  1.0f,  0.5f },
+        { -1.0f, -1.0f,  0.5f },
+    };
+
+    u32 cube_vertex_buffer_id = 0;
+    {
+        glGenBuffers(1, &cube_vertex_buffer_id);
+        glBindBuffer(GL_ARRAY_BUFFER, cube_vertex_buffer_id);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
+    }
+
+    f32 cube_texture_uv[] =
+    {
+        0.625f, 0.500f,
+        0.875f, 0.500f,
+        0.875f, 0.750f,
+        0.625f, 0.750f,
+        0.375f, 0.750f,
+        0.625f, 1.000f,
+        0.375f, 1.000f,
+        0.375f, 0.000f,
+        0.625f, 0.000f,
+        0.625f, 0.250f,
+        0.375f, 0.250f,
+        0.125f, 0.500f,
+        0.375f, 0.500f,
+        0.125f, 0.750f,
+    };
+
+    u32 cube_texture_uv_buffer_id = 0;
+    {
+        glGenBuffers(1, &cube_texture_uv_buffer_id);
+        glBindBuffer(GL_ARRAY_BUFFER, cube_texture_uv_buffer_id);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_texture_uv), cube_texture_uv, GL_STATIC_DRAW);
+    }
+
+    u32 cube_indices[] =
+    {
+        // top face
+        1, 5, 7,
+        7, 3, 1,
+        // back face
+        4, 3, 7,
+        7, 8, 4,
+        // left face
+        8, 7, 5,
+        5, 6, 8,
+        // buttom face
+        6, 2, 4,
+        4, 8, 6,
+        // right face
+        2, 1, 3,
+        3, 4, 2,
+        // front face
+        6, 5, 1,
+        1, 2, 6,
+    };
+
+    // Fix enumeration from 1 in OBJ file format
+    for (uint32 i = 0; i < ARRAY_COUNT(cube_indices); i++)
+    {
+        cube_indices[i] -= 1;
+    }
+
+    u32 cube_index_buffer_id = 0;
+    {
+        glGenBuffers(1, &cube_index_buffer_id);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+    }
+
+    u32 cube_vertex_array_id = 0;
+    {
+        glGenVertexArrays(1, &cube_vertex_array_id);
+        glBindVertexArray(cube_vertex_array_id);
+
+        uint32 attrib_index = 0;
+        {
+            uint32 count = 3; // Because it's vector3
+
+            glBindBuffer(GL_ARRAY_BUFFER, cube_vertex_buffer_id);
+            glEnableVertexAttribArray(attrib_index);
+            glVertexAttribPointer(
+                attrib_index,      // Index
+                count,             // Count
+                GL_FLOAT,          // Type
+                GL_FALSE,          // Normalized?
+                sizeof(vector3),   // Stride
+                (void *) 0);  // Offset
+
+            attrib_index += 1;
+        }
+        {
+            uint32 count = 2; // Because it's 2d points
+
+            glBindBuffer(GL_ARRAY_BUFFER, cube_texture_uv_buffer_id);
+            glEnableVertexAttribArray(attrib_index);
+            glVertexAttribPointer(
+                attrib_index,
+                count,
+                GL_FLOAT,
+                GL_FALSE,
+                sizeof(vector2),
+                (void *) 0);
+
+            attrib_index += 1;
+        }
+    }
+
+    char const *vertex_shader = R"GLSL(
 #version 400
 
 layout (location = 0) in vec3 vertex_position;
@@ -491,7 +732,26 @@ void main()
 
 )GLSL";
 
-    const char *fragment_shader = R"GLSL(
+    char const *textured_uv_vs = R"GLSL(
+#version 400
+
+layout (location = 0) in vec3 vertex_position;
+layout (location = 1) in vec2 uv;
+
+out vec4 fragment_position;
+out vec4 fragment_color;
+
+void main()
+{
+    fragment_position = vec4(vertex_position, 1.0);
+    fragment_color = vec4(uv.rgr, 1.0);
+
+    gl_Position = vec4(vertex_position, 1.0);
+}
+
+)GLSL";
+
+    char const *fragment_shader = R"GLSL(
 #version 400
 
 in vec4 fragment_position;
@@ -500,29 +760,48 @@ out vec4 result_fragment_color;
 
 void main()
 {
-    result_fragment_color = fragment_color;
+    result_fragment_color = vec4(fragment_color.rgb, 1.0);
     // result_fragment_color = vec4(fragment_position.rgb * 2.0, 1.0);
 }
 
 )GLSL";
 
-    uint32 vertex_shader_id = compile_shader(vertex_shader, GL_VERTEX_SHADER);
-    uint32 fragment_shader_id = compile_shader(fragment_shader, GL_FRAGMENT_SHADER);
+    auto vertex_shader_id = compile_shader(vertex_shader, GL_VERTEX_SHADER);
+    auto fragment_shader_id = compile_shader(fragment_shader, GL_FRAGMENT_SHADER);
 
-    GLuint shader_program_id = glCreateProgram();
+    auto shader_program_id = glCreateProgram();
     glAttachShader(shader_program_id, fragment_shader_id);
     glAttachShader(shader_program_id, vertex_shader_id);
     glLinkProgram(shader_program_id);
 
+    glDetachShader(shader_program_id, fragment_shader_id);
+    glDetachShader(shader_program_id, vertex_shader_id);
+    glDeleteShader(vertex_shader_id);
+
+    if (!is_shader_program_valid(shader_program_id))
     {
-        glValidateProgram(shader_program_id);
-        GLint program_valid;
-        glGetProgramiv(shader_program_id, GL_VALIDATE_STATUS, &program_valid);
-        if (program_valid == GL_FALSE)
-        {
-            return 1;
-        }
+        return 1;
     }
+
+    auto tex_vs_id = compile_shader(textured_uv_vs, GL_VERTEX_SHADER);
+    auto tex_uv_shader_program = glCreateProgram();
+    glAttachShader(tex_uv_shader_program, tex_vs_id);
+    glAttachShader(tex_uv_shader_program, fragment_shader_id);
+    glLinkProgram(tex_uv_shader_program);
+
+    glDetachShader(tex_uv_shader_program, tex_vs_id);
+    glDetachShader(tex_uv_shader_program, fragment_shader_id);
+
+    glDeleteShader(tex_vs_id);
+    glDeleteShader(fragment_shader_id);
+
+    if (!is_shader_program_valid(tex_uv_shader_program))
+    {
+        return 1;
+    }
+
+    glDepthFunc(GL_LESS);
+    glEnable(GL_DEPTH_TEST);
 
     Running = true;
     while (Running)
@@ -541,18 +820,23 @@ void main()
         }
 
         glClearColor(0.0f, 0.2f, 0.4f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
         glUseProgram(shader_program_id);
 
-        glBindVertexArray(vertex_array_id);
-
 #if 0
+        glBindVertexArray(vertex_array_id);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 #else
+        glBindVertexArray(vertex_array_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
         glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
 #endif
+
+        glBindVertexArray(cube_vertex_array_id);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
+        glDrawElements(GL_TRIANGLES, ARRAY_COUNT(cube_indices), GL_UNSIGNED_INT, NULL);
+
 
         SwapBuffers(DeviceContext);
     }
