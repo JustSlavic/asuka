@@ -11,6 +11,7 @@ struct Vector4
     union {
         struct { T x, y, z, w; };
         struct { T r, g, b, a; };
+        struct { T _1, _2, _3, _4; };
         struct { Vector2<T> xy; Vector2<T> zw; };
         struct { Vector2<T> rg; Vector2<T> ba; };
         struct { Vector3<T> xyz; };

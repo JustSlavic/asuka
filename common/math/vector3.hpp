@@ -12,6 +12,7 @@ struct Vector3
     union {
         struct { T x, y, z; };
         struct { T r, g, b; };
+        struct { T _1, _2, _3; };
         struct { Vector2<T> xy; };
         T e[3];
     };

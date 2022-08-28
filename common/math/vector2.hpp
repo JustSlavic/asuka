@@ -11,6 +11,7 @@ struct Vector2
     union
     {
         struct { T x, y; };
+        struct { T _1, _2; };
         T e[2];
     };
 

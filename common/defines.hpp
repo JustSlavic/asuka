@@ -276,4 +276,6 @@ struct Defer {
 
 #define TOGGLE(X) { (X) = !(X); } void(0)
 
+#define SWAP(x, y) do { auto CONCAT2(SWAP,__LINE__) = (x); (x) = (y); (y) = CONCAT2(SWAP,__LINE__); } while(0)
+
 #endif // ASUKA_COMMON_DEFINES_HPP

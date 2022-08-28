@@ -2,19 +2,13 @@
 
 #include <defines.hpp>
 #include <math/vector3.hpp>
+#include <math/matrix4.hpp>
 #include <math/color.hpp>
 #include <os/file.hpp>
 
 #include <windows.h>
 
 #include <gl/gl.h>
-
-
-struct Vertex
-{
-    f32 x, y, z;
-    color32 color;
-};
 
 
 // ===========================================
@@ -35,17 +29,17 @@ struct Vertex
 #define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
 
 
+#define GL_INVALID_FRAMEBUFFER_OPERATION  0x0506
 #define GL_MAJOR_VERSION                  0x821B
 #define GL_MINOR_VERSION                  0x821C
 #define GL_ARRAY_BUFFER                   0x8892
-#define GL_STATIC_DRAW                    0x88E4
 #define GL_ELEMENT_ARRAY_BUFFER           0x8893
+#define GL_STATIC_DRAW                    0x88E4
 #define GL_FRAGMENT_SHADER                0x8B30
 #define GL_VERTEX_SHADER                  0x8B31
 #define GL_COMPILE_STATUS                 0x8B81
 #define GL_VALIDATE_STATUS                0x8B83
 #define GL_INFO_LOG_LENGTH                0x8B84
-
 
 // Generate buffer object names
 #define GL_GEN_BUFFERS(name) void name(GLsizei n, GLuint *buffers)
@@ -128,29 +122,45 @@ GLOBAL OpenGL_UseProgram *glUseProgram;
 // GL_COMPILE_STATUS -- For implementations that support a shader compiler, params returns GL_TRUE if the last compile operation on shader was successful, and GL_FALSE otherwise.
 // GL_INFO_LOG_LENGTH -- For implementations that support a shader compiler, params returns the number of characters in the information log for shader including the null termination character (i.e., the size of the character buffer required to store the information log). If shader has no information log, a value of 0 is returned.
 // GL_SHADER_SOURCE_LENGTH -- For implementations that support a shader compiler, params returns the length of the concatenation of the source strings that make up the shader source for the shader, including the null termination character. (i.e., the size of the character buffer required to store the shader source). If no source code exists, 0 is returned.
-#define GL_GET_SHADERIV(name) void name(GLuint shader, GLenum pname, GLint *params);
+#define GL_GET_SHADERIV(name) void name(GLuint shader, GLenum pname, GLint *params)
 typedef GL_GET_SHADERIV(OpenGL_GetShaderiv);
 GLOBAL OpenGL_GetShaderiv *glGetShaderiv;
 
 // Returns the information log for a shader object
-#define GL_GET_SHADER_INFO_LOG(name) void name(GLuint shader, GLsizei maxLength, GLsizei *length, char *infoLog);
+#define GL_GET_SHADER_INFO_LOG(name) void name(GLuint shader, GLsizei maxLength, GLsizei *length, char *infoLog)
 typedef GL_GET_SHADER_INFO_LOG(OpenGL_GetShaderInfoLog);
 GLOBAL OpenGL_GetShaderInfoLog *glGetShaderInfoLog;
 
 // Deletes a shader object
-#define GL_DELETE_SHADER(name) void name(GLuint shader);
+#define GL_DELETE_SHADER(name) void name(GLuint shader)
 typedef GL_DELETE_SHADER(OpenGL_DeleteShader);
 GLOBAL OpenGL_DeleteShader *glDeleteShader;
 
 // Validates a program object
-#define GL_VALIDATE_PROGRAM(name) void name(GLuint program);
+#define GL_VALIDATE_PROGRAM(name) void name(GLuint program)
 typedef GL_VALIDATE_PROGRAM(OpenGL_ValidateProgram);
 GLOBAL OpenGL_ValidateProgram *glValidateProgram;
 
 // Returns a parameter from a program object
-#define GL_GET_PROGRAMIV(name) void name(GLuint program, GLenum pname, GLint *params);
+#define GL_GET_PROGRAMIV(name) void name(GLuint program, GLenum pname, GLint *params)
 typedef GL_GET_PROGRAMIV(OpenGL_GetProgramiv);
 GLOBAL OpenGL_GetProgramiv *glGetProgramiv;
+
+// Returns the location of a uniform variable
+#define GL_GET_UNIFORM_LOCATION(name) GLint name(GLuint program, char const *uniform_name)
+typedef GL_GET_UNIFORM_LOCATION(OpenGL_GetUniformLocation);
+GLOBAL OpenGL_GetUniformLocation *glGetUniformLocation;
+
+// Specify the value of a uniform variable for the current program object
+// #define GL_UNIFORM_1F(name) void (GLint location, GLfloat v0)
+// #define GL_UNIFORM_2F(name) void (GLint location, GLfloat v0)
+// #define GL_UNIFORM_3F(name) void (GLint location, GLfloat v0)
+// #define GL_UNIFORM_4F(name) void (GLint location, GLfloat v0)
+// @todo: All other definitions here.
+#define GL_UNIFORM_MATRIX4(name) void name(int32 location, isize count, bool transpose, float32 const *value)
+
+typedef GL_UNIFORM_MATRIX4(OpenGL_UniformMatrix4);
+GLOBAL OpenGL_UniformMatrix4 *glUniformMatrix4fv;
 
 // Get string which you need to parse, to get what extensions are there
 #define WGL_GET_EXTENSIONS_STRING_ARB(name) const char *WINAPI name(HDC hdc)
@@ -200,6 +210,9 @@ void InitializeOpenGLFunctions()
     glDeleteShader = (OpenGL_DeleteShader *) wglGetProcAddress("glDeleteShader");
     glValidateProgram = (OpenGL_ValidateProgram *) wglGetProcAddress("glValidateProgram");
     glGetProgramiv = (OpenGL_GetProgramiv *) wglGetProcAddress("glGetProgramiv");
+
+    glGetUniformLocation = (OpenGL_GetUniformLocation *) wglGetProcAddress("glGetUniformLocation");
+    glUniformMatrix4fv = (OpenGL_UniformMatrix4 *) wglGetProcAddress("glUniformMatrix4fv");
 }
 
 
@@ -240,6 +253,22 @@ int32 is_shader_program_valid(uint32 program)
     glGetProgramiv(program, GL_VALIDATE_STATUS, &program_valid);
 
     return program_valid;
+}
+
+char const *gl_error_string(GLenum ec)
+{
+    switch (ec) {
+        case GL_INVALID_ENUM: return "Error: GL_INVALID_ENUM: An unacceptable value is specified for an enumerated argument.";
+        case GL_INVALID_VALUE: return "Error: GL_INVALID_VALUE: A numeric argument is out of range.";
+        case GL_INVALID_OPERATION: return "Error: GL_INVALID_OPERATION: The specified operation is not allowed in the current state.";
+        case GL_INVALID_FRAMEBUFFER_OPERATION: return "Error: GL_INVALID_FRAMEBUFFER_OPERATION: The framebuffer object is not complete.";
+        case GL_OUT_OF_MEMORY: return "Error: GL_OUT_OF_MEMORY: There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded.";
+        case GL_STACK_UNDERFLOW: return "Error: GL_STACK_UNDERFLOW: An attempt has been made to perform an operation that would cause an internal stack to underflow.";
+        case GL_STACK_OVERFLOW: return "Error: GL_STACK_OVERFLOW: An attempt has been made to perform an operation that would cause an internal stack to overflow.";
+        case GL_NO_ERROR: return NULL;  // No error has been recorded. The value of this symbolic constant is guaranteed to be 0.
+    }
+
+    return NULL;
 }
 
 // ===========================================
@@ -391,7 +420,7 @@ int WINAPI WinMain(
     HWND Window = CreateWindowExA(
         0,                                // ExStyle
         WindowClass.lpszClassName,        // ClassName
-        "OpenGL Window",                   // WindowName
+        "OpenGL Window",                  // WindowName
         WS_OVERLAPPEDWINDOW | WS_VISIBLE, // Style
         (PrimaryMonitorWidth - Width(WindowRectangle)) / 2,   // X
         (PrimaryMonitorHeight - Height(WindowRectangle)) / 2, // Y
@@ -415,32 +444,15 @@ int WINAPI WinMain(
 
     {
         PIXELFORMATDESCRIPTOR DesiredPixelFormat = {};
-        DesiredPixelFormat.nSize = sizeof(DesiredPixelFormat); // WORD  nSize;
-        DesiredPixelFormat.nVersion = 1; // WORD  nVersion;
-        DesiredPixelFormat.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER; // DWORD dwFlags;
-        DesiredPixelFormat.iPixelType = PFD_TYPE_RGBA; // BYTE  iPixelType;
-        DesiredPixelFormat.cColorBits = 32; // BYTE  cColorBits;
-        // BYTE  cRedBits;
-        // BYTE  cRedShift;
-        // BYTE  cGreenBits;
-        // BYTE  cGreenShift;
-        // BYTE  cBlueBits;
-        // BYTE  cBlueShift;
-        DesiredPixelFormat.cAlphaBits = 8; // BYTE  cAlphaBits;
-        // BYTE  cAlphaShift;
-        // BYTE  cAccumBits;
-        // BYTE  cAccumRedBits;
-        // BYTE  cAccumGreenBits;
-        // BYTE  cAccumBlueBits;
-        // BYTE  cAccumAlphaBits;
-        DesiredPixelFormat.cDepthBits = 24; // BYTE  cDepthBits;
-        DesiredPixelFormat.cStencilBits = 8; // BYTE  cStencilBits;
-        // BYTE  cAuxBuffers;
-        DesiredPixelFormat.iLayerType = PFD_MAIN_PLANE; // BYTE  iLayerType;
-        // BYTE  bReserved;
-        // DWORD dwLayerMask;
-        // DWORD dwVisibleMask;
-        // DWORD dwDamageMask;
+        DesiredPixelFormat.nSize = sizeof(DesiredPixelFormat);
+        DesiredPixelFormat.nVersion = 1;
+        DesiredPixelFormat.dwFlags = PFD_SUPPORT_OPENGL|PFD_DRAW_TO_WINDOW|PFD_DOUBLEBUFFER;
+        DesiredPixelFormat.iPixelType = PFD_TYPE_RGBA;
+        DesiredPixelFormat.cColorBits = 32;
+        DesiredPixelFormat.cAlphaBits = 8;
+        DesiredPixelFormat.cDepthBits = 24;
+        DesiredPixelFormat.cStencilBits = 8;
+        DesiredPixelFormat.iLayerType = PFD_MAIN_PLANE;
 
         int SuggestedPixelFormatIndex = ChoosePixelFormat(DeviceContext, &DesiredPixelFormat);
         PIXELFORMATDESCRIPTOR SuggestedPixelFormat;
@@ -508,20 +520,19 @@ int WINAPI WinMain(
 
     InitializeOpenGLFunctions();
 
-    GLubyte const *str = glGetString(GL_VENDOR);
-    osOutputDebugString("%s\n", str);
-    str = glGetString(GL_RENDERER);
-    osOutputDebugString("%s\n", str);
-    str = glGetString(GL_VERSION);
-    osOutputDebugString("%s\n", str);
+    {
+        osOutputDebugString("%s\n", glGetString(GL_VENDOR));
+        osOutputDebugString("%s\n", glGetString(GL_RENDERER));
+        osOutputDebugString("%s\n", glGetString(GL_VERSION));
 
-    int32 GL_MajorVersion, GL_MinorVersion;
-    glGetIntegerv(GL_MAJOR_VERSION, &GL_MajorVersion);
-    glGetIntegerv(GL_MINOR_VERSION, &GL_MinorVersion);
+        int32 GL_MajorVersion, GL_MinorVersion;
+        glGetIntegerv(GL_MAJOR_VERSION, &GL_MajorVersion);
+        glGetIntegerv(GL_MINOR_VERSION, &GL_MinorVersion);
+        osOutputDebugString("GL_MAJOR: %d\nGL_MINOR: %d\n", GL_MajorVersion, GL_MinorVersion);
+    }
 
     wglSwapIntervalEXT(0);
-
-    osOutputDebugString("GL_MAJOR: %d\nGL_MINOR: %d\n", GL_MajorVersion, GL_MinorVersion);
+    glDepthFunc(GL_LESS);
 
     struct Vertex
     {
@@ -531,16 +542,27 @@ int WINAPI WinMain(
 
     Vertex vertices[] =
     {
-        { { -0.5f, -0.5f, -1.0f }, color32::blue },  // 0 bottom left
-        { {  0.5f, -0.5f, -1.0f }, color32::green }, // 1 bottom right
-        { {  0.5f,  0.5f, -1.0f }, color32{ 1.0f, 0.0f, 0.0f, 0.0f } },   // 2 top right
-        { { -0.5f,  0.5f, -1.0f }, color32::yellow }, // 3 top left
+        { { -1.0f, -1.0f, -1.0f }, color32::blue },   // 0 bottom left
+        { {  1.0f, -1.0f, -1.0f }, color32::green },  // 1 bottom right
+        { {  1.0f,  1.0f, -1.0f }, color32::red },    // 2 top right
+        { { -1.0f,  1.0f, -1.0f }, color32::yellow }, // 3 top left
     };
 
     u32 vertex_buffer_id = 0;
     {
         glGenBuffers(1, &vertex_buffer_id);
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    }
+
+    u32 skybox_vertex_buffer = 0;
+    {
+        for (uint32 vertex_index = 0; vertex_index < ARRAY_COUNT(vertices); vertex_index++)
+        {
+            vertices[vertex_index].color = make_color32(0, 0.2, 0.4, 1);
+        }
+        glGenBuffers(1, &skybox_vertex_buffer);
+        glBindBuffer(GL_ARRAY_BUFFER, skybox_vertex_buffer);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     }
 
@@ -554,6 +576,46 @@ int WINAPI WinMain(
         glGenBuffers(1, &index_buffer_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    }
+
+    u32 skybox_vao = 0;
+    {
+        glGenVertexArrays(1, &skybox_vao);
+        glBindVertexArray(skybox_vao);
+        glBindBuffer(GL_ARRAY_BUFFER, skybox_vertex_buffer);
+
+        uint32 attrib_index = 0;
+        uint64 offset = 0;
+        {
+            uint32 count = 3; // Because it's vector3
+
+            glEnableVertexAttribArray(attrib_index);
+            glVertexAttribPointer(
+                attrib_index,      // Index
+                count,             // Count
+                GL_FLOAT,          // Type
+                GL_FALSE,          // Normalized?
+                sizeof(Vertex),    // Stride
+                (void *) offset);  // Offset
+
+            attrib_index += 1;
+            offset += (count * sizeof(float));
+        }
+        {
+            uint32 count = 4; // Because it's color32
+
+            glEnableVertexAttribArray(attrib_index);
+            glVertexAttribPointer(
+                attrib_index,      // Index
+                count,             // Count
+                GL_FLOAT,          // Type
+                GL_FALSE,          // Normalized?
+                sizeof(Vertex),    // Stride
+                (void *) offset);  // Offset
+
+            attrib_index += 1;
+            offset += (count * sizeof(float));
+        }
     }
 
     u32 vertex_array_id = 0;
@@ -599,14 +661,14 @@ int WINAPI WinMain(
     // Cube mesh rendering
     vector3 cube_vertices[] =
     {
-        {  1.0f,  1.0f, -0.5f },
-        {  1.0f, -1.0f, -0.5f },
-        {  1.0f,  1.0f,  0.5f },
-        {  1.0f, -1.0f,  0.5f },
-        { -1.0f,  1.0f, -0.5f },
-        { -1.0f, -1.0f, -0.5f },
-        { -1.0f,  1.0f,  0.5f },
-        { -1.0f, -1.0f,  0.5f },
+        {  1.0f + 2.25f,  1.0f - 0.25f, -0.5f - 2.75f },
+        {  1.0f + 2.25f, -1.0f - 0.25f, -0.5f - 2.75f },
+        {  1.0f + 2.25f,  1.0f - 0.25f,  0.5f - 2.75f },
+        {  1.0f + 2.25f, -1.0f - 0.25f,  0.5f - 2.75f },
+        { -1.0f - 0.25f,  1.0f - 0.25f, -0.5f - 1.25f },
+        { -1.0f - 0.25f, -1.0f - 0.25f, -0.5f - 1.25f },
+        { -1.0f - 0.25f,  1.0f - 0.25f,  0.5f - 1.25f },
+        { -1.0f - 0.25f, -1.0f - 0.25f,  0.5f - 1.25f },
     };
 
     u32 cube_vertex_buffer_id = 0;
@@ -720,14 +782,17 @@ int WINAPI WinMain(
 layout (location = 0) in vec3 vertex_position;
 layout (location = 1) in vec4 vertex_color;
 
-out vec4 fragment_position;
+// out vec3 fragment_position;
 out vec4 fragment_color;
+
+uniform mat4 u_projection;
 
 void main()
 {
-    fragment_position = vec4(vertex_position, 1.0);
+    vec4 p = u_projection * vec4(vertex_position, 1.0);
+    // fragment_position = p.xyz / p.w;
     fragment_color = vertex_color;
-    gl_Position = vec4(vertex_position, 1.0);
+    gl_Position = p;
 }
 
 )GLSL";
@@ -738,15 +803,18 @@ void main()
 layout (location = 0) in vec3 vertex_position;
 layout (location = 1) in vec2 uv;
 
-out vec4 fragment_position;
+// out vec4 fragment_position;
 out vec4 fragment_color;
+
+uniform mat4 u_projection;
 
 void main()
 {
-    fragment_position = vec4(vertex_position, 1.0);
+    vec4 p = u_projection * vec4(vertex_position, 1.0);
+    // fragment_position = vec4(vertex_position, 1.0);
     fragment_color = vec4(uv.rgr, 1.0);
 
-    gl_Position = vec4(vertex_position, 1.0);
+    gl_Position = p;
 }
 
 )GLSL";
@@ -754,7 +822,7 @@ void main()
     char const *fragment_shader = R"GLSL(
 #version 400
 
-in vec4 fragment_position;
+// in vec4 fragment_position;
 in vec4 fragment_color;
 out vec4 result_fragment_color;
 
@@ -789,6 +857,13 @@ void main()
     glAttachShader(tex_uv_shader_program, fragment_shader_id);
     glLinkProgram(tex_uv_shader_program);
 
+    auto err = glGetError();
+    if (err)
+    {
+        osOutputDebugString("%s\n", gl_error_string(err));
+    }
+
+
     glDetachShader(tex_uv_shader_program, tex_vs_id);
     glDetachShader(tex_uv_shader_program, fragment_shader_id);
 
@@ -800,44 +875,131 @@ void main()
         return 1;
     }
 
-    glDepthFunc(GL_LESS);
-    glEnable(GL_DEPTH_TEST);
+    float32 DesiredAspectRatio = 16.0f / 9.0f;
 
+    float32 n = 0.05f;
+    float32 f = 100.0f;
+    float32 l = -0.1f;
+    float32 r = 0.1f;
+    float32 t = 0.1f;
+    float32 b = -0.1f;
+
+    if (DesiredAspectRatio > 1.0f)
+    {
+        // Width is bigger than height
+        l = -0.1f;
+        r =  0.1f;
+        t =  0.1f * (1.0f / DesiredAspectRatio);
+        b = -0.1f * (1.0f / DesiredAspectRatio);
+    }
+    else if ((0.0f < DesiredAspectRatio) && (DesiredAspectRatio < 1.0f))
+    {
+        // Height is bigger than height
+        l = -0.1f * (1.0f / DesiredAspectRatio);
+        r =  0.1f * (1.0f / DesiredAspectRatio);
+        t =  0.1f;
+        b = -0.1f;
+    }
+    else if (DesiredAspectRatio == 1.0f)
+    {
+        l = -0.1f;
+        r =  0.1f;
+        t =  0.1f;
+        b = -0.1f;
+    }
+    else
+    {
+        INVALID_CODE_PATH();
+    }
+
+    auto projection = make_matrix4(
+        2*n/(r - l), 0, (r + l)/(r - l), 0,
+        0, 2*n/(t - b), (t + b)/(t - b), 0,
+        0, 0, -(f + n)/(f - n), -2.0f*f*n/(f - n),
+        0, 0, -1, 0);
+
+    uint64 FrameCounter = 0;
     Running = true;
     while (Running)
     {
+        FrameCounter += 1;
         Win32_ProcessPendingMessages();
 
-        if (Wireframe) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        } else {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        }
+        if (ViewportNeedsResize)
+        {
+            float32 CurrentAspectRatio = f32(CurrentClientWidth) / f32(CurrentClientHeight);
+            if (CurrentAspectRatio < DesiredAspectRatio)
+            {
+                osOutputDebugString("Horizontal Bars (top and bottom)\n");
+                uint32 ViewportWidth = CurrentClientWidth;
+                uint32 ViewportHeight = uint32(ViewportWidth / DesiredAspectRatio);
 
-        if (ViewportNeedsResize) {
-            glViewport(0, 0, CurrentClientWidth, CurrentClientHeight);
+                uint32 Padding = (CurrentClientHeight - ViewportHeight) / 2;
+                glViewport(0, Padding, ViewportWidth, ViewportHeight);
+            }
+            else if (CurrentAspectRatio > DesiredAspectRatio)
+            {
+                osOutputDebugString("Vertical Bars (left and right)\n");
+                uint32 ViewportHeight = CurrentClientHeight;
+                uint32 ViewportWidth = uint32(ViewportHeight * DesiredAspectRatio);
+
+                uint32 Padding = (CurrentClientWidth - ViewportWidth) / 2;
+                glViewport(Padding, 0, ViewportWidth, ViewportHeight);
+            }
+            else
+            {
+                osOutputDebugString("Exact ratio\n");
+                glViewport(0, 0, CurrentClientWidth, CurrentClientHeight);
+            }
+
             ViewportNeedsResize = false;
         }
 
-        glClearColor(0.0f, 0.2f, 0.4f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
         glUseProgram(shader_program_id);
+        int32 uniform_location = glGetUniformLocation(shader_program_id, "u_projection");
+        glUniformMatrix4fv(uniform_location, 1, GL_TRUE, matrix4::identity.get_data());
 
 #if 0
         glBindVertexArray(vertex_array_id);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 #else
+        // Skybox-ish thing
+        glDisable(GL_DEPTH_TEST);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+        glBindVertexArray(skybox_vao);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
+        glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
+
+        glEnable(GL_DEPTH_TEST);
+#endif
+
+        if (Wireframe)
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        }
+        else
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+
+        glUniformMatrix4fv(uniform_location, 1, GL_TRUE, projection.get_data());
+
         glBindVertexArray(vertex_array_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
         glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
-#endif
 
+        glUseProgram(tex_uv_shader_program);
+        uniform_location = glGetUniformLocation(shader_program_id, "u_projection");
+        glUniformMatrix4fv(uniform_location, 1, GL_TRUE, projection.get_data());
         glBindVertexArray(cube_vertex_array_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
         glDrawElements(GL_TRIANGLES, ARRAY_COUNT(cube_indices), GL_UNSIGNED_INT, NULL);
 
-
+        osOutputDebugString("Frame %llu\n", FrameCounter);
         SwapBuffers(DeviceContext);
     }
 
