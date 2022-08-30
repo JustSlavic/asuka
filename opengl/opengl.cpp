@@ -282,39 +282,45 @@ GLOBAL UINT CurrentClientHeight;
 GLOBAL BOOL ViewportNeedsResize;
 
 
-LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LPARAM lParam) {
-    LRESULT result {};
+LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    LRESULT result = {};
 
-    switch (message) {
-        case WM_SIZE: {
+    switch (message)
+    {
+        case WM_SIZE:
+        {
             CurrentClientWidth  = LOWORD(lParam);
             CurrentClientHeight = HIWORD(lParam);
             ViewportNeedsResize = true;
             osOutputDebugString("Resize (%d, %d)\n", CurrentClientWidth, CurrentClientHeight);
-            break;
         }
-        case WM_MOVE: {
-            break;
-        }
-        case WM_CLOSE: {
+        break;
+
+        case WM_MOVE:
+        break;
+
+        case WM_CLOSE:
+        case WM_DESTROY:
+        {
             Running = false;
-            break;
         }
-        case WM_DESTROY: {
-            Running = false;
-            break;
-        }
-        case WM_ACTIVATEAPP: {
-            break;
-        }
+        break;
+
+        case WM_ACTIVATEAPP:
+        break;
+
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
         case WM_KEYDOWN:
-        case WM_KEYUP: {
+        case WM_KEYUP:
+        {
             ASSERT_FAIL("Key handling happens in the main loop.");
-            break;
         }
-        default: {
+        break;
+
+        default:
+        {
             result = DefWindowProcA(Window, message, wParam, lParam);
         }
     }
@@ -323,13 +329,16 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
 }
 
 
-void Win32_ProcessPendingMessages() {
+void Win32_ProcessPendingMessages()
+{
     MSG Message;
-    while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
+    while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
+    {
         if (Message.message == WM_QUIT) Running = false;
         TranslateMessage(&Message);
 
-        switch (Message.message) {
+        switch (Message.message)
+        {
             case WM_MOUSEMOVE:
             break;
 
@@ -362,7 +371,6 @@ void Win32_ProcessPendingMessages() {
             {
                 DispatchMessageA(&Message);
             }
-            break;
         }
     }
 }
@@ -918,11 +926,9 @@ void main()
         0, 0, -(f + n)/(f - n), -2.0f*f*n/(f - n),
         0, 0, -1, 0);
 
-    uint64 FrameCounter = 0;
     Running = true;
     while (Running)
     {
-        FrameCounter += 1;
         Win32_ProcessPendingMessages();
 
         if (ViewportNeedsResize)
@@ -999,7 +1005,6 @@ void main()
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
         glDrawElements(GL_TRIANGLES, ARRAY_COUNT(cube_indices), GL_UNSIGNED_INT, NULL);
 
-        osOutputDebugString("Frame %llu\n", FrameCounter);
         SwapBuffers(DeviceContext);
     }
 
