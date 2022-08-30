@@ -110,8 +110,21 @@ contexts:
         3: keyword.embedded-language.glsl
         4: punctuation
       embed: scope:source.glsl
-      embed_scope: source.inline-glsl
+      embed_scope: source.embedded-language.glsl
       escape: '(\)GLSL)(")'
+      escape_captures:
+        1: punctuation
+        2: punctuation.definition.string.end.c
+
+    - match: '(R)(")(HLSL)(\()'
+      captures:
+        1: punctuation
+        2: punctuation.definition.string.begin.c
+        3: keyword.embedded-language.hlsl
+        4: punctuation
+      embed: scope:source.hlsl
+      embed_scope: source.embedded-language.hlsl
+      escape: '(\)HLSL)(")'
       escape_captures:
         1: punctuation
         2: punctuation.definition.string.end.c
@@ -137,6 +150,9 @@ contexts:
           scope: punctuation.definition.string.end.c
           pop: true
         - include: string_escaped_char
+
+  inline-string:
+    - meta_scope: inline-glsl
 
   string_escaped_char:
     - match: '(\\)$\n'
@@ -718,6 +734,10 @@ contexts:
     - include: preprocessor-data-structures
     - match: '(?={{before_tag}})'
       push: data-structures
+    - match: '\s*(\=)\s*(default|delete)'
+      captures:
+        1: keyword.operator.assignment.c++
+        2: storage.modifier.c++
     - include: expressions
     - include: using-namespace
 
