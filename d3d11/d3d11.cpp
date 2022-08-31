@@ -21,19 +21,37 @@ GLOBAL BOOL Wireframe;
 
 GLOBAL UINT CurrentClientWidth;
 GLOBAL UINT CurrentClientHeight;
-GLOBAL BOOL ViewportNeedsResize = TRUE;
+GLOBAL BOOL ViewportNeedsResize;
 
 GLOBAL ID3D11Device *D3D11_Device;
 GLOBAL ID3D11DeviceContext *D3D11_DeviceContext;
 GLOBAL IDXGISwapChain *D3D11_SwapChain;
 
 GLOBAL ID3D11RenderTargetView *D3D11_BackBufferView;
-GLOBAL ID3D11Texture2D *D3D11_DepthStencilTexture;
 GLOBAL ID3D11DepthStencilView *D3D11_DepthStencilView;
 
 GLOBAL ID3D11RasterizerState* D3D11_RasterizerState;
 GLOBAL ID3D11DepthStencilState *D3D11_DepthStencilState;
 
+
+char const *get_d3d11_error_string(HRESULT ec)
+{
+    switch (ec)
+    {
+        case D3D11_ERROR_FILE_NOT_FOUND: return "The file was not found.";
+        case D3D11_ERROR_TOO_MANY_UNIQUE_STATE_OBJECTS: return "There are too many unique instances of a particular type of state object.";
+        case D3D11_ERROR_TOO_MANY_UNIQUE_VIEW_OBJECTS: return "There are too many unique instances of a particular type of view object.";
+        case D3D11_ERROR_DEFERRED_CONTEXT_MAP_WITHOUT_INITIAL_DISCARD: return "The first call to ID3D11DeviceContext::Map after either ID3D11Device::CreateDeferredContext or ID3D11DeviceContext::FinishCommandList per Resource was not D3D11_MAP_WRITE_DISCARD.";
+        case E_FAIL: return "Attempted to create a device with the debug layer enabled and the layer is not installed.";
+        case E_INVALIDARG: return "An invalid parameter was passed to the returning function.";
+        case E_OUTOFMEMORY: return "Direct3D could not allocate sufficient memory to complete the call.";
+        case E_NOTIMPL: return "The method call isn't implemented with the passed parameter combination.";
+        case S_FALSE: return "Alternate success value, indicating a successful but nonstandard completion (the precise meaning depends on context).";
+        case S_OK: return "No error occurred.";
+    }
+
+    return NULL;
+}
 
 char const *get_dxgi_error_string(HRESULT ec)
 {
@@ -181,6 +199,46 @@ i32 Height(RECT Rect)
 }
 
 
+struct ViewportSize
+{
+    uint32 OffsetX;
+    uint32 OffsetY;
+    uint32 Width;
+    uint32 Height;
+};
+
+
+ViewportSize GetViewport(uint32 ClientWidth, uint32 ClientHeight, float32 DesiredAspectRatio)
+{
+    ViewportSize Viewport;
+
+    float32 AspectRatio = f32(ClientWidth) / f32(ClientHeight);
+    if (AspectRatio < DesiredAspectRatio)
+    {
+        Viewport.Width   = ClientWidth;
+        Viewport.Height  = uint32(Viewport.Width / DesiredAspectRatio);
+        Viewport.OffsetX = 0;
+        Viewport.OffsetY = (ClientHeight - Viewport.Height) / 2;
+    }
+    else if (AspectRatio > DesiredAspectRatio)
+    {
+        Viewport.Height  = CurrentClientHeight;
+        Viewport.Width   = uint32(Viewport.Height * DesiredAspectRatio);
+        Viewport.OffsetX = (ClientWidth - Viewport.Width) / 2;
+        Viewport.OffsetY = 0;
+    }
+    else
+    {
+        Viewport.Width   = ClientWidth;
+        Viewport.Height  = ClientHeight;
+        Viewport.OffsetX = 0;
+        Viewport.OffsetY = 0;
+    }
+
+    return Viewport;
+}
+
+
 int WINAPI WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
@@ -276,53 +334,35 @@ int WINAPI WinMain(
         return 1;
     }
 
-    // ============ Render Target ============
-    ID3D11Texture2D *pBackBuffer;
+    // Setting the Rasterizer state
     {
-        D3D11_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-        D3D11_Device->CreateRenderTargetView(pBackBuffer, NULL, &D3D11_BackBufferView);
-    }
+        D3D11_RASTERIZER_DESC RasterizerDescription = {};
+        RasterizerDescription.FillMode = D3D11_FILL_SOLID;
+        RasterizerDescription.CullMode = D3D11_CULL_BACK;
+        RasterizerDescription.FrontCounterClockwise = TRUE;
+        RasterizerDescription.DepthClipEnable = TRUE;
+        RasterizerDescription.MultisampleEnable = FALSE;
 
-    // ============ Depth Stencil ============
-    {
-        D3D11_TEXTURE2D_DESC DepthStencilTextureDescription = {};
-        pBackBuffer->GetDesc(&DepthStencilTextureDescription);
-
-        DepthStencilTextureDescription.Format    = DXGI_FORMAT_D24_UNORM_S8_UINT;
-        DepthStencilTextureDescription.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-
-        HRESULT DepthStencilCreationResult = D3D11_Device->CreateTexture2D(&DepthStencilTextureDescription, NULL, &D3D11_DepthStencilTexture);
-        if (SUCCEEDED(DepthStencilCreationResult))
+        HRESULT CreateRasterizerStateResult = D3D11_Device->CreateRasterizerState(&RasterizerDescription, &D3D11_RasterizerState);
+        if (SUCCEEDED(CreateRasterizerStateResult))
         {
-
-            HRESULT DepthStencilViewCreationResult = D3D11_Device->CreateDepthStencilView(D3D11_DepthStencilTexture, NULL, &D3D11_DepthStencilView);
-            if (FAILED(DepthStencilViewCreationResult))
-            {
-                MessageBoxA(0, "Failed to create Depth Stencil View", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
-                RELEASE_COM(D3D11_DepthStencilView);
-            }
-
-            // Create depth stencil state
-            D3D11_DEPTH_STENCIL_DESC DepthStencilDescription = {};
-            DepthStencilDescription.DepthEnable    = TRUE;
-            DepthStencilDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-            DepthStencilDescription.DepthFunc      = D3D11_COMPARISON_LESS;
-            D3D11_Device->CreateDepthStencilState(&DepthStencilDescription, &D3D11_DepthStencilState);
-        }
-        else
-        {
-            MessageBoxA(0, "Failed to create Depth Stencil Texture", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+            D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
         }
     }
 
-    D3D11_RASTERIZER_DESC RasterizerDescription = {};
-    RasterizerDescription.FillMode = D3D11_FILL_SOLID;
-    RasterizerDescription.CullMode = D3D11_CULL_BACK;
-    RasterizerDescription.FrontCounterClockwise = TRUE;
-    RasterizerDescription.DepthClipEnable = TRUE;
-    RasterizerDescription.MultisampleEnable = FALSE;
-    D3D11_Device->CreateRasterizerState(&RasterizerDescription, &D3D11_RasterizerState);
-    D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
+    // Setting the DepthStencil state
+    {
+        D3D11_DEPTH_STENCIL_DESC DepthStencilDescription = {};
+        DepthStencilDescription.DepthEnable    = TRUE;
+        DepthStencilDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+        DepthStencilDescription.DepthFunc      = D3D11_COMPARISON_LESS;
+
+        HRESULT CreateDepthStencilStateResult = D3D11_Device->CreateDepthStencilState(&DepthStencilDescription, &D3D11_DepthStencilState);
+        if (SUCCEEDED(CreateDepthStencilStateResult))
+        {
+            D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
+        }
+    }
 
     char const Shader[] = R"HLSL(
 struct VOut
@@ -501,83 +541,96 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         0, 0, -(f + n)/(f - n), -2.0f*f*n/(f - n),
         0, 0, -1, 0);
 
-    Running = true;
+    Running = TRUE;
     int32 FrameCounter = 0;
     while (Running)
     {
         Win32_ProcessPendingMessages();
 
-        PERSIST BOOL FirstTime = TRUE;
-        if (FirstTime)
-        {
-            FirstTime = FALSE;
-            ViewportNeedsResize = FALSE;
-
-            // Viewport
-            {
-                D3D11_VIEWPORT Viewport = {};
-                Viewport.TopLeftX = 0;
-                Viewport.TopLeftY = 0;
-                Viewport.Width = float32(CurrentClientWidth);
-                Viewport.Height = float32(CurrentClientHeight);
-                Viewport.MinDepth = 0.0f;
-                Viewport.MaxDepth = 1.0f;
-
-                D3D11_DeviceContext->RSSetViewports(1, &Viewport);
-            }
-
-
-
-        }
-
         if (ViewportNeedsResize)
         {
-            // D3D11_DeviceContext->ClearState();
-            // D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
-            // D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBuffer, NULL);
+            ViewportNeedsResize = FALSE;
 
-            D3D11_VIEWPORT Viewport = {};
-            Viewport.MinDepth = 0.0f;
-            Viewport.MaxDepth = 1.0f;
+            D3D11_DeviceContext->OMSetRenderTargets(0, NULL, NULL);
+            RELEASE_COM(D3D11_BackBufferView);
+            RELEASE_COM(D3D11_DepthStencilView);
 
-            float32 CurrentAspectRatio = f32(CurrentClientWidth) / f32(CurrentClientHeight);
-            if (CurrentAspectRatio < DesiredAspectRatio)
+            HRESULT ResizeBuffersResult = D3D11_SwapChain->ResizeBuffers(0, CurrentClientWidth, CurrentClientHeight, DXGI_FORMAT_UNKNOWN, 0);
+            if (SUCCEEDED(ResizeBuffersResult))
             {
-                uint32 ViewportWidth  = CurrentClientWidth;
-                uint32 ViewportHeight = uint32(ViewportWidth / DesiredAspectRatio);
-                uint32 Padding = (CurrentClientHeight - ViewportHeight) / 2;
+                ID3D11Texture2D *BackBufferTexture = NULL;
+                HRESULT GetBufferResult = D3D11_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&BackBufferTexture);
+                if (SUCCEEDED(GetBufferResult))
+                {
+                    HRESULT CreateRenderTargetViewResult = D3D11_Device->CreateRenderTargetView(BackBufferTexture, NULL, &D3D11_BackBufferView);
+                    if (SUCCEEDED(CreateRenderTargetViewResult))
+                    {
+                        D3D11_TEXTURE2D_DESC DepthStencilTextureDescription = {};
+                        BackBufferTexture->GetDesc(&DepthStencilTextureDescription);
 
-                Viewport.TopLeftX = 0.0f;
-                Viewport.TopLeftY = float32(Padding);
-                Viewport.Width    = float32(ViewportWidth);
-                Viewport.Height   = float32(ViewportHeight);
-            }
-            else if (CurrentAspectRatio > DesiredAspectRatio)
-            {
-                uint32 ViewportHeight = CurrentClientHeight;
-                uint32 ViewportWidth  = uint32(ViewportHeight * DesiredAspectRatio);
-                uint32 Padding = (CurrentClientWidth - ViewportWidth) / 2;
+                        DepthStencilTextureDescription.Format    = DXGI_FORMAT_D24_UNORM_S8_UINT;
+                        DepthStencilTextureDescription.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 
-                Viewport.TopLeftX = float32(Padding);
-                Viewport.TopLeftY = 0.0f;
-                Viewport.Width    = float32(ViewportWidth);
-                Viewport.Height   = float32(ViewportHeight);
+                        ID3D11Texture2D *DepthStencilTexture;
+                        HRESULT DepthStencilCreationResult = D3D11_Device->CreateTexture2D(&DepthStencilTextureDescription, NULL, &DepthStencilTexture);
+                        if (SUCCEEDED(DepthStencilCreationResult))
+                        {
+                            HRESULT DepthStencilViewCreationResult = D3D11_Device->CreateDepthStencilView(DepthStencilTexture, NULL, &D3D11_DepthStencilView);
+                            if (SUCCEEDED(DepthStencilViewCreationResult))
+                            {
+                                // Ok.
+                                D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBufferView, D3D11_DepthStencilView);
+                            }
+                            else
+                            {
+                                MessageBoxA(0, "Failed to create Depth Stencil View", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+                                RELEASE_COM(D3D11_DepthStencilView);
+                            }
+
+                            RELEASE_COM(DepthStencilTexture);
+                        }
+                        else
+                        {
+                            MessageBoxA(0, "Failed to create DepthStencil texture.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+                        }
+                        // D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBufferView, D3D11_DepthStencilView);
+                    }
+                    else
+                    {
+                        MessageBoxA(0, "Failed to create RenderTargetView.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+                    }
+
+                    RELEASE_COM(BackBufferTexture);
+                }
+                else
+                {
+                    MessageBoxA(0, "Failed to get BackBuffer texture.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+                }
             }
             else
             {
-                Viewport.TopLeftX = 0.0f;
-                Viewport.TopLeftY = 0.0f;
-                Viewport.Width    = float32(CurrentClientWidth);
-                Viewport.Height   = float32(CurrentClientHeight);
+                MessageBoxA(0, "Failed to resize buffers.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
             }
 
-            // D3D11_DeviceContext->RSSetViewports(1, &Viewport);
+            ViewportSize Viewport = GetViewport(CurrentClientWidth, CurrentClientHeight, DesiredAspectRatio);
 
-            osOutputDebugString("(%4.2f, %4.2f) - (%4.2f, %4.2f)    Ratio - %4.2f (should be ~1.0)\n",
-                Viewport.TopLeftX, Viewport.TopLeftY,
+            D3D11_VIEWPORT DxViewport;
+            DxViewport.Width = float32(Viewport.Width);
+            DxViewport.Height = float32(Viewport.Height);
+            DxViewport.TopLeftX = float32(Viewport.OffsetX);
+            DxViewport.TopLeftY = float32(Viewport.OffsetY);
+            DxViewport.MinDepth = 0.0f;
+            DxViewport.MaxDepth = 1.0f;
+            
+            D3D11_DeviceContext->RSSetViewports(1, &DxViewport);
+
+            osOutputDebugString("(%u, %u) - (%u, %u)    Ratio - %4.2f (should be ~1.0)\n",
+                Viewport.OffsetX, Viewport.OffsetY,
                 Viewport.Width, Viewport.Height,
-                (CurrentClientWidth - 2.0f*Viewport.TopLeftX) / (CurrentClientHeight - 2.0f*Viewport.TopLeftY) / DesiredAspectRatio
-            );
+                float32(CurrentClientWidth - 2.0f*Viewport.OffsetX) / float32(CurrentClientHeight - 2.0f*Viewport.OffsetY) / DesiredAspectRatio);
+
+            // D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBufferView, D3D11_DepthStencilView);
+            // D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
         }
 
         // Clear the back buffer to a deep blue
@@ -596,9 +649,6 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
         D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
 
-        D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBufferView, D3D11_DepthStencilView);
-        D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
-
         D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         // D3D11_DeviceContext->Draw(3, 0);
         D3D11_DeviceContext->DrawIndexedInstanced(ARRAYSIZE(Indices), 2, 0, 0, 0);
@@ -613,7 +663,6 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
     RELEASE_COM(D3D11_DepthStencilState);
     RELEASE_COM(D3D11_RasterizerState);
     RELEASE_COM(D3D11_DepthStencilView);
-    RELEASE_COM(D3D11_DepthStencilTexture);
     RELEASE_COM(D3D11_BackBufferView);
     RELEASE_COM(D3D11_SwapChain);
     RELEASE_COM(D3D11_DeviceContext);
