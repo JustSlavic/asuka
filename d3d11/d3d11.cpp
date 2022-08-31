@@ -2,6 +2,8 @@
 
 #include <defines.hpp>
 #include <math/color.hpp>
+#include <math/vector3.hpp>
+#include <math/matrix4.hpp>
 
 #include <windows.h>
 
@@ -11,49 +13,107 @@
 // #include <d3dx11.h>
 
 
+#define RELEASE_COM(PTR) do { if ((PTR)) { (PTR)->Release(); } (PTR) = NULL; } while(0)
 
-struct Vertex
-{
-    f32 x, y, z;
-    color32 color;
-};
 
-GLOBAL bool Running;
-GLOBAL IDXGISwapChain *D3D11_SwapChain;
+GLOBAL BOOL Running;
+GLOBAL BOOL Wireframe;
+
+GLOBAL UINT CurrentClientWidth;
+GLOBAL UINT CurrentClientHeight;
+GLOBAL BOOL ViewportNeedsResize = TRUE;
+
 GLOBAL ID3D11Device *D3D11_Device;
 GLOBAL ID3D11DeviceContext *D3D11_DeviceContext;
-GLOBAL ID3D11RenderTargetView *D3D11_BackBuffer;
+GLOBAL IDXGISwapChain *D3D11_SwapChain;
+
+GLOBAL ID3D11RenderTargetView *D3D11_BackBufferView;
+GLOBAL ID3D11Texture2D *D3D11_DepthStencilTexture;
+GLOBAL ID3D11DepthStencilView *D3D11_DepthStencilView;
+
+GLOBAL ID3D11RasterizerState* D3D11_RasterizerState;
+GLOBAL ID3D11DepthStencilState *D3D11_DepthStencilState;
 
 
-LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LPARAM lParam) {
-    LRESULT result {};
+char const *get_dxgi_error_string(HRESULT ec)
+{
+    switch (ec)
+    {
+        case DXGI_ERROR_ACCESS_DENIED: return "You tried to use a resource to which you did not have the required access privileges. This error is most typically caused when you write to a shared resource with read-only access.";
+        case DXGI_ERROR_ACCESS_LOST: return "The desktop duplication interface is invalid. The desktop duplication interface typically becomes invalid when a different type of image is displayed on the desktop.";
+        case DXGI_ERROR_ALREADY_EXISTS: return "The desired element already exists. This is returned by DXGIDeclareAdapterRemovalSupport if it is not the first time that the function is called.";
+        case DXGI_ERROR_CANNOT_PROTECT_CONTENT: return "DXGI can't provide content protection on the swap chain. This error is typically caused by an older driver, or when you use a swap chain that is incompatible with content protection.";
+        case DXGI_ERROR_DEVICE_HUNG: return "The application's device failed due to badly formed commands sent by the application. This is an design-time issue that should be investigated and fixed.";
+        case DXGI_ERROR_DEVICE_REMOVED: return "The video card has been physically removed from the system, or a driver upgrade for the video card has occurred. The application should destroy and recreate the device. For help debugging the problem, call ID3D10Device::GetDeviceRemovedReason.";
+        case DXGI_ERROR_DEVICE_RESET: return "The device failed due to a badly formed command. This is a run-time issue; The application should destroy and recreate the device.";
+        case DXGI_ERROR_DRIVER_INTERNAL_ERROR: return "The driver encountered a problem and was put into the device removed state.";
+        case DXGI_ERROR_FRAME_STATISTICS_DISJOINT: return "An event (for example, a power cycle) interrupted the gathering of presentation statistics.";
+        case DXGI_ERROR_GRAPHICS_VIDPN_SOURCE_IN_USE: return "The application attempted to acquire exclusive ownership of an output, but failed because some other application (or device within the application) already acquired ownership.";
+        case DXGI_ERROR_INVALID_CALL: return "The application provided invalid parameter data; this must be debugged and fixed before the application is released.";
+        case DXGI_ERROR_MORE_DATA: return "The buffer supplied by the application is not big enough to hold the requested data.";
+        case DXGI_ERROR_NAME_ALREADY_EXISTS: return "The supplied name of a resource in a call to IDXGIResource1::CreateSharedHandle is already associated with some other resource.";
+        case DXGI_ERROR_NONEXCLUSIVE: return "A global counter resource is in use, and the Direct3D device can't currently use the counter resource.";
+        case DXGI_ERROR_NOT_CURRENTLY_AVAILABLE: return "The resource or request is not currently available, but it might become available later.";
+        case DXGI_ERROR_NOT_FOUND: return "When calling IDXGIObject::GetPrivateData, the GUID passed in is not recognized as one previously passed to IDXGIObject::SetPrivateData or IDXGIObject::SetPrivateDataInterface. When calling IDXGIFactory::EnumAdapters or IDXGIAdapter::EnumOutputs, the enumerated ordinal is out of range.";
+        case DXGI_ERROR_REMOTE_CLIENT_DISCONNECTED: return "Reserved";
+        case DXGI_ERROR_REMOTE_OUTOFMEMORY: return "Reserved";
+        case DXGI_ERROR_RESTRICT_TO_OUTPUT_STALE: return "The DXGI output (monitor) to which the swap chain content was restricted is now disconnected or changed.";
+        case DXGI_ERROR_SDK_COMPONENT_MISSING: return "The operation depends on an SDK component that is missing or mismatched.";
+        case DXGI_ERROR_SESSION_DISCONNECTED: return "The Remote Desktop Services session is currently disconnected.";
+        case DXGI_ERROR_UNSUPPORTED: return "The requested functionality is not supported by the device or the driver.";
+        case DXGI_ERROR_WAIT_TIMEOUT: return "The time-out interval elapsed before the next desktop frame was available.";
+        case DXGI_ERROR_WAS_STILL_DRAWING: return "The GPU was busy at the moment when a call was made to perform an operation, and did not execute or schedule the operation.";
+        case S_OK: return "The method succeeded without an error.";
+    }
 
-    switch (message) {
-        case WM_SIZE: {
-            break;
+    return NULL;
+}
+
+
+LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    LRESULT result = {};
+
+    switch (message)
+    {
+        case WM_SIZE:
+        {
+            CurrentClientWidth  = LOWORD(lParam);
+            CurrentClientHeight = HIWORD(lParam);
+            ViewportNeedsResize = TRUE;
+            osOutputDebugString("Resize (%d, %d)\n", CurrentClientWidth, CurrentClientHeight);
         }
-        case WM_MOVE: {
-            break;
-        }
-        case WM_CLOSE: {
+        break;
+
+        case WM_MOVE:
+        break;
+
+        case WM_CLOSE:
+        case WM_DESTROY:
+        {
             Running = false;
-            break;
+
+
+
+
         }
-        case WM_DESTROY: {
-            Running = false;
-            break;
-        }
-        case WM_ACTIVATEAPP: {
-            break;
-        }
+        break;
+
+        case WM_ACTIVATEAPP:
+        break;
+
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
         case WM_KEYDOWN:
-        case WM_KEYUP: {
+        case WM_KEYUP:
+        {
             ASSERT_FAIL("Key handling happens in the main loop.");
-            break;
+
         }
-        default: {
+        break;
+
+        default:
+        {
             result = DefWindowProcA(Window, message, wParam, lParam);
         }
     }
@@ -70,15 +130,37 @@ void Win32_ProcessPendingMessages() {
 
         switch (Message.message) {
             case WM_MOUSEMOVE:
-                break;
+            break;
+
             case WM_SYSKEYDOWN:
             case WM_SYSKEYUP:
             case WM_KEYDOWN:
             case WM_KEYUP:
-                break;
-            default: {
+            {
+                u32 VKCode  = (u32)Message.wParam;
+                b32 WasDown = (Message.lParam & (1 << 30)) != 0;
+                b32 IsDown  = (Message.lParam & (1 << 31)) == 0;
+                if (WasDown != IsDown)
+                {
+                    if (VKCode == 'W')
+                    {
+                        if (IsDown)
+                        {
+                            TOGGLE(Wireframe);
+                        }
+                    }
+                    if (VKCode == VK_ESCAPE)
+                    {
+                        Running = false;
+                    }
+                }
+            }
+            break;
+
+            default:
+            {
                 DispatchMessageA(&Message);
-                break;
+
             }
         }
     }
@@ -117,14 +199,16 @@ int WINAPI WinMain(
     WindowClass.hbrBackground = NULL; // (HBRUSH) COLOR_WINDOW;
 
     ATOM ClassAtomResult = RegisterClassA(&WindowClass);
-    if (!ClassAtomResult) {
-        // Handle error
+    if (!ClassAtomResult)
+    {
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, "System error! Could not register window class.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
         return 1;
     }
 
-    i32 ClientWidth = 800;
-    i32 ClientHeight = 600;
-    RECT WindowRectangle = { 0, 0, ClientWidth, ClientHeight };
+    CurrentClientWidth  = 800;
+    CurrentClientHeight = 600;
+    RECT WindowRectangle = { 0, 0, (LONG) CurrentClientWidth, (LONG) CurrentClientHeight };
     if (!AdjustWindowRect(&WindowRectangle, WS_OVERLAPPEDWINDOW, false))
     {
         MessageBeep(MB_ICONERROR);
@@ -156,13 +240,13 @@ int WINAPI WinMain(
     DXGI_SWAP_CHAIN_DESC SwapChainDescription;
     ZeroMemory(&SwapChainDescription, sizeof(SwapChainDescription));
 
-    SwapChainDescription.BufferDesc.Width = ClientWidth;
-    SwapChainDescription.BufferDesc.Height = ClientHeight;
+    SwapChainDescription.BufferDesc.Width = CurrentClientWidth;
+    SwapChainDescription.BufferDesc.Height = CurrentClientHeight;
     SwapChainDescription.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     SwapChainDescription.BufferDesc.RefreshRate.Numerator = 60;
     SwapChainDescription.BufferDesc.RefreshRate.Denominator = 1;
 
-    SwapChainDescription.SampleDesc.Count = 4;
+    SwapChainDescription.SampleDesc.Count = 1;
     SwapChainDescription.SampleDesc.Quality = 0;
 
     SwapChainDescription.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -175,51 +259,70 @@ int WINAPI WinMain(
     D3D_FEATURE_LEVEL FeatureLevel = D3D_FEATURE_LEVEL_11_0;
     if(FAILED(D3D11CreateDeviceAndSwapChain(
         NULL,
-        D3D_DRIVER_TYPE_HARDWARE, // D3D_DRIVER_TYPE_REFERENCE,
-        NULL,
-        NULL, // 0,
-        NULL, // &FeatureLevel,
-        NULL, // 1,
-        D3D11_SDK_VERSION,
+        D3D_DRIVER_TYPE_HARDWARE, // DriverType
+        NULL, // Software
+        NULL, // Flags
+        NULL, // FeatureLevels
+        NULL, // FeatureLevelCount,
+        D3D11_SDK_VERSION, // SDKVersion
         &SwapChainDescription,
         &D3D11_SwapChain,
         &D3D11_Device,
-        NULL, // &FeatureLevel,
+        NULL, // FeatureLevel
         &D3D11_DeviceContext)))
     {
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, "Could not create Direct3D 11 device and swap chain.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
         return 1;
     }
 
-    defer { D3D11_Device->Release(); };
-    defer { D3D11_DeviceContext->Release(); };
-    defer { D3D11_SwapChain->Release(); };
-
-    // Render Target
-
+    // ============ Render Target ============
     ID3D11Texture2D *pBackBuffer;
-    D3D11_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+    {
+        D3D11_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+        D3D11_Device->CreateRenderTargetView(pBackBuffer, NULL, &D3D11_BackBufferView);
+    }
 
-    D3D11_Device->CreateRenderTargetView(pBackBuffer, NULL, &D3D11_BackBuffer);
-    pBackBuffer->Release();
+    // ============ Depth Stencil ============
+    {
+        D3D11_TEXTURE2D_DESC DepthStencilTextureDescription = {};
+        pBackBuffer->GetDesc(&DepthStencilTextureDescription);
 
-    D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBuffer, NULL);
+        DepthStencilTextureDescription.Format    = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        DepthStencilTextureDescription.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 
-    defer { D3D11_BackBuffer->Release(); };
+        HRESULT DepthStencilCreationResult = D3D11_Device->CreateTexture2D(&DepthStencilTextureDescription, NULL, &D3D11_DepthStencilTexture);
+        if (SUCCEEDED(DepthStencilCreationResult))
+        {
 
-    // Viewport
+            HRESULT DepthStencilViewCreationResult = D3D11_Device->CreateDepthStencilView(D3D11_DepthStencilTexture, NULL, &D3D11_DepthStencilView);
+            if (FAILED(DepthStencilViewCreationResult))
+            {
+                MessageBoxA(0, "Failed to create Depth Stencil View", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+                RELEASE_COM(D3D11_DepthStencilView);
+            }
 
-    D3D11_VIEWPORT Viewport = {};
-    Viewport.TopLeftX = 0;
-    Viewport.TopLeftY = 0;
-    Viewport.Width = (f32) ClientWidth;
-    Viewport.Height = (f32) ClientHeight;
+            // Create depth stencil state
+            D3D11_DEPTH_STENCIL_DESC DepthStencilDescription = {};
+            DepthStencilDescription.DepthEnable    = TRUE;
+            DepthStencilDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+            DepthStencilDescription.DepthFunc      = D3D11_COMPARISON_LESS;
+            D3D11_Device->CreateDepthStencilState(&DepthStencilDescription, &D3D11_DepthStencilState);
+        }
+        else
+        {
+            MessageBoxA(0, "Failed to create Depth Stencil Texture", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+        }
+    }
 
-    D3D11_DeviceContext->RSSetViewports(1, &Viewport);
-
-
-    ID3DBlob *VS = NULL;
-    ID3DBlob *PS = NULL;
-    ID3DBlob *ShaderErrors = NULL;
+    D3D11_RASTERIZER_DESC RasterizerDescription = {};
+    RasterizerDescription.FillMode = D3D11_FILL_SOLID;
+    RasterizerDescription.CullMode = D3D11_CULL_BACK;
+    RasterizerDescription.FrontCounterClockwise = TRUE;
+    RasterizerDescription.DepthClipEnable = TRUE;
+    RasterizerDescription.MultisampleEnable = FALSE;
+    D3D11_Device->CreateRasterizerState(&RasterizerDescription, &D3D11_RasterizerState);
+    D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
 
     char const Shader[] = R"HLSL(
 struct VOut
@@ -245,6 +348,9 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 }
 )HLSL";
 
+    ID3DBlob *ShaderErrors = NULL;
+
+    ID3DBlob *VS = NULL;
     HRESULT VertexShaderCompilationResult = D3DCompile(
         Shader,         // SrcData
         sizeof(Shader), // SrcDataSize
@@ -265,6 +371,10 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         return 1;
     }
 
+    ID3D11VertexShader *VertexShader = NULL;
+    D3D11_Device->CreateVertexShader(VS->GetBufferPointer(), VS->GetBufferSize(), NULL, &VertexShader);
+
+    ID3DBlob *PS = NULL;
     HRESULT PixelShaderCompilationResult = D3DCompile(
         Shader,         // SrcData
         sizeof(Shader), // SrcDataSize
@@ -285,29 +395,21 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         return 1;
     }
 
-    ID3D11VertexShader *VertexShader = NULL;
-    D3D11_Device->CreateVertexShader(VS->GetBufferPointer(), VS->GetBufferSize(), NULL, &VertexShader);
-    defer { VertexShader->Release(); };
-
     ID3D11PixelShader  *PixelShader = NULL;
     D3D11_Device->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &PixelShader);
-    defer { PixelShader->Release(); };
 
-    D3D11_RASTERIZER_DESC RasterizerDescription = {};
-    RasterizerDescription.CullMode = D3D11_CULL_BACK;
-    RasterizerDescription.FillMode = D3D11_FILL_SOLID;
-    RasterizerDescription.FrontCounterClockwise = TRUE;
-
-    ID3D11RasterizerState* RasterizerState;
-    D3D11_Device->CreateRasterizerState(&RasterizerDescription, &RasterizerState);
-    D3D11_DeviceContext->RSSetState(RasterizerState);
+    struct Vertex
+    {
+        vector3 position;
+        color32 color;
+    };
 
     Vertex Vertices[] =
     {
-        { -0.5f, -0.5f, 0.0f, color32::blue }, // bottom left
-        {  0.5f, -0.5f, 0.0f, color32::green }, // bottom right
-        {  0.5f,  0.5f, 0.0f, color32::red }, // top right
-        { -0.5f,  0.5f, 0.0f, color32::yellow }, // top left
+        { -1.0f, -1.0f, 0.1f, color32::blue },   // 0 bottom left
+        {  1.0f, -1.0f, 0.1f, color32::green },  // 1 bottom right
+        {  1.0f,  1.0f, 0.1f, color32::red },    // 2 top right
+        { -1.0f,  1.0f, 0.1f, color32::yellow }, // 3 top left
     };
 
     ID3D11Buffer *VertexBuffer = NULL;
@@ -327,7 +429,8 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         D3D11_DeviceContext->Unmap(VertexBuffer, NULL);
     }
 
-    u32 Indices[] = {
+    u32 Indices[] =
+    {
         0, 1, 2,
         2, 3, 0,
     };
@@ -355,15 +458,132 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
     ID3D11InputLayout *InputLayout = NULL;
     D3D11_Device->CreateInputLayout(InputDescription, 2, VS->GetBufferPointer(), VS->GetBufferSize(), &InputLayout);
 
+    float32 DesiredAspectRatio = 16.0f / 9.0f;
+
+    float32 n = 0.05f;
+    float32 f = 100.0f;
+    float32 l = -0.1f;
+    float32 r = 0.1f;
+    float32 t = 0.1f;
+    float32 b = -0.1f;
+
+    if (DesiredAspectRatio > 1.0f)
+    {
+        // Width is bigger than height
+        l = -0.1f;
+        r =  0.1f;
+        t =  0.1f * (1.0f / DesiredAspectRatio);
+        b = -0.1f * (1.0f / DesiredAspectRatio);
+    }
+    else if ((0.0f < DesiredAspectRatio) && (DesiredAspectRatio < 1.0f))
+    {
+        // Height is bigger than height
+        l = -0.1f * (1.0f / DesiredAspectRatio);
+        r =  0.1f * (1.0f / DesiredAspectRatio);
+        t =  0.1f;
+        b = -0.1f;
+    }
+    else if (DesiredAspectRatio == 1.0f)
+    {
+        l = -0.1f;
+        r =  0.1f;
+        t =  0.1f;
+        b = -0.1f;
+    }
+    else
+    {
+        INVALID_CODE_PATH();
+    }
+
+    auto ProjectionMatrix = make_matrix4(
+        2*n/(r - l), 0, (r + l)/(r - l), 0,
+        0, 2*n/(t - b), (t + b)/(t - b), 0,
+        0, 0, -(f + n)/(f - n), -2.0f*f*n/(f - n),
+        0, 0, -1, 0);
+
     Running = true;
     int32 FrameCounter = 0;
     while (Running)
     {
         Win32_ProcessPendingMessages();
 
+        PERSIST BOOL FirstTime = TRUE;
+        if (FirstTime)
+        {
+            FirstTime = FALSE;
+            ViewportNeedsResize = FALSE;
+
+            // Viewport
+            {
+                D3D11_VIEWPORT Viewport = {};
+                Viewport.TopLeftX = 0;
+                Viewport.TopLeftY = 0;
+                Viewport.Width = float32(CurrentClientWidth);
+                Viewport.Height = float32(CurrentClientHeight);
+                Viewport.MinDepth = 0.0f;
+                Viewport.MaxDepth = 1.0f;
+
+                D3D11_DeviceContext->RSSetViewports(1, &Viewport);
+            }
+
+
+
+        }
+
+        if (ViewportNeedsResize)
+        {
+            // D3D11_DeviceContext->ClearState();
+            // D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
+            // D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBuffer, NULL);
+
+            D3D11_VIEWPORT Viewport = {};
+            Viewport.MinDepth = 0.0f;
+            Viewport.MaxDepth = 1.0f;
+
+            float32 CurrentAspectRatio = f32(CurrentClientWidth) / f32(CurrentClientHeight);
+            if (CurrentAspectRatio < DesiredAspectRatio)
+            {
+                uint32 ViewportWidth  = CurrentClientWidth;
+                uint32 ViewportHeight = uint32(ViewportWidth / DesiredAspectRatio);
+                uint32 Padding = (CurrentClientHeight - ViewportHeight) / 2;
+
+                Viewport.TopLeftX = 0.0f;
+                Viewport.TopLeftY = float32(Padding);
+                Viewport.Width    = float32(ViewportWidth);
+                Viewport.Height   = float32(ViewportHeight);
+            }
+            else if (CurrentAspectRatio > DesiredAspectRatio)
+            {
+                uint32 ViewportHeight = CurrentClientHeight;
+                uint32 ViewportWidth  = uint32(ViewportHeight * DesiredAspectRatio);
+                uint32 Padding = (CurrentClientWidth - ViewportWidth) / 2;
+
+                Viewport.TopLeftX = float32(Padding);
+                Viewport.TopLeftY = 0.0f;
+                Viewport.Width    = float32(ViewportWidth);
+                Viewport.Height   = float32(ViewportHeight);
+            }
+            else
+            {
+                Viewport.TopLeftX = 0.0f;
+                Viewport.TopLeftY = 0.0f;
+                Viewport.Width    = float32(CurrentClientWidth);
+                Viewport.Height   = float32(CurrentClientHeight);
+            }
+
+            // D3D11_DeviceContext->RSSetViewports(1, &Viewport);
+
+            osOutputDebugString("(%4.2f, %4.2f) - (%4.2f, %4.2f)    Ratio - %4.2f (should be ~1.0)\n",
+                Viewport.TopLeftX, Viewport.TopLeftY,
+                Viewport.Width, Viewport.Height,
+                (CurrentClientWidth - 2.0f*Viewport.TopLeftX) / (CurrentClientHeight - 2.0f*Viewport.TopLeftY) / DesiredAspectRatio
+            );
+        }
+
         // Clear the back buffer to a deep blue
         color32 BackgroundColor = { 0.0f, 0.2f, 0.4f, 1.0f };
-        D3D11_DeviceContext->ClearRenderTargetView(D3D11_BackBuffer, BackgroundColor.e);
+        D3D11_DeviceContext->ClearRenderTargetView(D3D11_BackBufferView, BackgroundColor.e);
+        D3D11_DeviceContext->ClearDepthStencilView(D3D11_DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
         // Do 3D rendering on the back buffer here
         u32 Stride = sizeof(Vertex);
@@ -376,6 +596,9 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
         D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
 
+        D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBufferView, D3D11_DepthStencilView);
+        D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
+
         D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         // D3D11_DeviceContext->Draw(3, 0);
         D3D11_DeviceContext->DrawIndexedInstanced(ARRAYSIZE(Indices), 2, 0, 0, 0);
@@ -383,6 +606,18 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         // Switch the back buffer and the front buffer
         D3D11_SwapChain->Present(0, 0);
     }
+
+    RELEASE_COM(VertexShader);
+    RELEASE_COM(PixelShader);
+
+    RELEASE_COM(D3D11_DepthStencilState);
+    RELEASE_COM(D3D11_RasterizerState);
+    RELEASE_COM(D3D11_DepthStencilView);
+    RELEASE_COM(D3D11_DepthStencilTexture);
+    RELEASE_COM(D3D11_BackBufferView);
+    RELEASE_COM(D3D11_SwapChain);
+    RELEASE_COM(D3D11_DeviceContext);
+    RELEASE_COM(D3D11_Device);
 
     return 0;
 }
