@@ -7,17 +7,17 @@
 struct color24 {
     struct { f32 r; f32 g; f32 b; };
 
-    STATIC color24 white;
-    STATIC color24 gray;
-    STATIC color24 black;
+    STATIC CONSTANT color24 white;
+    STATIC CONSTANT color24 gray;
+    STATIC CONSTANT color24 black;
 
-    STATIC color24 red;
-    STATIC color24 green;
-    STATIC color24 blue;
+    STATIC CONSTANT color24 red;
+    STATIC CONSTANT color24 green;
+    STATIC CONSTANT color24 blue;
 
-    STATIC color24 yellow;
-    STATIC color24 cyan;
-    STATIC color24 magenta;
+    STATIC CONSTANT color24 yellow;
+    STATIC CONSTANT color24 cyan;
+    STATIC CONSTANT color24 magenta;
 };
 
 
@@ -28,17 +28,17 @@ struct color32 {
         f32 e[4];
     };
 
-    STATIC color32 white;
-    STATIC color32 gray;
-    STATIC color32 black;
+    STATIC CONSTANT color32 white;
+    STATIC CONSTANT color32 gray;
+    STATIC CONSTANT color32 black;
 
-    STATIC color32 red;
-    STATIC color32 green;
-    STATIC color32 blue;
+    STATIC CONSTANT color32 red;
+    STATIC CONSTANT color32 green;
+    STATIC CONSTANT color32 blue;
 
-    STATIC color32 yellow;
-    STATIC color32 cyan;
-    STATIC color32 magenta;
+    STATIC CONSTANT color32 yellow;
+    STATIC CONSTANT color32 cyan;
+    STATIC CONSTANT color32 magenta;
 };
 
 
