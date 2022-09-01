@@ -32,6 +32,7 @@ GLOBAL ID3D11DepthStencilView *D3D11_DepthStencilView;
 
 GLOBAL ID3D11RasterizerState* D3D11_RasterizerState;
 GLOBAL ID3D11DepthStencilState *D3D11_DepthStencilState;
+GLOBAL ID3D11DepthStencilState *D3D11_DisabledDepthStencilState;
 
 
 char const *get_d3d11_error_string(HRESULT ec)
@@ -353,11 +354,19 @@ int WINAPI WinMain(
     // Setting the DepthStencil state
     {
         D3D11_DEPTH_STENCIL_DESC DepthStencilDescription = {};
+
+        HRESULT CreateDepthStencilStateResult = D3D11_Device->CreateDepthStencilState(&DepthStencilDescription, &D3D11_DisabledDepthStencilState);
+        if (SUCCEEDED(CreateDepthStencilStateResult))
+        {
+            // Ok.
+        }
+
+
         DepthStencilDescription.DepthEnable    = TRUE;
         DepthStencilDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
         DepthStencilDescription.DepthFunc      = D3D11_COMPARISON_LESS;
 
-        HRESULT CreateDepthStencilStateResult = D3D11_Device->CreateDepthStencilState(&DepthStencilDescription, &D3D11_DepthStencilState);
+        CreateDepthStencilStateResult = D3D11_Device->CreateDepthStencilState(&DepthStencilDescription, &D3D11_DepthStencilState);
         if (SUCCEEDED(CreateDepthStencilStateResult))
         {
             D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
@@ -365,6 +374,11 @@ int WINAPI WinMain(
     }
 
     char const Shader[] = R"HLSL(
+cbuffer VsConstantBuffer : register(b0)
+{
+    float4x4 projection_matrix;
+};
+
 struct VOut
 {
     float4 position : SV_POSITION;
@@ -373,9 +387,10 @@ struct VOut
 
 VOut VShader(float4 position : POSITION, float4 color : COLOR)
 {
-    VOut output;
+    float4 p = mul(projection_matrix, position);
 
-    output.position = position;
+    VOut output;
+    output.position = p;
     output.color = color;
 
     return output;
@@ -407,7 +422,12 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
     if (FAILED(VertexShaderCompilationResult))
     {
         MessageBeep(MB_ICONERROR);
-        MessageBoxA(0, "Compilation HLSL error.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+
+        char ErrorBuffer[1024] = {};
+        sprintf(ErrorBuffer, "Vertex Shader compilation error:\n\n%.*s",
+            (int) ShaderErrors->GetBufferSize(), (char *) ShaderErrors->GetBufferPointer());
+
+        MessageBoxA(0, ErrorBuffer, "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
         return 1;
     }
 
@@ -431,7 +451,7 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
     if (FAILED(PixelShaderCompilationResult))
     {
         MessageBeep(MB_ICONERROR);
-        MessageBoxA(0, "Compilation HLSL error.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+        MessageBoxA(0, "Pixel Shader compilation error.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
         return 1;
     }
 
@@ -446,10 +466,10 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 
     Vertex Vertices[] =
     {
-        { -1.0f, -1.0f, 0.1f, color32::blue },   // 0 bottom left
-        {  1.0f, -1.0f, 0.1f, color32::green },  // 1 bottom right
-        {  1.0f,  1.0f, 0.1f, color32::red },    // 2 top right
-        { -1.0f,  1.0f, 0.1f, color32::yellow }, // 3 top left
+        { -1.0f, -1.0f, -1.0f, color32::blue },   // 0 bottom left
+        {  1.0f, -1.0f, -1.0f, color32::green },  // 1 bottom right
+        {  1.0f,  1.0f, -1.0f, color32::red },    // 2 top right
+        { -1.0f,  1.0f, -1.0f, color32::yellow }, // 3 top left
     };
 
     ID3D11Buffer *VertexBuffer = NULL;
@@ -463,10 +483,32 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 
         D3D11_Device->CreateBuffer(&BufferDescription, NULL, &VertexBuffer);
 
-        D3D11_MAPPED_SUBRESOURCE MappedSubresource {};
+        D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
         D3D11_DeviceContext->Map(VertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
         memcpy(MappedSubresource.pData, Vertices, sizeof(Vertices));
         D3D11_DeviceContext->Unmap(VertexBuffer, NULL);
+    }
+
+    ID3D11Buffer *SkyboxBuffer = NULL;
+    {
+        for (uint32 vertex_index = 0; vertex_index < ARRAY_COUNT(Vertices); vertex_index++)
+        {
+            Vertices[vertex_index].position.z = 0.0f;
+            Vertices[vertex_index].color = make_color32(0, 0.2, 0.4, 1);
+        }
+
+        D3D11_BUFFER_DESC BufferDescription = {};
+        BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
+        BufferDescription.ByteWidth = sizeof(Vertices);
+        BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+        D3D11_Device->CreateBuffer(&BufferDescription, NULL, &SkyboxBuffer);
+
+        D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
+        D3D11_DeviceContext->Map(SkyboxBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+        memcpy(MappedSubresource.pData, Vertices, sizeof(Vertices));
+        D3D11_DeviceContext->Unmap(SkyboxBuffer, NULL);
     }
 
     u32 Indices[] =
@@ -486,7 +528,15 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 
         D3D11_SUBRESOURCE_DATA IndexData = { Indices };
 
-        D3D11_Device->CreateBuffer(&BufferDescription, &IndexData, &IndexBuffer);
+        HRESULT CreateBufferResult = D3D11_Device->CreateBuffer(&BufferDescription, &IndexData, &IndexBuffer);
+        if (SUCCEEDED(CreateBufferResult))
+        {
+            // Ok.
+        }
+        else
+        {
+            // Not ok.
+        }
     }
 
     D3D11_INPUT_ELEMENT_DESC InputDescription[] =
@@ -538,8 +588,40 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
     auto ProjectionMatrix = make_matrix4(
         2*n/(r - l), 0, (r + l)/(r - l), 0,
         0, 2*n/(t - b), (t + b)/(t - b), 0,
-        0, 0, -(f + n)/(f - n), -2.0f*f*n/(f - n),
+        0, 0, -f/(f - n), -f*n/(f - n),
         0, 0, -1, 0);
+
+    struct VertexShaderContants
+    {
+        matrix4 ProjectionMatrix;
+    };
+
+    VertexShaderContants VSConstants = { transposed(ProjectionMatrix) };
+
+    // Set VertexShader ConstantBuffer
+    ID3D11Buffer *VsConstantBuffer = NULL;
+    {
+        // Fill in a buffer description.
+        D3D11_BUFFER_DESC BufferDescription = {};
+        BufferDescription.ByteWidth = sizeof(VertexShaderContants);
+        BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
+        BufferDescription.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+        D3D11_SUBRESOURCE_DATA ConstantData = { &VSConstants };
+
+        HRESULT CreateBufferResult = D3D11_Device->CreateBuffer(&BufferDescription, &ConstantData, &VsConstantBuffer);
+        if (SUCCEEDED(CreateBufferResult))
+        {
+            // Ok.
+            D3D11_DeviceContext->VSSetConstantBuffers(0, 1, &VsConstantBuffer);
+        }
+        else
+        {
+            // Not ok.
+        }
+    }
+
 
     Running = TRUE;
     int32 FrameCounter = 0;
@@ -628,30 +710,68 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
                 Viewport.OffsetX, Viewport.OffsetY,
                 Viewport.Width, Viewport.Height,
                 float32(CurrentClientWidth - 2.0f*Viewport.OffsetX) / float32(CurrentClientHeight - 2.0f*Viewport.OffsetY) / DesiredAspectRatio);
-
-            // D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBufferView, D3D11_DepthStencilView);
-            // D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
         }
 
-        // Clear the back buffer to a deep blue
-        color32 BackgroundColor = { 0.0f, 0.2f, 0.4f, 1.0f };
-        D3D11_DeviceContext->ClearRenderTargetView(D3D11_BackBufferView, BackgroundColor.e);
+        // Clear the back buffer to a black color
+        auto BackgroundColor = color32::black;
+        D3D11_DeviceContext->ClearRenderTargetView(D3D11_BackBufferView, color32::black.e);
         D3D11_DeviceContext->ClearDepthStencilView(D3D11_DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
         // Do 3D rendering on the back buffer here
         u32 Stride = sizeof(Vertex);
         u32 Offset = 0;
 
-        D3D11_DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
-        D3D11_DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-        D3D11_DeviceContext->IASetInputLayout(InputLayout);
+        {
+            D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DisabledDepthStencilState, 0);
 
-        D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
-        D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
+            D3D11_DeviceContext->IASetVertexBuffers(
+                0, // Start slot
+                1, // Num buffers
+                &SkyboxBuffer, // Vertex Buffers
+                &Stride, // Strides
+                &Offset); // Offsets
+            D3D11_DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+            D3D11_DeviceContext->IASetInputLayout(InputLayout);
 
-        D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        // D3D11_DeviceContext->Draw(3, 0);
-        D3D11_DeviceContext->DrawIndexedInstanced(ARRAYSIZE(Indices), 2, 0, 0, 0);
+            {
+                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+
+                D3D11_DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+                auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
+                Constants->ProjectionMatrix = matrix4::identity;
+                D3D11_DeviceContext->Unmap(VsConstantBuffer, NULL);
+            }
+
+            D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
+            D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
+
+            D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            D3D11_DeviceContext->DrawIndexedInstanced(ARRAYSIZE(Indices), 2, 0, 0, 0);
+        }
+
+        {
+            D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
+
+            D3D11_DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
+            D3D11_DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+            D3D11_DeviceContext->IASetInputLayout(InputLayout);
+
+            {
+                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+
+                D3D11_DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+                auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
+                Constants->ProjectionMatrix = transposed(ProjectionMatrix);
+                D3D11_DeviceContext->Unmap(VsConstantBuffer, NULL);
+            }
+
+            D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
+            D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
+
+            D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            // D3D11_DeviceContext->Draw(3, 0);
+            D3D11_DeviceContext->DrawIndexedInstanced(ARRAYSIZE(Indices), 2, 0, 0, 0);
+        }
 
         // Switch the back buffer and the front buffer
         D3D11_SwapChain->Present(0, 0);

@@ -58,6 +58,13 @@ void transpose(matrix4& m)
 }
 
 
+matrix4 transposed(matrix4 m)
+{
+    transpose(m);
+    return m;
+}
+
+
 matrix4 operator + (matrix4 a, matrix4 b)
 {
     matrix4 result;
