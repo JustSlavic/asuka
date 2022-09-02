@@ -361,7 +361,6 @@ int WINAPI WinMain(
             // Ok.
         }
 
-
         DepthStencilDescription.DepthEnable    = TRUE;
         DepthStencilDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
         DepthStencilDescription.DepthFunc      = D3D11_COMPARISON_LESS;
@@ -379,23 +378,28 @@ cbuffer VsConstantBuffer : register(b0)
     float4x4 projection_matrix;
 };
 
-struct VOut
+struct VS_Input
+{
+    float3 position : POSITION;
+    float4 color    : COLOR;
+};
+
+struct VS_Output
 {
     float4 position : SV_POSITION;
     float4 color : COLOR;
 };
 
-VOut VShader(float4 position : POSITION, float4 color : COLOR)
+VS_Output VShader(VS_Input input)
 {
-    float4 p = mul(projection_matrix, position);
+    float4 p = mul(projection_matrix, float4(input.position, 1.0));
 
-    VOut output;
-    output.position = p;
-    output.color = color;
+    VS_Output result;
+    result.position = p;
+    result.color = input.color;
 
-    return output;
+    return result;
 }
-
 
 float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 {
@@ -539,14 +543,193 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         }
     }
 
-    D3D11_INPUT_ELEMENT_DESC InputDescription[] =
+    ID3D11InputLayout *InputLayout = NULL;
     {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        D3D11_INPUT_ELEMENT_DESC InputDescription[] =
+        {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+
+        D3D11_Device->CreateInputLayout(InputDescription, 2, VS->GetBufferPointer(), VS->GetBufferSize(), &InputLayout);
+    }
+
+    // ================= cube =================
+
+    char const CubeShader[] = R"HLSL(
+cbuffer VsConstantBuffer : register(b0)
+{
+    float4x4 projection_matrix;
+};
+
+struct VS_Input
+{
+    float3 position : POSITION;
+    float2 uv : TEXTURE_UV;
+};
+
+struct VS_Output
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+
+VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
+{
+    float4 p = mul(projection_matrix, float4(position, 1.0));
+
+    VS_Output result;
+    result.position = p;
+    result.color = float4(uv.rgr, 1.0);
+
+    return result;
+}
+)HLSL";
+
+    ID3DBlob *Cube_VS = NULL;
+    HRESULT CubeVertexShaderCompilationResult = D3DCompile(
+        CubeShader, sizeof(CubeShader),
+        NULL, NULL, NULL,
+        "VShader", "vs_4_0",
+        0, 0, &Cube_VS, &ShaderErrors);
+
+    if (FAILED(CubeVertexShaderCompilationResult))
+    {
+        MessageBeep(MB_ICONERROR);
+
+        char ErrorBuffer[1024] = {};
+        sprintf(ErrorBuffer, "Vertex Shader compilation error:\n\n%.*s",
+            (int) ShaderErrors->GetBufferSize(), (char *) ShaderErrors->GetBufferPointer());
+
+        MessageBoxA(0, ErrorBuffer, "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+        return 1;
+    }
+
+    ID3D11VertexShader *CubeVertexShader = NULL;
+    D3D11_Device->CreateVertexShader(Cube_VS->GetBufferPointer(), Cube_VS->GetBufferSize(), NULL, &CubeVertexShader);
+
+    vector3 CubeVertices[] =
+    {
+        {  1.0f + 2.25f,  1.0f - 0.25f, -0.5f - 2.75f },
+        {  1.0f + 2.25f, -1.0f - 0.25f, -0.5f - 2.75f },
+        {  1.0f + 2.25f,  1.0f - 0.25f,  0.5f - 2.75f },
+        {  1.0f + 2.25f, -1.0f - 0.25f,  0.5f - 2.75f },
+        { -1.0f - 0.25f,  1.0f - 0.25f, -0.5f - 1.25f },
+        { -1.0f - 0.25f, -1.0f - 0.25f, -0.5f - 1.25f },
+        { -1.0f - 0.25f,  1.0f - 0.25f,  0.5f - 1.25f },
+        { -1.0f - 0.25f, -1.0f - 0.25f,  0.5f - 1.25f },
     };
 
-    ID3D11InputLayout *InputLayout = NULL;
-    D3D11_Device->CreateInputLayout(InputDescription, 2, VS->GetBufferPointer(), VS->GetBufferSize(), &InputLayout);
+    f32 CubeTextureUV[] =
+    {
+        0.625f, 0.500f,
+        0.875f, 0.500f,
+        0.875f, 0.750f,
+        0.625f, 0.750f,
+        0.375f, 0.750f,
+        0.625f, 1.000f,
+        0.375f, 1.000f,
+        0.375f, 0.000f,
+        0.625f, 0.000f,
+        0.625f, 0.250f,
+        0.375f, 0.250f,
+        0.125f, 0.500f,
+        0.375f, 0.500f,
+        0.125f, 0.750f,
+    };
+
+    u32 CubeIndices[] =
+    {
+        // top face
+        1, 5, 7,
+        7, 3, 1,
+        // back face
+        4, 3, 7,
+        7, 8, 4,
+        // left face
+        8, 7, 5,
+        5, 6, 8,
+        // buttom face
+        6, 2, 4,
+        4, 8, 6,
+        // right face
+        2, 1, 3,
+        3, 4, 2,
+        // front face
+        6, 5, 1,
+        1, 2, 6,
+    };
+
+    // Fix enumeration from 1 in OBJ file format
+    for (uint32 i = 0; i < ARRAY_COUNT(CubeIndices); i++)
+    {
+        CubeIndices[i] -= 1;
+    }
+
+    ID3D11Buffer *CubeVertexBuffer = NULL;
+    {
+        D3D11_BUFFER_DESC BufferDescription = {};
+
+        BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
+        BufferDescription.ByteWidth = sizeof(CubeVertices);
+        BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+        HRESULT CreateBufferResult = D3D11_Device->CreateBuffer(&BufferDescription, NULL, &CubeVertexBuffer);
+        if (SUCCEEDED(CreateBufferResult))
+        {
+            D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
+            D3D11_DeviceContext->Map(CubeVertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+            memcpy(MappedSubresource.pData, CubeVertices, sizeof(CubeVertices));
+            D3D11_DeviceContext->Unmap(CubeVertexBuffer, NULL);
+        }
+    }
+
+    ID3D11Buffer *CubeTextureUVBuffer = NULL;
+    {
+        D3D11_BUFFER_DESC BufferDescription = {};
+
+        BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
+        BufferDescription.ByteWidth = sizeof(CubeTextureUV);
+        BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+        HRESULT CreateBufferResult = D3D11_Device->CreateBuffer(&BufferDescription, NULL, &CubeTextureUVBuffer);
+        if (SUCCEEDED(CreateBufferResult))
+        {
+            D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
+            D3D11_DeviceContext->Map(CubeTextureUVBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+            memcpy(MappedSubresource.pData, CubeTextureUV, sizeof(CubeTextureUV));
+            D3D11_DeviceContext->Unmap(CubeTextureUVBuffer, NULL);
+        }
+    }
+
+    ID3D11Buffer *CubeIndexBuffer = NULL;
+    {
+        D3D11_BUFFER_DESC BufferDescription = {};
+
+        BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
+        BufferDescription.ByteWidth = sizeof(CubeIndices);
+        BufferDescription.Usage     = D3D11_USAGE_IMMUTABLE;
+        BufferDescription.BindFlags = D3D11_BIND_INDEX_BUFFER;
+
+        D3D11_SUBRESOURCE_DATA IndexData = { CubeIndices };
+
+        HRESULT CreateBufferResult = D3D11_Device->CreateBuffer(&BufferDescription, &IndexData, &CubeIndexBuffer);
+    }
+
+    ID3D11InputLayout *CubeInputLayout = NULL;
+    {
+        D3D11_INPUT_ELEMENT_DESC InputDescription[] =
+        {
+            { "POSITION",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0,                            0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXTURE_UV", 0, DXGI_FORMAT_R32G32_FLOAT,       1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+
+        D3D11_Device->CreateInputLayout(InputDescription, 2, Cube_VS->GetBufferPointer(), Cube_VS->GetBufferSize(), &CubeInputLayout);
+    }
+
+    // ================= cube =================
 
     float32 DesiredAspectRatio = 16.0f / 9.0f;
 
@@ -746,7 +929,7 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
             D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
 
             D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            D3D11_DeviceContext->DrawIndexedInstanced(ARRAYSIZE(Indices), 2, 0, 0, 0);
+            D3D11_DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
         }
 
         {
@@ -770,7 +953,23 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 
             D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             // D3D11_DeviceContext->Draw(3, 0);
-            D3D11_DeviceContext->DrawIndexedInstanced(ARRAYSIZE(Indices), 2, 0, 0, 0);
+            D3D11_DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
+        }
+
+        {
+            D3D11_DeviceContext->IASetInputLayout(CubeInputLayout);
+
+            ID3D11Buffer *Buffers[] = { CubeVertexBuffer, CubeTextureUVBuffer };
+            u32 Strides[] = { sizeof(vector3), sizeof(vector2) };
+            u32 Offsets[] = { 0, 0 };
+            D3D11_DeviceContext->IASetVertexBuffers(0, 2, Buffers, Strides, Offsets);
+            D3D11_DeviceContext->IASetIndexBuffer(CubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+            D3D11_DeviceContext->VSSetShader(CubeVertexShader, 0, 0);
+            D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
+
+            D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            D3D11_DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(CubeIndices), 1, 0, 0, 0);
         }
 
         // Switch the back buffer and the front buffer
