@@ -30,6 +30,7 @@ struct matrix4
     float32 const *get_data() const { return &_11; }
 };
 
+
 using m4 = matrix4;
 
 
@@ -57,41 +58,82 @@ void transpose(matrix4& m)
     SWAP(m._34, m._43);
 }
 
-
 matrix4 transposed(matrix4 m)
 {
     transpose(m);
     return m;
 }
 
+matrix4 make_projection_matrix(float32 w, float32 h, float32 n, float32 f)
+{
+    matrix4 projection = {};
+
+    projection._11 = 2.0f * n / w;
+    projection._22 = 2.0f * n / h;
+    projection._33 = -(f + n) / (f - n);
+    projection._34 = -(f * n) / (f - n);
+    projection._43 = -1.0f;
+
+    return projection;
+}
+
+matrix4 make_projection_matrix_fov(float32 fov, float32 aspect_ratio, float32 n, float32 f)
+{
+    //     w/2
+    //   +-----+
+    //   |    /
+    //   |   /
+    // n |  /
+    //   | / angle = fov/2
+    //   |/  tg(fov / 2) = (w/2) / n
+    //   +   => 2n / w = 1 / tg(fov / 2)
+
+    float32 tf2 = (1.0f / tanf(0.5f * fov));
+
+    matrix4 projection = {};
+
+    projection._11 = tf2;
+    projection._22 = tf2 * aspect_ratio;
+    projection._33 = -(f + n) / (f - n);
+    projection._34 = -(f * n) / (f - n);
+    projection._43 = -1.0f;
+
+    return projection;
+}
 
 matrix4 operator + (matrix4 a, matrix4 b)
 {
     matrix4 result;
+
     result.sx = { a._11 + b._11, a._12 + b._12, a._13 + b._13, a._14 + b._14 };
     result.sy = { a._21 + b._21, a._22 + b._22, a._23 + b._23, a._24 + b._24 };
     result.sz = { a._31 + b._31, a._32 + b._32, a._33 + b._33, a._34 + b._34 };
     result.sw = { a._41 + b._41, a._42 + b._42, a._43 + b._43, a._44 + b._44 };
+
     return result;
 }
 
 matrix4 operator - (matrix4 a, matrix4 b)
 {
     matrix4 result;
+
     result.sx = { a._11 - b._11, a._12 - b._12, a._13 - b._13, a._14 - b._14 };
     result.sy = { a._21 - b._21, a._22 - b._22, a._23 - b._23, a._24 - b._24 };
     result.sz = { a._31 - b._31, a._32 - b._32, a._33 - b._33, a._34 - b._34 };
     result.sw = { a._41 - b._41, a._42 - b._42, a._43 - b._43, a._44 - b._44 };
+
     return result;
 }
 
 matrix4 operator * (matrix4 a, float32 c)
 {
     matrix4 result;
+
     result.sx = { a._11*c, a._12*c, a._13*c, a._14*c };
     result.sy = { a._21*c, a._22*c, a._23*c, a._24*c };
     result.sz = { a._31*c, a._32*c, a._33*c, a._34*c };
     result.sw = { a._41*c, a._42*c, a._43*c, a._44*c };
+
     return result;
 }
 
@@ -103,20 +145,24 @@ matrix4 operator * (float32 c, matrix4 a)
 vector4 operator * (matrix4 a, vector4 v)
 {
     vector4 result;
+
     result.x = a._11*v._1 + a._12*v._2 + a._13*v._3 + a._14*v._4;
     result.y = a._21*v._1 + a._22*v._2 + a._23*v._3 + a._24*v._4;
     result.z = a._31*v._1 + a._32*v._2 + a._33*v._3 + a._34*v._4;
     result.w = a._41*v._1 + a._42*v._2 + a._43*v._3 + a._44*v._4;
+
     return result;
 }
 
 vector4 operator * (vector4 v, matrix4 a)
 {
     vector4 result;
+
     result.x = a._11*v._1 + a._21*v._2 + a._31*v._3 + a._41*v._4;
     result.y = a._12*v._1 + a._22*v._2 + a._32*v._3 + a._42*v._4;
     result.z = a._13*v._1 + a._23*v._2 + a._33*v._3 + a._43*v._4;
     result.w = a._14*v._1 + a._24*v._2 + a._34*v._3 + a._44*v._4;
+
     return result;
 }
 

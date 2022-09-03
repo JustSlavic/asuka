@@ -134,6 +134,20 @@ f32 square_root(f32 x)
 }
 
 INLINE
+f32 to_radians(f32 x)
+{
+    f32 radians = x * PI / 180.0f;
+    return radians;
+}
+
+INLINE
+f32 to_degrees(f32 x)
+{
+    f32 degrees = x * 180.0f / PI;
+    return degrees;
+}
+
+INLINE
 f32 clamp(f32 x, f32 min, f32 max)
 {
     ASSERT(min < max);
