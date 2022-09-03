@@ -144,6 +144,13 @@ struct string
     char *data;
     usize size;
 
+    string() = default;
+    string(string const&) = delete;
+    string(string&& other);
+
+    string& operator =(string const&) = delete;
+    string& operator =(string&& other);
+
     bool is_empty() const { return (size == 0); }
     bool is_valid() const { return (data != 0) && (size != 0); }
 
@@ -155,7 +162,47 @@ struct string
 
     template <typename Allocator> STATIC
     string copy_from(Allocator *allocator, string_view s);
+
+    STATIC
+    string from(byte_array ba);
+
+    char & operator [] (usize index)
+    {
+        ASSERT_MSG(index < size, "Attempt to access array memory out of bounds.");
+        return data[index];
+    }
+
+    char const& operator [] (usize index) const
+    {
+        ASSERT_MSG(index < size, "Attempt to access array memory out of bounds.");
+        return data[index];
+    }
 };
+
+string::string(string&& other)
+{
+    data = other.data;
+    size = other.size;
+    other.data = 0;
+    other.size = 0;
+}
+
+string& string::operator = (string&& other)
+{
+    data = other.data;
+    size = other.size;
+    other.data = 0;
+    other.size = 0;
+    return *this;
+}
+
+string string::from(byte_array ba)
+{
+    string result;
+    result.data = (char *) ba.data;
+    result.size = ba.size;
+    return result;
+}
 
 template <typename Allocator>
 void deallocate_string(Allocator *allocator, string& s)
@@ -189,7 +236,6 @@ struct string_view
     bool is_valid() const { return (data != 0) && (size != 0); }
 };
 
-
 bool operator == (string_view left, string_view right)
 {
     if (left.size != right.size)
@@ -202,7 +248,6 @@ bool operator == (string_view left, string_view right)
     }
     return true;
 }
-
 
 bool operator != (string_view left, string_view right)
 {
