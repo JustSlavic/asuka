@@ -4,7 +4,7 @@
 #include <math/vector3.hpp>
 #include <math/matrix4.hpp>
 #include <math/color.hpp>
-#include <os/file.hpp>
+#include <os/time.hpp>
 
 #include <windows.h>
 
@@ -390,6 +390,26 @@ i32 Height(RECT Rect)
 }
 
 
+struct Camera
+{
+    vector3 position;
+    vector3 forward;
+    vector3 up;
+    vector3 right;
+};
+
+
+Camera make_camera_at(vector3 position)
+{
+    Camera result;
+    result.position = position;
+    result.forward = { 0, 0, 1 };
+    result.up = { 0, 1, 0 };
+    result.right = { 1, 0, 0 };
+    return result;
+}
+
+
 int WINAPI WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
@@ -669,14 +689,14 @@ int WINAPI WinMain(
     // Cube mesh rendering
     vector3 cube_vertices[] =
     {
-        {  1.0f + 2.25f,  1.0f - 0.25f, -0.5f - 2.75f },
-        {  1.0f + 2.25f, -1.0f - 0.25f, -0.5f - 2.75f },
-        {  1.0f + 2.25f,  1.0f - 0.25f,  0.5f - 2.75f },
-        {  1.0f + 2.25f, -1.0f - 0.25f,  0.5f - 2.75f },
-        { -1.0f - 0.25f,  1.0f - 0.25f, -0.5f - 1.25f },
-        { -1.0f - 0.25f, -1.0f - 0.25f, -0.5f - 1.25f },
-        { -1.0f - 0.25f,  1.0f - 0.25f,  0.5f - 1.25f },
-        { -1.0f - 0.25f, -1.0f - 0.25f,  0.5f - 1.25f },
+        {  1.0f,  1.0f, -0.5f },
+        {  1.0f, -1.0f, -0.5f },
+        {  1.0f,  1.0f,  0.5f },
+        {  1.0f, -1.0f,  0.5f },
+        { -1.0f,  1.0f, -0.5f },
+        { -1.0f, -1.0f, -0.5f },
+        { -1.0f,  1.0f,  0.5f },
+        { -1.0f, -1.0f,  0.5f },
     };
 
     u32 cube_vertex_buffer_id = 0;
@@ -793,11 +813,12 @@ layout (location = 1) in vec4 vertex_color;
 // out vec3 fragment_position;
 out vec4 fragment_color;
 
+uniform mat4 u_view;
 uniform mat4 u_projection;
 
 void main()
 {
-    vec4 p = u_projection * vec4(vertex_position, 1.0);
+    vec4 p = u_projection * u_view * vec4(vertex_position, 1.0);
     // fragment_position = p.xyz / p.w;
     fragment_color = vertex_color;
     gl_Position = p;
@@ -814,11 +835,12 @@ layout (location = 1) in vec2 uv;
 // out vec4 fragment_position;
 out vec4 fragment_color;
 
+uniform mat4 u_view;
 uniform mat4 u_projection;
 
 void main()
 {
-    vec4 p = u_projection * vec4(vertex_position, 1.0);
+    vec4 p = u_projection * u_view * vec4(vertex_position, 1.0);
     // fragment_position = vec4(vertex_position, 1.0);
     fragment_color = vec4(uv.rgr, 1.0);
 
@@ -920,16 +942,27 @@ void main()
         INVALID_CODE_PATH();
     }
 
-    auto projection = make_matrix4(
-        2*n/(r - l), 0, (r + l)/(r - l), 0,
-        0, 2*n/(t - b), (t + b)/(t - b), 0,
-        0, 0, -(f + n)/(f - n), -2.0f*f*n/(f - n),
-        0, 0, -1, 0);
+    auto projection = make_projection_matrix_fov(to_radians(60), DesiredAspectRatio, n, f);
+    Camera camera = make_camera_at({0, 0, 3});
 
     Running = true;
+    os::timepoint LastClockTimepoint = os::get_wall_clock();
+    float32 dtFromLastFrame = 0.0f;
+
     while (Running)
     {
         Win32_ProcessPendingMessages();
+
+        PERSIST f32 circle_t = 0.0f;
+        f32 rot_x = 6.0f * cosf(circle_t);
+        f32 rot_z = 6.0f * sinf(circle_t);
+
+        camera.position.x = rot_x;
+        camera.position.z = rot_z;
+
+        circle_t += 0.5f * dtFromLastFrame;
+
+        auto view = make_look_at_matrix(camera.position, make_vector3(0, 0, 0), camera.up);
 
         if (ViewportNeedsResize)
         {
@@ -965,8 +998,12 @@ void main()
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
         glUseProgram(shader_program_id);
-        int32 uniform_location = glGetUniformLocation(shader_program_id, "u_projection");
-        glUniformMatrix4fv(uniform_location, 1, GL_TRUE, matrix4::identity.get_data());
+
+        int32 u_view_location = glGetUniformLocation(shader_program_id, "u_view");
+        glUniformMatrix4fv(u_view_location, 1, GL_TRUE, matrix4::identity.get_data());
+
+        int32 u_projection_location = glGetUniformLocation(shader_program_id, "u_projection");
+        glUniformMatrix4fv(u_projection_location, 1, GL_TRUE, matrix4::identity.get_data());
 
 #if 0
         glBindVertexArray(vertex_array_id);
@@ -992,20 +1029,28 @@ void main()
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
-        glUniformMatrix4fv(uniform_location, 1, GL_TRUE, projection.get_data());
+        glUniformMatrix4fv(u_view_location, 1, GL_TRUE, view.get_data());
+        glUniformMatrix4fv(u_projection_location, 1, GL_TRUE, projection.get_data());
 
         glBindVertexArray(vertex_array_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
         glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
 
         glUseProgram(tex_uv_shader_program);
-        uniform_location = glGetUniformLocation(shader_program_id, "u_projection");
-        glUniformMatrix4fv(uniform_location, 1, GL_TRUE, projection.get_data());
+        u_view_location = glGetUniformLocation(shader_program_id, "u_view");
+        glUniformMatrix4fv(u_view_location, 1, GL_TRUE, view.get_data());
+        u_projection_location = glGetUniformLocation(shader_program_id, "u_projection");
+        glUniformMatrix4fv(u_projection_location, 1, GL_TRUE, projection.get_data());
+
         glBindVertexArray(cube_vertex_array_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
         glDrawElements(GL_TRIANGLES, ARRAY_COUNT(cube_indices), GL_UNSIGNED_INT, NULL);
 
         SwapBuffers(DeviceContext);
+
+        os::timepoint WorkTimepoint = os::get_wall_clock();
+        dtFromLastFrame = get_seconds(WorkTimepoint - LastClockTimepoint);
+        LastClockTimepoint = os::get_wall_clock();
     }
 
     return 0;

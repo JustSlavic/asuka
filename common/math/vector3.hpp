@@ -190,11 +190,17 @@ v3i truncate_to_vector3i (v3 v)
     return result;
 }
 
-
 INLINE
 f32 dot (v3 a, v3 b)
 {
     f32 result = a.x * b.x + a.y * b.y + a.z * b.z;
+    return result;
+}
+
+INLINE
+v3 cross (v3 a, v3 b)
+{
+    v3 result = { a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x };
     return result;
 }
 

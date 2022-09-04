@@ -4,6 +4,7 @@
 #include <math/color.hpp>
 #include <math/vector3.hpp>
 #include <math/matrix4.hpp>
+#include <os/time.hpp>
 
 #include <windows.h>
 
@@ -209,6 +210,26 @@ struct ViewportSize
 };
 
 
+struct Camera
+{
+    vector3 position;
+    vector3 forward;
+    vector3 up;
+    vector3 right;
+};
+
+
+Camera make_camera_at(vector3 position)
+{
+    Camera result;
+    result.position = position;
+    result.forward = { 0, 0, 1 };
+    result.up = { 0, 1, 0 };
+    result.right = { 1, 0, 0 };
+    return result;
+}
+
+
 ViewportSize GetViewport(uint32 ClientWidth, uint32 ClientHeight, float32 DesiredAspectRatio)
 {
     ViewportSize Viewport;
@@ -339,7 +360,7 @@ int WINAPI WinMain(
     {
         D3D11_RASTERIZER_DESC RasterizerDescription = {};
         RasterizerDescription.FillMode = D3D11_FILL_SOLID;
-        RasterizerDescription.CullMode = D3D11_CULL_BACK;
+        RasterizerDescription.CullMode = D3D11_CULL_NONE;
         RasterizerDescription.FrontCounterClockwise = TRUE;
         RasterizerDescription.DepthClipEnable = TRUE;
         RasterizerDescription.MultisampleEnable = FALSE;
@@ -375,6 +396,7 @@ int WINAPI WinMain(
     char const Shader[] = R"HLSL(
 cbuffer VsConstantBuffer : register(b0)
 {
+    float4x4 view_matrix;
     float4x4 projection_matrix;
 };
 
@@ -392,7 +414,7 @@ struct VS_Output
 
 VS_Output VShader(VS_Input input)
 {
-    float4 p = mul(projection_matrix, float4(input.position, 1.0));
+    float4 p = mul(projection_matrix, mul(view_matrix, float4(input.position, 1.0)));
 
     VS_Output result;
     result.position = p;
@@ -559,6 +581,7 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
     char const CubeShader[] = R"HLSL(
 cbuffer VsConstantBuffer : register(b0)
 {
+    float4x4 view_matrix;
     float4x4 projection_matrix;
 };
 
@@ -576,7 +599,7 @@ struct VS_Output
 
 VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 {
-    float4 p = mul(projection_matrix, float4(position, 1.0));
+    float4 p = mul(projection_matrix, mul(view_matrix, float4(position, 1.0)));
 
     VS_Output result;
     result.position = p;
@@ -610,14 +633,14 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
     vector3 CubeVertices[] =
     {
-        {  1.0f + 2.25f,  1.0f - 0.25f, -0.5f - 2.75f },
-        {  1.0f + 2.25f, -1.0f - 0.25f, -0.5f - 2.75f },
-        {  1.0f + 2.25f,  1.0f - 0.25f,  0.5f - 2.75f },
-        {  1.0f + 2.25f, -1.0f - 0.25f,  0.5f - 2.75f },
-        { -1.0f - 0.25f,  1.0f - 0.25f, -0.5f - 1.25f },
-        { -1.0f - 0.25f, -1.0f - 0.25f, -0.5f - 1.25f },
-        { -1.0f - 0.25f,  1.0f - 0.25f,  0.5f - 1.25f },
-        { -1.0f - 0.25f, -1.0f - 0.25f,  0.5f - 1.25f },
+        {  1.0f,  1.0f, -0.5f },
+        {  1.0f, -1.0f, -0.5f },
+        {  1.0f,  1.0f,  0.5f },
+        {  1.0f, -1.0f,  0.5f },
+        { -1.0f,  1.0f, -0.5f },
+        { -1.0f, -1.0f, -0.5f },
+        { -1.0f,  1.0f,  0.5f },
+        { -1.0f, -1.0f,  0.5f },
     };
 
     f32 CubeTextureUV[] =
@@ -768,18 +791,20 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         INVALID_CODE_PATH();
     }
 
-    auto ProjectionMatrix = make_matrix4(
-        2*n/(r - l), 0, (r + l)/(r - l), 0,
-        0, 2*n/(t - b), (t + b)/(t - b), 0,
-        0, 0, -f/(f - n), -f*n/(f - n),
-        0, 0, -1, 0);
+    auto ProjectionMatrix = make_projection_matrix_fov(to_radians(60), DesiredAspectRatio, n, f);
+    Camera camera = make_camera_at({0, 0, 3});
 
     struct VertexShaderContants
     {
+        matrix4 ViewMatrix;
         matrix4 ProjectionMatrix;
     };
 
-    VertexShaderContants VSConstants = { transposed(ProjectionMatrix) };
+    VertexShaderContants VSConstants =
+    {
+        transposed(make_look_at_matrix(camera.position, make_vector3(0, 0, 0), camera.up)),
+        transposed(ProjectionMatrix)
+    };
 
     // Set VertexShader ConstantBuffer
     ID3D11Buffer *VsConstantBuffer = NULL;
@@ -805,12 +830,24 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         }
     }
 
-
     Running = TRUE;
     int32 FrameCounter = 0;
+
+    os::timepoint LastClockTimepoint = os::get_wall_clock();
+    float32 dtFromLastFrame = 0.0f;
+
     while (Running)
     {
         Win32_ProcessPendingMessages();
+
+        PERSIST f32 circle_t = 0.0f;
+        f32 rot_x = 6.0f * cosf(circle_t);
+        f32 rot_z = 6.0f * sinf(circle_t);
+
+        camera.position.x = rot_x;
+        camera.position.z = rot_z;
+
+        circle_t += 0.5f * dtFromLastFrame;
 
         if (ViewportNeedsResize)
         {
@@ -886,7 +923,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
             DxViewport.TopLeftY = float32(Viewport.OffsetY);
             DxViewport.MinDepth = 0.0f;
             DxViewport.MaxDepth = 1.0f;
-            
+
             D3D11_DeviceContext->RSSetViewports(1, &DxViewport);
 
             osOutputDebugString("(%u, %u) - (%u, %u)    Ratio - %4.2f (should be ~1.0)\n",
@@ -921,6 +958,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
                 D3D11_DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
                 auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
+                Constants->ViewMatrix = matrix4::identity;
                 Constants->ProjectionMatrix = matrix4::identity;
                 D3D11_DeviceContext->Unmap(VsConstantBuffer, NULL);
             }
@@ -944,6 +982,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
                 D3D11_DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
                 auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
+                Constants->ViewMatrix = transposed(make_look_at_matrix(camera.position, make_vector3(0, 0, 0), camera.up));
                 Constants->ProjectionMatrix = transposed(ProjectionMatrix);
                 D3D11_DeviceContext->Unmap(VsConstantBuffer, NULL);
             }
@@ -974,6 +1013,10 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
         // Switch the back buffer and the front buffer
         D3D11_SwapChain->Present(0, 0);
+
+        os::timepoint WorkTimepoint = os::get_wall_clock();
+        dtFromLastFrame = get_seconds(WorkTimepoint - LastClockTimepoint);
+        LastClockTimepoint = os::get_wall_clock();
     }
 
     RELEASE_COM(VertexShader);

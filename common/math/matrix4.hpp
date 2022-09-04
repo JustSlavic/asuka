@@ -101,6 +101,23 @@ matrix4 make_projection_matrix_fov(float32 fov, float32 aspect_ratio, float32 n,
     return projection;
 }
 
+matrix4 make_look_at_matrix(vector3 eye, vector3 center, vector3 up)
+{
+    vector3 f = normalized(center - eye);
+    vector3 s = normalized(cross(f, up));
+    vector3 u = cross(s, f);
+
+    matrix4 result =
+    {
+        s.x, u.x, -f.x, -dot(s, eye),
+        s.y, u.y, -f.y, -dot(u, eye),
+        s.z, u.z, -f.z,  dot(f, eye),
+          0,   0,    0,            1,
+    };
+
+    return result;
+}
+
 matrix4 operator + (matrix4 a, matrix4 b)
 {
     matrix4 result;
