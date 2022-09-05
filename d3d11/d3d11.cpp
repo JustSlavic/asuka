@@ -210,27 +210,7 @@ struct ViewportSize
 };
 
 
-struct Camera
-{
-    vector3 position;
-    vector3 forward;
-    vector3 up;
-    vector3 right;
-};
-
-
-Camera make_camera_at(vector3 position)
-{
-    Camera result;
-    result.position = position;
-    result.forward = { 0, 0, 1 };
-    result.up = { 0, 1, 0 };
-    result.right = { 1, 0, 0 };
-    return result;
-}
-
-
-ViewportSize GetViewport(uint32 ClientWidth, uint32 ClientHeight, float32 DesiredAspectRatio)
+ViewportSize GetViewportSize(uint32 ClientWidth, uint32 ClientHeight, float32 DesiredAspectRatio)
 {
     ViewportSize Viewport;
 
@@ -258,6 +238,26 @@ ViewportSize GetViewport(uint32 ClientWidth, uint32 ClientHeight, float32 Desire
     }
 
     return Viewport;
+}
+
+
+struct Camera
+{
+    vector3 position;
+    vector3 forward;
+    vector3 up;
+    vector3 right;
+};
+
+
+Camera make_camera_at(vector3 position)
+{
+    Camera result;
+    result.position = position;
+    result.forward = { 0, 0, 1 };
+    result.up = { 0, 1, 0 };
+    result.right = { 1, 0, 0 };
+    return result;
 }
 
 
@@ -758,38 +758,6 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
     float32 n = 0.05f;
     float32 f = 100.0f;
-    float32 l = -0.1f;
-    float32 r = 0.1f;
-    float32 t = 0.1f;
-    float32 b = -0.1f;
-
-    if (DesiredAspectRatio > 1.0f)
-    {
-        // Width is bigger than height
-        l = -0.1f;
-        r =  0.1f;
-        t =  0.1f * (1.0f / DesiredAspectRatio);
-        b = -0.1f * (1.0f / DesiredAspectRatio);
-    }
-    else if ((0.0f < DesiredAspectRatio) && (DesiredAspectRatio < 1.0f))
-    {
-        // Height is bigger than height
-        l = -0.1f * (1.0f / DesiredAspectRatio);
-        r =  0.1f * (1.0f / DesiredAspectRatio);
-        t =  0.1f;
-        b = -0.1f;
-    }
-    else if (DesiredAspectRatio == 1.0f)
-    {
-        l = -0.1f;
-        r =  0.1f;
-        t =  0.1f;
-        b = -0.1f;
-    }
-    else
-    {
-        INVALID_CODE_PATH();
-    }
 
     auto ProjectionMatrix = make_projection_matrix_fov(to_radians(60), DesiredAspectRatio, n, f);
     Camera camera = make_camera_at({0, 0, 3});
@@ -914,7 +882,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
                 MessageBoxA(0, "Failed to resize buffers.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
             }
 
-            ViewportSize Viewport = GetViewport(CurrentClientWidth, CurrentClientHeight, DesiredAspectRatio);
+            ViewportSize Viewport = GetViewportSize(CurrentClientWidth, CurrentClientHeight, DesiredAspectRatio);
 
             D3D11_VIEWPORT DxViewport;
             DxViewport.Width = float32(Viewport.Width);

@@ -390,6 +390,46 @@ i32 Height(RECT Rect)
 }
 
 
+struct ViewportSize
+{
+    uint32 OffsetX;
+    uint32 OffsetY;
+    uint32 Width;
+    uint32 Height;
+};
+
+
+ViewportSize GetViewportSize(uint32 ClientWidth, uint32 ClientHeight, float32 DesiredAspectRatio)
+{
+    ViewportSize Viewport;
+
+    float32 AspectRatio = f32(ClientWidth) / f32(ClientHeight);
+    if (AspectRatio < DesiredAspectRatio)
+    {
+        Viewport.Width   = ClientWidth;
+        Viewport.Height  = uint32(Viewport.Width / DesiredAspectRatio);
+        Viewport.OffsetX = 0;
+        Viewport.OffsetY = (ClientHeight - Viewport.Height) / 2;
+    }
+    else if (AspectRatio > DesiredAspectRatio)
+    {
+        Viewport.Height  = CurrentClientHeight;
+        Viewport.Width   = uint32(Viewport.Height * DesiredAspectRatio);
+        Viewport.OffsetX = (ClientWidth - Viewport.Width) / 2;
+        Viewport.OffsetY = 0;
+    }
+    else
+    {
+        Viewport.Width   = ClientWidth;
+        Viewport.Height  = ClientHeight;
+        Viewport.OffsetX = 0;
+        Viewport.OffsetY = 0;
+    }
+
+    return Viewport;
+}
+
+
 struct Camera
 {
     vector3 position;
@@ -909,38 +949,6 @@ void main()
 
     float32 n = 0.05f;
     float32 f = 100.0f;
-    float32 l = -0.1f;
-    float32 r = 0.1f;
-    float32 t = 0.1f;
-    float32 b = -0.1f;
-
-    if (DesiredAspectRatio > 1.0f)
-    {
-        // Width is bigger than height
-        l = -0.1f;
-        r =  0.1f;
-        t =  0.1f * (1.0f / DesiredAspectRatio);
-        b = -0.1f * (1.0f / DesiredAspectRatio);
-    }
-    else if ((0.0f < DesiredAspectRatio) && (DesiredAspectRatio < 1.0f))
-    {
-        // Height is bigger than height
-        l = -0.1f * (1.0f / DesiredAspectRatio);
-        r =  0.1f * (1.0f / DesiredAspectRatio);
-        t =  0.1f;
-        b = -0.1f;
-    }
-    else if (DesiredAspectRatio == 1.0f)
-    {
-        l = -0.1f;
-        r =  0.1f;
-        t =  0.1f;
-        b = -0.1f;
-    }
-    else
-    {
-        INVALID_CODE_PATH();
-    }
 
     auto projection = make_projection_matrix_fov(to_radians(60), DesiredAspectRatio, n, f);
     Camera camera = make_camera_at({0, 0, 3});
@@ -966,30 +974,8 @@ void main()
 
         if (ViewportNeedsResize)
         {
-            float32 CurrentAspectRatio = f32(CurrentClientWidth) / f32(CurrentClientHeight);
-            if (CurrentAspectRatio < DesiredAspectRatio)
-            {
-                osOutputDebugString("Horizontal Bars (top and bottom)\n");
-                uint32 ViewportWidth = CurrentClientWidth;
-                uint32 ViewportHeight = uint32(ViewportWidth / DesiredAspectRatio);
-
-                uint32 Padding = (CurrentClientHeight - ViewportHeight) / 2;
-                glViewport(0, Padding, ViewportWidth, ViewportHeight);
-            }
-            else if (CurrentAspectRatio > DesiredAspectRatio)
-            {
-                osOutputDebugString("Vertical Bars (left and right)\n");
-                uint32 ViewportHeight = CurrentClientHeight;
-                uint32 ViewportWidth = uint32(ViewportHeight * DesiredAspectRatio);
-
-                uint32 Padding = (CurrentClientWidth - ViewportWidth) / 2;
-                glViewport(Padding, 0, ViewportWidth, ViewportHeight);
-            }
-            else
-            {
-                osOutputDebugString("Exact ratio\n");
-                glViewport(0, 0, CurrentClientWidth, CurrentClientHeight);
-            }
+            ViewportSize Viewport = GetViewportSize(CurrentClientWidth, CurrentClientHeight, DesiredAspectRatio);
+            glViewport(Viewport.OffsetX, Viewport.OffsetY, Viewport.Width, Viewport.Height);
 
             ViewportNeedsResize = false;
         }
