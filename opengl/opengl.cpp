@@ -15,21 +15,31 @@
 
 
 #define WGL_DRAW_TO_WINDOW_ARB            0x2001
+#define WGL_ACCELERATION_ARB              0x2003
 #define WGL_SUPPORT_OPENGL_ARB            0x2010
 #define WGL_DOUBLE_BUFFER_ARB             0x2011
 #define WGL_PIXEL_TYPE_ARB                0x2013
 #define WGL_COLOR_BITS_ARB                0x2014
 #define WGL_DEPTH_BITS_ARB                0x2022
 #define WGL_STENCIL_BITS_ARB              0x2023
+#define WGL_FULL_ACCELERATION_ARB         0x2027
 #define WGL_TYPE_RGBA_ARB                 0x202B
+#define WGL_SAMPLE_BUFFERS_ARB            0x2041
+#define WGL_SAMPLES_ARB                   0x2042
 #define WGL_CONTEXT_MAJOR_VERSION_ARB     0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB     0x2092
 #define WGL_CONTEXT_PROFILE_MASK_ARB      0x9126
 #define WGL_CONTEXT_CORE_PROFILE_BIT_ARB  0x00000001
 #define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
 
-
 #define GL_INVALID_FRAMEBUFFER_OPERATION  0x0506
+#define GL_MULTISAMPLE                    0x809D
+#define GL_MULTISAMPLE_ARB                0x809D
+#define GL_SAMPLE_ALPHA_TO_COVERAGE       0x809E
+#define GL_SAMPLE_ALPHA_TO_ONE            0x809F
+#define GL_SAMPLES                        0x80A9
+#define GL_SAMPLES_ARB                    0x80A9
+#define GL_SAMPLES_EXT                    0x80A9
 #define GL_MAJOR_VERSION                  0x821B
 #define GL_MINOR_VERSION                  0x821C
 #define GL_ARRAY_BUFFER                   0x8892
@@ -271,11 +281,77 @@ char const *gl_error_string(GLenum ec)
     return NULL;
 }
 
+matrix4 make_projection_matrix(float32 w, float32 h, float32 n, float32 f)
+{
+    matrix4 result = {};
+
+    result._11 = 2.0f * n / w;
+    result._22 = 2.0f * n / h;
+    result._33 = -(f + n) / (f - n);
+    result._34 = -2.0f * f * n / (f - n);
+    result._43 = -1.0f;
+
+    return result;
+}
+
+matrix4 make_projection_matrix_fov(float32 fov, float32 aspect_ratio, float32 n, float32 f)
+{
+    //     w/2
+    //   +-----+
+    //   |    /
+    //   |   /
+    // n |  /
+    //   | / angle = fov/2
+    //   |/  tg(fov / 2) = (w/2) / n
+    //   +   => 2n / w = 1 / tg(fov / 2)
+
+    float32 tf2 = (1.0f / tanf(0.5f * fov));
+
+    matrix4 result = {};
+
+    result._11 = tf2;
+    result._22 = tf2 * aspect_ratio;
+    result._33 = -(f + n) / (f - n);
+    result._34 = -2.0f * f * n / (f - n);
+    result._43 = -1.0f;
+
+    return result;
+}
+
+matrix4 make_orthographic_matrix(float32 w, float32 h, float32 n, float32 f)
+{
+    matrix4 result = {};
+
+    result._11 = 2.0f / w;
+    result._22 = 2.0f / h;
+    result._33 = -2.0f / (f - n);
+    result._34 = -(f + n) / (f - n);
+    result._44 = 1.0f;
+
+    return result;
+}
+
+matrix4 make_orthographic_matrix(float32 aspect_ratio, float32 n, float32 f)
+{
+    matrix4 result;
+
+    result._11 = 1.0f;
+    result._22 = 1.0f * aspect_ratio;
+    result._33 = -2.0f / (f - n);
+    result._34 = -(f + n) / (f - n);
+    result._44 = 1.0f;
+
+    return result;
+}
+
 // ===========================================
 
 
 GLOBAL BOOL Running;
 GLOBAL BOOL Wireframe;
+GLOBAL BOOL IsPerspectiveProjection = TRUE;
+GLOBAL BOOL ProjectionMatrixNeedsChange;
+GLOBAL float32 inter_t;
 
 GLOBAL UINT CurrentClientWidth;
 GLOBAL UINT CurrentClientHeight;
@@ -357,6 +433,15 @@ void Win32_ProcessPendingMessages()
                         if (IsDown)
                         {
                             TOGGLE(Wireframe);
+                        }
+                    }
+                    if (VKCode == 'P')
+                    {
+                        if (IsDown)
+                        {
+                            TOGGLE(IsPerspectiveProjection);
+                            ProjectionMatrixNeedsChange = TRUE;
+                            inter_t = 1.0f;
                         }
                     }
                     if (VKCode == VK_ESCAPE)
@@ -443,7 +528,7 @@ Camera make_camera_at(vector3 position)
 {
     Camera result;
     result.position = position;
-    result.forward = { 0, 0, 1 };
+    result.forward = { 0, 0, -1 };
     result.up = { 0, 1, 0 };
     result.right = { 1, 0, 0 };
     return result;
@@ -459,13 +544,15 @@ int WINAPI WinMain(
     int32 PrimaryMonitorWidth  = GetSystemMetrics(SM_CXSCREEN);
     int32 PrimaryMonitorHeight = GetSystemMetrics(SM_CYSCREEN);
 
+    HBRUSH BlackBrush = CreateSolidBrush(RGB(0, 0, 0));
+
     WNDCLASSA WindowClass {};
     WindowClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
     WindowClass.lpfnWndProc = MainWindowCallback;
     WindowClass.hInstance = Instance;
     WindowClass.lpszClassName = "AsukaWindowClass";
     WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    WindowClass.hbrBackground = NULL; // (HBRUSH) COLOR_WINDOW;
+    WindowClass.hbrBackground = BlackBrush; // (HBRUSH) COLOR_WINDOW;
 
     ATOM ClassAtomResult = RegisterClassA(&WindowClass);
     if (!ClassAtomResult)
@@ -485,19 +572,8 @@ int WINAPI WinMain(
         return 1;
     }
 
-    HWND Window = CreateWindowExA(
-        0,                                // ExStyle
-        WindowClass.lpszClassName,        // ClassName
-        "OpenGL Window",                  // WindowName
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE, // Style
-        (PrimaryMonitorWidth - Width(WindowRectangle)) / 2,   // X
-        (PrimaryMonitorHeight - Height(WindowRectangle)) / 2, // Y
-        Width(WindowRectangle),           // Width
-        Height(WindowRectangle),          // Height
-        0,                                // WndParent
-        0,                                // Menu
-        Instance,                         // Instance
-        NULL);                            // Param
+    HWND Window = CreateWindowExA(0, WindowClass.lpszClassName, "OpenGL Window",
+        WS_OVERLAPPEDWINDOW, 0, 0, 50, 50, 0, 0, Instance, NULL);
 
     if (!Window)
     {
@@ -531,13 +607,41 @@ int WINAPI WinMain(
             TempRenderContext = wglCreateContext(DeviceContext);
             if (wglMakeCurrent(DeviceContext, TempRenderContext))
             {
-                // wglGetExtensionsStringARB = (WGL_GetExtensionsStringARB *) wglGetProcAddress("wglGetExtensionsStringARB");
+                wglGetExtensionsStringARB = (WGL_GetExtensionsStringARB *) wglGetProcAddress("wglGetExtensionsStringARB");
+                wglChoosePixelFormatARB = (WGL_ChoosePixelFormatARB *) wglGetProcAddress("wglChoosePixelFormatARB");
+                wglCreateContextAttribsARB = (WGL_CreateContextAttribsARB *) wglGetProcAddress("wglCreateContextAttribsARB");
+                // @todo Check if 'WGL_EXT_swap_control' extension is available
+                wglSwapIntervalEXT = (WGL_SwapInterval *) wglGetProcAddress("wglSwapIntervalEXT");
+                wglGetSwapIntervalEXT = (WGL_GetSwapInterval *) wglGetProcAddress("wglGetSwapIntervalEXT");
+
+                wglMakeCurrent(NULL, NULL);
+                wglDeleteContext(TempRenderContext);
+                ReleaseDC(Window, DeviceContext);
+                DestroyWindow(Window);
+
+                Window = CreateWindowExA(
+                    0,                                // ExStyle
+                    WindowClass.lpszClassName,        // ClassName
+                    "OpenGL Window",                  // WindowName
+                    WS_OVERLAPPEDWINDOW | WS_VISIBLE, // Style
+                    (PrimaryMonitorWidth - Width(WindowRectangle)) / 2,   // X
+                    (PrimaryMonitorHeight - Height(WindowRectangle)) / 2, // Y
+                    Width(WindowRectangle),           // Width
+                    Height(WindowRectangle),          // Height
+                    0,                                // WndParent
+                    0,                                // Menu
+                    Instance,                         // Instance
+                    NULL);                            // Param
+                
+                DeviceContext = GetDC(Window);
+
                 // char const *WglExtensionString = wglGetExtensionsStringARB(DeviceContext);
                 // Check if extension is available in the string
                 // OutputDebugStringA(WglExtensionString);
 
                 int WglAttributeList[] =
                 {
+                    WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
                     WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
                     WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
                     WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
@@ -545,14 +649,15 @@ int WINAPI WinMain(
                     WGL_COLOR_BITS_ARB, 32,
                     WGL_DEPTH_BITS_ARB, 24,
                     WGL_STENCIL_BITS_ARB, 8,
+                    WGL_SAMPLE_BUFFERS_ARB, 1,
+                    WGL_SAMPLES_ARB, 4,
                     0, // End
                 };
 
                 i32 PixelFormat;
                 u32 NumberFormats;
-
-                wglChoosePixelFormatARB = (WGL_ChoosePixelFormatARB *) wglGetProcAddress("wglChoosePixelFormatARB");
                 wglChoosePixelFormatARB(DeviceContext, WglAttributeList, NULL, 1, &PixelFormat, &NumberFormats);
+                SetPixelFormat(DeviceContext, PixelFormat, &DesiredPixelFormat);
 
                 int WglContextAttribList[] =
                 {
@@ -562,14 +667,8 @@ int WINAPI WinMain(
                     0, // End
                 };
 
-                wglCreateContextAttribsARB = (WGL_CreateContextAttribsARB *) wglGetProcAddress("wglCreateContextAttribsARB");
                 RenderContext = wglCreateContextAttribsARB(DeviceContext, 0, WglContextAttribList);
                 wglMakeCurrent(DeviceContext, RenderContext);
-                wglDeleteContext(TempRenderContext);
-
-                // @todo Check if 'WGL_EXT_swap_control' extension is available
-                wglSwapIntervalEXT = (WGL_SwapInterval *) wglGetProcAddress("wglSwapIntervalEXT");
-                wglGetSwapIntervalEXT = (WGL_GetSwapInterval *) wglGetProcAddress("wglGetSwapIntervalEXT");
             }
             else
             {
@@ -601,6 +700,13 @@ int WINAPI WinMain(
 
     wglSwapIntervalEXT(0);
     glDepthFunc(GL_LESS);
+
+    glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+    glEnable(GL_SAMPLE_ALPHA_TO_ONE);
+    glEnable(GL_MULTISAMPLE);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
 
     struct Vertex
     {
@@ -950,12 +1056,16 @@ void main()
     float32 n = 0.05f;
     float32 f = 100.0f;
 
-    auto projection = make_projection_matrix_fov(to_radians(60), DesiredAspectRatio, n, f);
+    auto perspective = make_projection_matrix_fov(to_radians(60), DesiredAspectRatio, n, f);
+    auto orthographic = make_orthographic_matrix(4, 3, n, f);
+
     Camera camera = make_camera_at({0, 0, 3});
 
     Running = true;
     os::timepoint LastClockTimepoint = os::get_wall_clock();
     float32 dtFromLastFrame = 0.0f;
+
+    auto projection = perspective;
 
     while (Running)
     {
@@ -971,6 +1081,14 @@ void main()
         circle_t += 0.5f * dtFromLastFrame;
 
         auto view = make_look_at_matrix(camera.position, make_vector3(0, 0, 0), camera.up);
+
+        if (ProjectionMatrixNeedsChange)
+        {
+            // projection = IsPerspectiveProjection ? perspective : orthographic;
+            projection = IsPerspectiveProjection ? lerp(perspective, orthographic, inter_t) : lerp(orthographic, perspective, inter_t);
+            inter_t -= dtFromLastFrame;
+            if (inter_t < 0) ProjectionMatrixNeedsChange = false;
+        }
 
         if (ViewportNeedsResize)
         {

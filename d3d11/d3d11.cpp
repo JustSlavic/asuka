@@ -19,6 +19,9 @@
 
 GLOBAL BOOL Running;
 GLOBAL BOOL Wireframe;
+GLOBAL BOOL IsPerspectiveProjection = TRUE;
+GLOBAL BOOL ProjectionMatrixNeedsChange;
+GLOBAL float32 inter_t;
 
 GLOBAL UINT CurrentClientWidth;
 GLOBAL UINT CurrentClientHeight;
@@ -112,10 +115,6 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
         case WM_DESTROY:
         {
             Running = false;
-
-
-
-
         }
         break;
 
@@ -128,7 +127,6 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
         case WM_KEYUP:
         {
             ASSERT_FAIL("Key handling happens in the main loop.");
-
         }
         break;
 
@@ -142,13 +140,16 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT message, WPARAM wParam, LP
 }
 
 
-void Win32_ProcessPendingMessages() {
+void Win32_ProcessPendingMessages()
+{
     MSG Message;
-    while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
+    while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
+    {
         if (Message.message == WM_QUIT) Running = false;
         TranslateMessage(&Message);
 
-        switch (Message.message) {
+        switch (Message.message)
+        {
             case WM_MOUSEMOVE:
             break;
 
@@ -169,6 +170,15 @@ void Win32_ProcessPendingMessages() {
                             TOGGLE(Wireframe);
                         }
                     }
+                    if (VKCode == 'P')
+                    {
+                        if (IsDown)
+                        {
+                            TOGGLE(IsPerspectiveProjection);
+                            ProjectionMatrixNeedsChange = TRUE;
+                            inter_t = 1.0f;
+                        }
+                    }
                     if (VKCode == VK_ESCAPE)
                     {
                         Running = false;
@@ -180,7 +190,6 @@ void Win32_ProcessPendingMessages() {
             default:
             {
                 DispatchMessageA(&Message);
-
             }
         }
     }
@@ -198,6 +207,72 @@ i32 Height(RECT Rect)
 {
     i32 Result = Rect.bottom - Rect.top;
     return Result;
+}
+
+
+matrix4 MakeProjectionMatrix(float32 w, float32 h, float32 n, float32 f)
+{
+    matrix4 Result = {};
+
+    Result._11 = 2.0f * n / w;
+    Result._22 = 2.0f * n / h;
+    Result._33 = -f / (f - n);
+    Result._34 = -f*n / (f - n);
+    Result._43 = -1.0f;
+
+    return Result;
+}
+
+
+matrix4 MakeProjectionMatrixFov(float32 fov, float32 aspect_ratio, float32 n, float32 f)
+{
+    //     w/2
+    //   +-----+
+    //   |    /
+    //   |   /
+    // n |  /
+    //   | / angle = fov/2
+    //   |/  tg(fov / 2) = (w/2) / n
+    //   +   => 2n / w = 1 / tg(fov / 2)
+
+    float32 tf2 = (1.0f / tanf(0.5f * fov));
+
+    matrix4 result = {};
+
+    result._11 = tf2;
+    result._22 = tf2 * aspect_ratio;
+    result._33 = -f / (f - n);
+    result._34 = -f*n / (f - n);
+    result._43 = -1.0f;
+
+    return result;
+}
+
+
+matrix4 MakeOrthographicMatrix(float32 w, float32 h, float32 n, float32 f)
+{
+    matrix4 result = {};
+
+    result._11 = 2.0f / w;
+    result._22 = 2.0f / h;
+    result._33 = -1.0f / (f - n);
+    result._34 = -n / (f - n);
+    result._44 = 1.0f;
+
+    return result;
+}
+
+matrix4 MakeOrthographicMatrix(float32 aspect_ratio, float32 n, float32 f)
+{
+    matrix4 result;
+
+    result._11 = 1.0f;
+    result._22 = 1.0f * aspect_ratio;
+    result._33 = -1.0f / (f - n);
+    result._34 = -n / (f - n);
+    result._44 = 1.0f;
+
+    return result;
 }
 
 
@@ -326,7 +401,7 @@ int WINAPI WinMain(
     SwapChainDescription.BufferDesc.RefreshRate.Numerator = 60;
     SwapChainDescription.BufferDesc.RefreshRate.Denominator = 1;
 
-    SwapChainDescription.SampleDesc.Count = 1;
+    SwapChainDescription.SampleDesc.Count = 4;
     SwapChainDescription.SampleDesc.Quality = 0;
 
     SwapChainDescription.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -754,14 +829,6 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
     // ================= cube =================
 
-    float32 DesiredAspectRatio = 16.0f / 9.0f;
-
-    float32 n = 0.05f;
-    float32 f = 100.0f;
-
-    auto ProjectionMatrix = make_projection_matrix_fov(to_radians(60), DesiredAspectRatio, n, f);
-    Camera camera = make_camera_at({0, 0, 3});
-
     struct VertexShaderContants
     {
         matrix4 ViewMatrix;
@@ -770,8 +837,8 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
     VertexShaderContants VSConstants =
     {
-        transposed(make_look_at_matrix(camera.position, make_vector3(0, 0, 0), camera.up)),
-        transposed(ProjectionMatrix)
+        // transposed(make_look_at_matrix(camera.position, make_vector3(0, 0, 0), camera.up)),
+        // transposed(ProjectionMatrix)
     };
 
     // Set VertexShader ConstantBuffer
@@ -798,9 +865,18 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         }
     }
 
-    Running = TRUE;
-    int32 FrameCounter = 0;
+    float32 DesiredAspectRatio = 16.0f / 9.0f;
 
+    float32 n = 0.05f;
+    float32 f = 100.0f;
+
+    auto PerspectiveProjection = MakeProjectionMatrixFov(to_radians(60), DesiredAspectRatio, n, f);
+    auto OrthographicProjection = MakeOrthographicMatrix(4, 3, n, f);
+    auto ProjectionMatrix = PerspectiveProjection;
+
+    Camera camera = make_camera_at({0, 0, 3});
+
+    Running = TRUE;
     os::timepoint LastClockTimepoint = os::get_wall_clock();
     float32 dtFromLastFrame = 0.0f;
 
@@ -816,6 +892,15 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         camera.position.z = rot_z;
 
         circle_t += 0.5f * dtFromLastFrame;
+
+        auto ViewMatrix = make_look_at_matrix(camera.position, make_vector3(0, 0, 0), camera.up);
+
+        if (ProjectionMatrixNeedsChange)
+        {
+            ProjectionMatrix = IsPerspectiveProjection ? lerp(PerspectiveProjection, OrthographicProjection, inter_t) : lerp(OrthographicProjection, PerspectiveProjection, inter_t);
+            inter_t -= dtFromLastFrame;
+            if (inter_t < 0) ProjectionMatrixNeedsChange = false;
+        }
 
         if (ViewportNeedsResize)
         {
@@ -950,7 +1035,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
                 D3D11_DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
                 auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
-                Constants->ViewMatrix = transposed(make_look_at_matrix(camera.position, make_vector3(0, 0, 0), camera.up));
+                Constants->ViewMatrix = transposed(ViewMatrix);
                 Constants->ProjectionMatrix = transposed(ProjectionMatrix);
                 D3D11_DeviceContext->Unmap(VsConstantBuffer, NULL);
             }

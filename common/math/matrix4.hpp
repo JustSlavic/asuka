@@ -64,43 +64,6 @@ matrix4 transposed(matrix4 m)
     return m;
 }
 
-matrix4 make_projection_matrix(float32 w, float32 h, float32 n, float32 f)
-{
-    matrix4 projection = {};
-
-    projection._11 = 2.0f * n / w;
-    projection._22 = 2.0f * n / h;
-    projection._33 = -(f + n) / (f - n);
-    projection._34 = -(f * n) / (f - n);
-    projection._43 = -1.0f;
-
-    return projection;
-}
-
-matrix4 make_projection_matrix_fov(float32 fov, float32 aspect_ratio, float32 n, float32 f)
-{
-    //     w/2
-    //   +-----+
-    //   |    /
-    //   |   /
-    // n |  /
-    //   | / angle = fov/2
-    //   |/  tg(fov / 2) = (w/2) / n
-    //   +   => 2n / w = 1 / tg(fov / 2)
-
-    float32 tf2 = (1.0f / tanf(0.5f * fov));
-
-    matrix4 projection = {};
-
-    projection._11 = tf2;
-    projection._22 = tf2 * aspect_ratio;
-    projection._33 = -(f + n) / (f - n);
-    projection._34 = -(f * n) / (f - n);
-    projection._43 = -1.0f;
-
-    return projection;
-}
-
 matrix4 make_look_at_matrix(vector3 eye, vector3 center, vector3 up)
 {
     vector3 f = normalized(center - eye);
@@ -210,6 +173,17 @@ matrix4 operator * (matrix4 a, matrix4 b)
     return result;
 }
 
+matrix4 lerp (matrix4 a, matrix4 b, float32 t)
+{
+    matrix4 result =
+    {
+        lerp(a._11, b._11, t), lerp(a._12, b._12, t), lerp(a._13, b._13, t), lerp(a._14, b._14, t),
+        lerp(a._21, b._21, t), lerp(a._22, b._22, t), lerp(a._23, b._23, t), lerp(a._24, b._24, t),
+        lerp(a._31, b._31, t), lerp(a._32, b._32, t), lerp(a._33, b._33, t), lerp(a._34, b._34, t),
+        lerp(a._41, b._41, t), lerp(a._42, b._42, t), lerp(a._43, b._43, t), lerp(a._44, b._44, t),
+    };
+    return result;
+}
 
 #if UNITY_BUILD
 #include "matrix4.cpp"
