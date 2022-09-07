@@ -78,7 +78,7 @@
         },
         {
             "name":       "Punctuation",
-            "scope":      "punctuation, comment.block.preprocessor.if-branch.c",
+            "scope":      "punctuation, comment.block.preprocessor.if-branch.c, comment.block.preprocessor.else-branch.c",
             "foreground": "var(punctuation-grey)"
         },
         // {
@@ -88,12 +88,12 @@
         // },
         {
             "name":       "Keyword",
-            "scope":      "keyword.control.glsl, keyword.embedded-language",
+            "scope":      "keyword.control.glsl, keyword.control.hlsl",
             "foreground": "var(orange)"
         },
         {
-            "name": "Inline GLSL",
-            "scope": "source.inline-glsl",
+            "name": "Embedded Language",
+            "scope": "source.embedded-language",
             "foreground": "color(var(fg) blenda(#000000 90% hsl))",
             "background": "var(black)",
         },
@@ -170,8 +170,8 @@
         {
             "name":       "Mistakes",
             "scope":      "invalid, invalid string, invalid constant, invalid entity.name, invalid punctuation, invalid source.symbol",
-            "foreground": "#c33",
-            "background": "#2B1D1E"
+            "foreground": "#f00",
+            "background": "#4B1D1E"
         },
         {
             "name":       "Template parameters",

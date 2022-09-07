@@ -1,6 +1,6 @@
 %YAML 1.2
 ---
-# See http://www.sublimetext.com/docs/syntax.html
+name: GLSL
 file_extensions:
   - glsl
 scope: source.glsl
@@ -29,7 +29,8 @@ variables:
 
   identifier: '\b[[:alpha:]_][[:alnum:]_]*\b' # upper and lowercase
   glsl_types: 'float|vec2|vec3|vec4'
-  glsl_keywords: 'gl_Position'
+  glsl_keywords: 'attribute|const|uniform|varying|layout|centroid|flat|smooth|noperspective|patch|sample|break|continue|do|for|while|switch|case|default|if|else|subroutine|in|out|inout|float|double|int|void|bool|true|false|invariant|discard|return|d?mat[234](?:x[234])?|[ibdu]?vec[234]|lowp|mediump|highp|precision|struct|[iu]?sampler(?:1D|2D|3D|Cube)|sampler(?:1D|2D|Cube)Shadow|[iu]?sampler(?:1D|2D)Array(?:Shadow)?|sampler2DRectShadow|[iu]sampler2DRect|[iu]?samplerBuffer|[iu]?sampler2DMS(?:Array)?|[iu]?samplerCubeArray|samplerCubeArrayShadow'
+  glsl_reserved: 'gl_VertexID|gl_InstanceID|gl_Position|gl_PointSize|gl_ClipDistance|gl_PrimitiveIDIn|gl_InvocationID|gl_PrimitiveID|gl_Layer|gl_ViewportIndex|gl_PatchVerticesIn'
 
 contexts:
   main:
@@ -42,6 +43,7 @@ contexts:
     - include: layout
     - include: operators
     - include: function-definition
+    - include: parens
     - include: block
     - include: statements
 
@@ -63,10 +65,12 @@ contexts:
       pop: true
 
   keywords:
-    - match: '\b(in|out)\b'
+    - match: '\b{{glsl_keywords}}\b'
       scope: keyword.control.glsl
-    - match: '{{glsl_keywords}}'
+    - match: '{{glsl_reserved}}'
       scope: keyword.glsl
+    - match: 'gl_\w+'
+      scope: invalid.illegal.reserved-but-unrecognized-identifier.glsl
 
   statements:
     - include: expressions
@@ -80,29 +84,30 @@ contexts:
     - include: operators
     - include: keywords
     - include: numbers
+    - include: parens
     - match: ','
-      scope: punctuation.separator.c
+      scope: punctuation.separator.glsl
     - match: '\)|\}'
-      scope: invalid.illegal.stray-bracket-end.c
+      scope: invalid.illegal.stray-bracket-end.glsl
 
   late-expressions:
     - include: function-call
     - match: ';'
-      scope: punctuation.terminator.c
+      scope: punctuation.terminator.glsl
 
   operators:
     - match: (?:\+\+|--)
-      scope: keyword.operator.arithmetic.c
-    - match: \+|\-|/|%|\||\^|~|!
-      scope: keyword.operator.arithmetic.c
+      scope: keyword.operator.arithmetic.glsl
+    - match: \+|\-|\*|/|%|\||\^|~|!
+      scope: keyword.operator.arithmetic.glsl
     - match: '\+\=|\-\=|\*\=|/\=|%\=|&\=|\|\=|\^\=|>>\=|<<\='
-      scope: keyword.operator.assignment.augmented.c
+      scope: keyword.operator.assignment.augmented.glsl
     - match: \=
-      scope: keyword.operator.assignment.c
+      scope: keyword.operator.assignment.glsl
 
   layout:
     - match: 'layout'
-      scope: keyword.control.glsl
+      scope:
     - match: '\('
       scope: meta.group.glsl punctuation.section.group.begin.glsl
       push:
@@ -130,46 +135,56 @@ contexts:
 
   block:
     - match: '\{'
-      scope: punctuation.section.block.begin.c
+      scope: punctuation.section.block.begin.glsl
       push:
-        - meta_scope: meta.block.c
+        - meta_scope: meta.block.glsl
         - match: (?=^\s*#\s*(elif|else|endif)\b)
           pop: true
         - match: '\}'
-          scope: punctuation.section.block.end.c
+          scope: punctuation.section.block.end.glsl
           pop: true
         - include: statements
 
+  parens:
+    - match: '\('
+      scope: punctuation.section.group.begin.glsl
+      push:
+        - meta_scope: meta.group.glsl
+        - match: '\)'
+          scope: punctuation.section.group.end.glsl
+          pop: true
+        - include: expressions
+
   comments:
     - match: ^/\* =(\s*.*?)\s*= \*/$\n?
-      scope: comment.block.c
+      scope: comment.block.glsl
       captures:
-        1: meta.toc-list.banner.block.c
+        1: meta.toc-list.banner.block.glsl
     - match: /\*
-      scope: punctuation.definition.comment.c
+      scope: punctuation.definition.comment.glsl
       push:
-        - meta_scope: comment.block.c
+        - meta_scope: comment.block.glsl
         - include: comment-tags
         - match: \*/
-          scope: punctuation.definition.comment.c
+          scope: punctuation.definition.comment.glsl
           pop: true
         - match: ^\s*(\*)(?!/)
           captures:
-            1: punctuation.definition.comment.c
+            1: punctuation.definition.comment.glsl
     - match: \*/(?!\*)
-      scope: invalid.illegal.stray-comment-end.c
+      scope: invalid.illegal.stray-comment-end.glsl
     - match: ^// =(\s*.*?)\s*=\s*$\n?
-      scope: comment.line.banner.c
+      scope: comment.line.banner.glsl
       captures:
-        1: meta.toc-list.banner.line.c
+        1: meta.toc-list.banner.line.glsl
     - match: //
-      scope: punctuation.definition.comment.c
+      scope: punctuation.definition.comment.glsl
       push:
-        - meta_scope: comment.line.double-slash.c
+        - meta_scope: comment.line.double-slash.glsl
         - include: comment-tags
         - match: '(\\)$\n'
           captures:
-            1: punctuation.separator.continuation.c
+            1: punctuation.separator.continuation.glsl
         - match: \n
           pop: true
 
@@ -216,62 +231,62 @@ contexts:
           # .1, .1e1, .1e-1, .1f, .1e1f, .1e-1f, .1L, .1e1L, .1e-1L
           | ( (\.) {{dec_digit}}+ {{dec_exponent}}? ) (?: ({{double_suffix}}) | ({{dec_suffix}}) )?
         )
-      scope: meta.number.float.decimal.c
+      scope: meta.number.float.decimal.glsl
       captures:
-        1: constant.numeric.value.c
-        2: constant.numeric.value.c
-        3: punctuation.separator.decimal.c
-        4: constant.numeric.suffix.c
-        5: constant.numeric.suffix.c
-        6: invalid.illegal.numeric.suffix.c
-        7: constant.numeric.value.c
-        8: punctuation.separator.decimal.c
-        9: constant.numeric.suffix.c
-        10: invalid.illegal.numeric.suffix.c
+        1: constant.numeric.value.glsl
+        2: constant.numeric.value.glsl
+        3: punctuation.separator.decimal.glsl
+        4: constant.numeric.suffix.glsl
+        5: constant.numeric.suffix.glsl
+        6: invalid.illegal.numeric.suffix.glsl
+        7: constant.numeric.value.glsl
+        8: punctuation.separator.decimal.glsl
+        9: constant.numeric.suffix.glsl
+        10: invalid.illegal.numeric.suffix.glsl
 
     # hexadecimal float (C99)
     - match: \b(0[xX])({{hex_digit}}*(\.){{hex_digit}}*{{hex_exponent}})(?:([fFlL]\b)|({{dec_suffix}}))?
-      scope: meta.number.float.hexadecimal.c
+      scope: meta.number.float.hexadecimal.glsl
       captures:
-        1: constant.numeric.base.c
-        2: constant.numeric.value.c
-        3: punctuation.separator.decimal.c
-        4: constant.numeric.suffix.c
-        5: invalid.illegal.numeric.suffix.c
+        1: constant.numeric.base.glsl
+        2: constant.numeric.value.glsl
+        3: punctuation.separator.decimal.glsl
+        4: constant.numeric.suffix.glsl
+        5: invalid.illegal.numeric.suffix.glsl
 
     # https://en.cppreference.com/w/c/language/integer_constant
 
     # binary integer (C23)
     - match: \b(0[bB])({{bin_digit}}*)(?:({{integer_suffix}})|({{bin_suffix}}))?
-      scope: meta.number.integer.binary.c
+      scope: meta.number.integer.binary.glsl
       captures:
-        1: constant.numeric.base.c
-        2: constant.numeric.value.c
-        3: constant.numeric.suffix.c
-        4: invalid.illegal.numeric.suffix.c
+        1: constant.numeric.base.glsl
+        2: constant.numeric.value.glsl
+        3: constant.numeric.suffix.glsl
+        4: invalid.illegal.numeric.suffix.glsl
 
     # hexadecimal integer
     - match: \b(0[xX])({{hex_digit}}*)(?:({{integer_suffix}})|({{hex_suffix}}))?
-      scope: meta.number.integer.hexadecimal.c
+      scope: meta.number.integer.hexadecimal.glsl
       captures:
-        1: constant.numeric.base.c
-        2: constant.numeric.value.c
-        3: constant.numeric.suffix.c
-        4: invalid.illegal.numeric.suffix.c
+        1: constant.numeric.base.glsl
+        2: constant.numeric.value.glsl
+        3: constant.numeric.suffix.glsl
+        4: invalid.illegal.numeric.suffix.glsl
 
     # octal integer
     - match: \b(0)({{oct_digit}}+)(?:({{integer_suffix}})|({{oct_suffix}}))?
-      scope: meta.number.integer.octal.c
+      scope: meta.number.integer.octal.glsl
       captures:
-        1: constant.numeric.base.c
-        2: constant.numeric.value.c
-        3: constant.numeric.suffix.c
-        4: invalid.illegal.numeric.suffix.c
+        1: constant.numeric.base.glsl
+        2: constant.numeric.value.glsl
+        3: constant.numeric.suffix.glsl
+        4: invalid.illegal.numeric.suffix.glsl
 
     # decimal integer
     - match: \b({{dec_digits}})(?:({{integer_suffix}})|({{dec_suffix}}))?
-      scope: meta.number.integer.decimal.c
+      scope: meta.number.integer.decimal.glsl
       captures:
-        1: constant.numeric.value.c
-        2: constant.numeric.suffix.c
-        3: invalid.illegal.numeric.suffix.c
+        1: constant.numeric.value.glsl
+        2: constant.numeric.suffix.glsl
+        3: invalid.illegal.numeric.suffix.glsl
