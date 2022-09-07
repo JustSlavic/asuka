@@ -851,23 +851,23 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
         game_state->player_textures[2]  = get_character_3_png();
         game_state->player_textures[3]  = get_character_4_png();
 #else
-        game_state->grass_texture       = Asuka::load_png_file("grass_texture.png");
-        game_state->tree_texture        = Asuka::load_png_file("tree_60x100.png");
-        game_state->heart_full_texture  = Asuka::load_png_file("heart_full.png");
-        game_state->heart_empty_texture = Asuka::load_png_file("heart_empty.png");
-        game_state->monster_head        = Asuka::load_png_file("monster_head.png");
-        game_state->monster_left_arm    = Asuka::load_png_file("monster_left_arm.png");
-        game_state->monster_right_arm   = Asuka::load_png_file("monster_right_arm.png");
-        game_state->familiar_texture    = Asuka::load_png_file("familiar.png");
-        game_state->shadow_texture      = Asuka::load_png_file("shadow.png");
-        game_state->fireball_texture    = Asuka::load_png_file("fireball.png");
-        game_state->sword_texture       = Asuka::load_png_file("sword.png");
-        game_state->cursor_texture      = Asuka::load_png_file("sword_cursor.png");
+        game_state->grass_texture       = load_png_file("grass_texture.png");
+        game_state->tree_texture        = load_png_file("tree_60x100.png");
+        game_state->heart_full_texture  = load_png_file("heart_full.png");
+        game_state->heart_empty_texture = load_png_file("heart_empty.png");
+        game_state->monster_head        = load_png_file("monster_head.png");
+        game_state->monster_left_arm    = load_png_file("monster_left_arm.png");
+        game_state->monster_right_arm   = load_png_file("monster_right_arm.png");
+        game_state->familiar_texture    = load_png_file("familiar.png");
+        game_state->shadow_texture      = load_png_file("shadow.png");
+        game_state->fireball_texture    = load_png_file("fireball.png");
+        game_state->sword_texture       = load_png_file("sword.png");
+        game_state->cursor_texture      = load_png_file("sword_cursor.png");
 
-        game_state->player_textures[0]  = Asuka::load_png_file("character_1.png");
-        game_state->player_textures[1]  = Asuka::load_png_file("character_2.png");
-        game_state->player_textures[2]  = Asuka::load_png_file("character_3.png");
-        game_state->player_textures[3]  = Asuka::load_png_file("character_4.png");
+        game_state->player_textures[0]  = load_png_file("character_1.png");
+        game_state->player_textures[1]  = load_png_file("character_2.png");
+        game_state->player_textures[2]  = load_png_file("character_3.png");
+        game_state->player_textures[3]  = load_png_file("character_4.png");
 #endif // IN_CODE_TEXTURES
 
         memory::arena_allocator *arena  = &game_state->world_arena;
@@ -1747,6 +1747,7 @@ GAME_UPDATE_AND_RENDER(Game_UpdateAndRender)
     }
 #endif // UI_EDITOR_ENABLED
 
+    // ===================== RENDERING MOUSE CURSOR ================= //
     DrawBitmap(Buffer, Input->mouse.position.x, Input->mouse.position.y, &game_state->cursor_texture);
 }
 

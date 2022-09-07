@@ -16,7 +16,6 @@ Reference: http://www.libpng.org/pub/png/spec/1.2/PNG-Structure.html
 #include <external/stb_image.h>
 #endif
 
-namespace Asuka {
 
 #pragma pack(push, 1)
 struct PNG_ChunkHeader {
@@ -405,4 +404,3 @@ Bitmap load_png_file(const char* filename) {
     return result;
 }
 
-} // namespace Asuka
