@@ -14,6 +14,8 @@
 // ===========================================
 
 
+#define GL_CHECK_ERRORS(...) { auto err = glGetError(); if (err) { osOutputDebugString("%s\n", gl_error_string(err)); ASSERT(err == 0); } } void(0)
+
 #define WGL_DRAW_TO_WINDOW_ARB            0x2001
 #define WGL_ACCELERATION_ARB              0x2003
 #define WGL_SUPPORT_OPENGL_ARB            0x2010
@@ -42,14 +44,48 @@
 #define GL_SAMPLES_EXT                    0x80A9
 #define GL_MAJOR_VERSION                  0x821B
 #define GL_MINOR_VERSION                  0x821C
+#define GL_DEPTH_STENCIL_ATTACHMENT       0x821A
+#define GL_DEPTH_STENCIL                  0x84F9
+#define GL_UNSIGNED_INT_24_8              0x84FA
 #define GL_ARRAY_BUFFER                   0x8892
 #define GL_ELEMENT_ARRAY_BUFFER           0x8893
 #define GL_STATIC_DRAW                    0x88E4
+#define GL_DEPTH24_STENCIL8               0x88F0
 #define GL_FRAGMENT_SHADER                0x8B30
 #define GL_VERTEX_SHADER                  0x8B31
 #define GL_COMPILE_STATUS                 0x8B81
 #define GL_VALIDATE_STATUS                0x8B83
 #define GL_INFO_LOG_LENGTH                0x8B84
+#define GL_READ_FRAMEBUFFER               0x8CA8
+#define GL_DRAW_FRAMEBUFFER               0x8CA9
+#define GL_COLOR_ATTACHMENT0              0x8CE0
+#define GL_DEPTH_ATTACHMENT               0x8D00
+#define GL_STENCIL_ATTACHMENT             0x8D20
+#define GL_FRAMEBUFFER                    0x8D40
+#define GL_TEXTURE_2D_MULTISAMPLE         0x9100
+
+// Generate framebuffer object names
+#define GL_GEN_FRAMEBUFFERS(name) void name(GLsizei n, GLuint *ids)
+typedef GL_GEN_FRAMEBUFFERS(OpenGL_GenFrameffers);
+GLOBAL OpenGL_GenFrameffers *glGenFramebuffers;
+
+// Bind a framebuffer to a framebuffer target
+#define GL_BIND_FRAMEBUFFER(name) void name(GLenum target, GLuint framebuffer)
+typedef GL_BIND_FRAMEBUFFER(OpenGL_BindFramebuffer);
+GLOBAL OpenGL_BindFramebuffer *glBindFramebuffer;
+
+// Attach a level of a texture object as a logical buffer of a framebuffer object
+#define GL_FRAMEBUFFER_TEXTURE_2D(name) void name(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)
+typedef GL_FRAMEBUFFER_TEXTURE_2D(OpenGL_FramebufferTexture2D);
+GLOBAL OpenGL_FramebufferTexture2D *glFramebufferTexture2D;
+
+#define GL_BLIT_FRAMEBUFFER(name) void name(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
+typedef GL_BLIT_FRAMEBUFFER(OpenGL_BlitFramebuffer);
+GLOBAL OpenGL_BlitFramebuffer *glBlitFramebuffer;
+
+#define GL_CLEAR_BUFFER_IV(name) void name(GLenum buffer, GLint drawbuffer, GLint const *value)
+typedef GL_CLEAR_BUFFER_IV(OpenGL_ClearBufferiv);
+GLOBAL OpenGL_ClearBufferiv *glClearBufferiv;
 
 // Generate buffer object names
 #define GL_GEN_BUFFERS(name) void name(GLsizei n, GLuint *buffers)
@@ -168,9 +204,13 @@ GLOBAL OpenGL_GetUniformLocation *glGetUniformLocation;
 // #define GL_UNIFORM_4F(name) void (GLint location, GLfloat v0)
 // @todo: All other definitions here.
 #define GL_UNIFORM_MATRIX4(name) void name(int32 location, isize count, bool transpose, float32 const *value)
-
 typedef GL_UNIFORM_MATRIX4(OpenGL_UniformMatrix4);
 GLOBAL OpenGL_UniformMatrix4 *glUniformMatrix4fv;
+
+// Establish the data storage, format, dimensions, and number of samples of a multisample texture's image
+#define GL_TEX_IMAGE_2D_MULTISAMPLE(name) void name(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
+typedef GL_TEX_IMAGE_2D_MULTISAMPLE(OpenGL_TexImage2DMultisample);
+GLOBAL OpenGL_TexImage2DMultisample *glTexImage2DMultisample;
 
 // Get string which you need to parse, to get what extensions are there
 #define WGL_GET_EXTENSIONS_STRING_ARB(name) const char *WINAPI name(HDC hdc)
@@ -200,6 +240,12 @@ GLOBAL WGL_GetSwapInterval *wglGetSwapIntervalEXT;
 
 void InitializeOpenGLFunctions()
 {
+    glGenFramebuffers = (OpenGL_GenFrameffers *) wglGetProcAddress("glGenFramebuffers");
+    glBindFramebuffer = (OpenGL_BindFramebuffer *) wglGetProcAddress("glBindFramebuffer");
+    glFramebufferTexture2D = (OpenGL_FramebufferTexture2D *) wglGetProcAddress("glFramebufferTexture2D");
+    glBlitFramebuffer = (OpenGL_BlitFramebuffer *) wglGetProcAddress("glBlitFramebuffer");
+
+    glClearBufferiv = (OpenGL_ClearBufferiv *) wglGetProcAddress("glClearBufferiv");
     glGenBuffers = (OpenGL_GenBuffers *) wglGetProcAddress("glGenBuffers");
     glBindBuffer = (OpenGL_BindBuffer *) wglGetProcAddress("glBindBuffer");
     glBufferData = (OpenGL_BufferData *) wglGetProcAddress("glBufferData");
@@ -223,6 +269,8 @@ void InitializeOpenGLFunctions()
 
     glGetUniformLocation = (OpenGL_GetUniformLocation *) wglGetProcAddress("glGetUniformLocation");
     glUniformMatrix4fv = (OpenGL_UniformMatrix4 *) wglGetProcAddress("glUniformMatrix4fv");
+
+    glTexImage2DMultisample = (OpenGL_TexImage2DMultisample *) wglGetProcAddress("glTexImage2DMultisample");
 }
 
 
@@ -245,7 +293,7 @@ uint32 compile_shader(char const *source_code, GLenum shader_type)
 
         glGetShaderInfoLog(id, length, &length, message);
 
-        printf("%s", message);
+        osOutputDebugString("%s", message);
 
         glDeleteShader(id);
         delete[] message;
@@ -649,8 +697,8 @@ int WINAPI WinMain(
                     WGL_COLOR_BITS_ARB, 32,
                     WGL_DEPTH_BITS_ARB, 24,
                     WGL_STENCIL_BITS_ARB, 8,
-                    WGL_SAMPLE_BUFFERS_ARB, 1,
-                    WGL_SAMPLES_ARB, 4,
+                    // WGL_SAMPLE_BUFFERS_ARB, 1,
+                    // WGL_SAMPLES_ARB, 4,
                     0, // End
                 };
 
@@ -701,12 +749,64 @@ int WINAPI WinMain(
     wglSwapIntervalEXT(0);
     glDepthFunc(GL_LESS);
 
-    glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-    glEnable(GL_SAMPLE_ALPHA_TO_ONE);
-    glEnable(GL_MULTISAMPLE);
+    // glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+    // glEnable(GL_SAMPLE_ALPHA_TO_ONE);
+    // glEnable(GL_MULTISAMPLE);
 
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    // glEnable(GL_CULL_FACE);
+    // glCullFace(GL_BACK);
+
+    uint32 framebuffer = 0;
+    {
+        uint32 framebuffer_color_texture;
+        glGenTextures(1, &framebuffer_color_texture);
+
+#define USE_MSAAx4 1
+#if USE_MSAAx4
+        int32 num_samples = 4;
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebuffer_color_texture);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, num_samples, GL_RGBA8, CurrentClientWidth, CurrentClientHeight, false);
+#else
+        glBindTexture(GL_TEXTURE_2D, framebuffer_color_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, CurrentClientWidth, CurrentClientHeight, 0, GL_RGBA, GL_UNSIGNED_INT, NULL);
+#endif
+
+        GL_CHECK_ERRORS();
+
+        uint32 framebuffer_depthstencil_texture;
+        glGenTextures(1, &framebuffer_depthstencil_texture);
+
+#if USE_MSAAx4
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebuffer_depthstencil_texture);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, num_samples, GL_DEPTH24_STENCIL8, CurrentClientWidth, CurrentClientHeight, false);
+#else
+        glBindTexture(GL_TEXTURE_2D, framebuffer_depthstencil_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, CurrentClientWidth, CurrentClientHeight, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+#endif
+
+        GL_CHECK_ERRORS();
+
+        glGenFramebuffers(1, &framebuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+#if USE_MSAAx4
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebuffer_color_texture, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D_MULTISAMPLE, framebuffer_depthstencil_texture, 0);
+#else
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer_color_texture, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, framebuffer_depthstencil_texture, 0);
+#endif
+
+        GL_CHECK_ERRORS();
+
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glDrawBuffer(GL_BACK);
+
+        GL_CHECK_ERRORS();
+    }
+
+    int32 NumberOfSamples;
+    glGetIntegerv(GL_SAMPLES, &NumberOfSamples);
+    osOutputDebugString("Number of samples: %d\n", NumberOfSamples);
 
     struct Vertex
     {
@@ -1101,6 +1201,12 @@ void main()
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
+        if (1)
+        {
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
+            glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
+        }
+
         glUseProgram(shader_program_id);
 
         int32 u_view_location = glGetUniformLocation(shader_program_id, "u_view");
@@ -1149,6 +1255,15 @@ void main()
         glBindVertexArray(cube_vertex_array_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
         glDrawElements(GL_TRIANGLES, ARRAY_COUNT(cube_indices), GL_UNSIGNED_INT, NULL);
+
+        if (1)
+        {
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+
+            glDrawBuffer(GL_BACK);
+            glBlitFramebuffer(0, 0, CurrentClientWidth, CurrentClientHeight, 0, 0, CurrentClientWidth, CurrentClientHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        }
 
         SwapBuffers(DeviceContext);
 
