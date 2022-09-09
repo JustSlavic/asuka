@@ -35,6 +35,8 @@ GLOBAL ID3D11RenderTargetView *D3D11_BackBufferView;
 GLOBAL ID3D11DepthStencilView *D3D11_DepthStencilView;
 
 GLOBAL ID3D11RasterizerState* D3D11_RasterizerState;
+GLOBAL ID3D11RasterizerState* D3D11_WireframeRasterizerState;
+
 GLOBAL ID3D11DepthStencilState *D3D11_DepthStencilState;
 GLOBAL ID3D11DepthStencilState *D3D11_DisabledDepthStencilState;
 
@@ -444,6 +446,15 @@ int WINAPI WinMain(
         if (SUCCEEDED(CreateRasterizerStateResult))
         {
             D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
+        }
+
+
+        RasterizerDescription.FillMode = D3D11_FILL_WIREFRAME;
+
+        HRESULT CreateWireframeRasterizerStateResult = D3D11_Device->CreateRasterizerState(&RasterizerDescription, &D3D11_WireframeRasterizerState);
+        if (SUCCEEDED(CreateWireframeRasterizerStateResult))
+        {
+            // Ok.
         }
     }
 
@@ -1018,9 +1029,19 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
             D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
             D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
+            D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
 
             D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             D3D11_DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
+        }
+
+        if (Wireframe)
+        {
+            D3D11_DeviceContext->RSSetState(D3D11_WireframeRasterizerState);
+        }
+        else
+        {
+            D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
         }
 
         {
@@ -1075,8 +1096,12 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
     RELEASE_COM(VertexShader);
     RELEASE_COM(PixelShader);
 
+    RELEASE_COM(D3D11_DisabledDepthStencilState);
     RELEASE_COM(D3D11_DepthStencilState);
+
+    RELEASE_COM(D3D11_WireframeRasterizerState);
     RELEASE_COM(D3D11_RasterizerState);
+
     RELEASE_COM(D3D11_DepthStencilView);
     RELEASE_COM(D3D11_BackBufferView);
     RELEASE_COM(D3D11_SwapChain);
