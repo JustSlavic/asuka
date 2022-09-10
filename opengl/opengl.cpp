@@ -64,213 +64,105 @@
 #define GL_FRAMEBUFFER                    0x8D40
 #define GL_TEXTURE_2D_MULTISAMPLE         0x9100
 
-// Generate framebuffer object names
-#define GL_GEN_FRAMEBUFFERS(name) void name(GLsizei n, GLuint *ids)
-typedef GL_GEN_FRAMEBUFFERS(OpenGL_GenFrameffers);
-GLOBAL OpenGL_GenFrameffers *glGenFramebuffers;
+typedef void glGenFramebuffersType(GLsizei n, GLuint *ids);
+typedef void glBindFramebufferType(GLenum target, GLuint framebuffer);
+typedef void glFramebufferTexture2DType(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
+typedef void glBlitFramebufferType(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
+typedef void glClearBufferivType(GLenum buffer, GLint drawbuffer, GLint const *value);
+typedef void glGenBuffersType(GLsizei n, GLuint *buffers);
+typedef void glBindBufferType(GLenum target, GLuint buffer);
+typedef void glBufferDataType(GLenum target, intptr size, const void *data, GLenum usage);
+typedef void glGenVertexArraysType(GLsizei n, GLuint *arrays);
+typedef void glBindVertexArrayType(GLuint array);
+typedef void glVertexAttribPointerType(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+typedef void glEnableVertexAttribArrayType(GLuint index);
+typedef GLuint glCreateShaderType(GLenum shaderType);
+typedef void glShaderSourceType(GLuint shader, GLsizei count, char const **string, GLint const *length);
+typedef void glCompileShaderType(GLuint shader);
+typedef GLuint glCreateProgramType(void);
+typedef void glAttachShaderType(GLuint program, GLuint shader);
+typedef void glDetachShaderType(GLuint program, GLuint shader);
+typedef void glLinkProgramType( GLuint program);
+typedef void glUseProgramType(GLuint program);
+typedef void glGetShaderivType(GLuint shader, GLenum pname, GLint *params);
+typedef void glGetShaderInfoLogType(GLuint shader, GLsizei maxLength, GLsizei *length, char *infoLog);
+typedef void glDeleteShaderType(GLuint shader);
+typedef void glValidateProgramType(GLuint program);
+typedef void glGetProgramivType(GLuint program, GLenum pname, GLint *params);
+typedef GLint glGetUniformLocationType(GLuint program, char const *uniform_name);
+typedef void glUniformMatrix4fvType(int32 location, isize count, bool transpose, float32 const *value);
+typedef void glTexImage2DMultisampleType(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
+typedef const char *WINAPI wglGetExtensionsStringARBType(HDC hdc);
+typedef BOOL WINAPI wglChoosePixelFormatARBType(HDC hdc, const int *piAttribIList, const FLOAT *pfAttribFList, UINT nMaxFormats, int *piFormats, UINT *nNumFormats);
+typedef HGLRC WINAPI wglCreateContextAttribsARBType(HDC hdc, HGLRC hShareContext, int const *attribList);
+typedef BOOL wglSwapIntervalEXTType(int interval);
+typedef int wglGetSwapIntervalEXTType(void);
 
-// Bind a framebuffer to a framebuffer target
-#define GL_BIND_FRAMEBUFFER(name) void name(GLenum target, GLuint framebuffer)
-typedef GL_BIND_FRAMEBUFFER(OpenGL_BindFramebuffer);
-GLOBAL OpenGL_BindFramebuffer *glBindFramebuffer;
-
-// Attach a level of a texture object as a logical buffer of a framebuffer object
-#define GL_FRAMEBUFFER_TEXTURE_2D(name) void name(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)
-typedef GL_FRAMEBUFFER_TEXTURE_2D(OpenGL_FramebufferTexture2D);
-GLOBAL OpenGL_FramebufferTexture2D *glFramebufferTexture2D;
-
-#define GL_BLIT_FRAMEBUFFER(name) void name(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
-typedef GL_BLIT_FRAMEBUFFER(OpenGL_BlitFramebuffer);
-GLOBAL OpenGL_BlitFramebuffer *glBlitFramebuffer;
-
-#define GL_CLEAR_BUFFER_IV(name) void name(GLenum buffer, GLint drawbuffer, GLint const *value)
-typedef GL_CLEAR_BUFFER_IV(OpenGL_ClearBufferiv);
-GLOBAL OpenGL_ClearBufferiv *glClearBufferiv;
-
-// Generate buffer object names
-#define GL_GEN_BUFFERS(name) void name(GLsizei n, GLuint *buffers)
-typedef GL_GEN_BUFFERS(OpenGL_GenBuffers);
-GLOBAL OpenGL_GenBuffers *glGenBuffers;
-
-// Bind a named buffer object
-#define GL_BIND_BUFFER(name) void name(GLenum target, GLuint buffer)
-typedef GL_BIND_BUFFER(OpenGL_BindBuffer);
-GLOBAL OpenGL_BindBuffer *glBindBuffer;
-
-// Creates and initializes a buffer object's data store
-#define GL_BUFFER_DATA(name) void name(GLenum target, intptr size, const void *data, GLenum usage)
-typedef GL_BUFFER_DATA(OpenGL_BufferData);
-GLOBAL OpenGL_BufferData *glBufferData;
-
-// Generate vertex array object names
-#define GL_GEN_VERTEX_ARRAY(name) void name(GLsizei n, GLuint *arrays)
-typedef GL_GEN_VERTEX_ARRAY(OpenGL_GenVertexArray);
-GLOBAL OpenGL_GenVertexArray *glGenVertexArrays;
-
-// Bind a vertex array object
-#define GL_BIND_VERTEX_ARRAY(name) void name(GLuint array)
-typedef GL_BIND_VERTEX_ARRAY(OpenGL_BindVertexArray);
-GLOBAL OpenGL_BindVertexArray *glBindVertexArray;
-
-// Define an array of generic vertex attribute data
-#define GL_VERTEX_ATTRIB_POINTER(name) void name(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer)
-typedef GL_VERTEX_ATTRIB_POINTER(OpenGL_VertexAttribPointer);
-GLOBAL OpenGL_VertexAttribPointer *glVertexAttribPointer;
-
-// Enable or disable a generic vertex attribute array
-#define GL_ENABLE_VERTEX_ATTRIB_ARRAY(name) void name(GLuint index)
-typedef GL_ENABLE_VERTEX_ATTRIB_ARRAY(OpenGL_EnableVertexAttribArray);
-GLOBAL OpenGL_EnableVertexAttribArray *glEnableVertexAttribArray;
-
-// Creates a shader object
-#define GL_CREATE_SHADER(name) GLuint name(GLenum shaderType)
-typedef GL_CREATE_SHADER(OpenGL_CreateShader);
-GLOBAL OpenGL_CreateShader *glCreateShader;
-
-// Replaces the source code in a shader object
-#define GL_SHADER_SOURCE(name) void name(GLuint shader, GLsizei count, char const **string, GLint const *length)
-typedef GL_SHADER_SOURCE(OpenGL_ShaderSource);
-GLOBAL OpenGL_ShaderSource *glShaderSource;
-
-// Compiles a shader object
-#define GL_COMPILE_SHADER(name) void name(GLuint shader)
-typedef GL_COMPILE_SHADER(OpenGL_CompileShader);
-GLOBAL OpenGL_CompileShader *glCompileShader;
-
-// Creates a program object
-#define GL_CREATE_PROGRAM(name) GLuint name(void)
-typedef GL_CREATE_PROGRAM(OpenGL_CreateProgram);
-GLOBAL OpenGL_CreateProgram *glCreateProgram;
-
-// Attaches a shader object to a program object
-#define GL_ATTACH_SHADER(name) void name(GLuint program, GLuint shader)
-typedef GL_ATTACH_SHADER(OpenGL_AttachShader);
-GLOBAL OpenGL_AttachShader *glAttachShader;
-
-// Detaches a shader object from a program object to which it is attached
-#define GL_DETACH_SHADER(name) void name(GLuint program, GLuint shader)
-typedef GL_DETACH_SHADER(OpenGL_DetachShader);
-GLOBAL OpenGL_DetachShader *glDetachShader;
-
-// Links a program object
-#define GL_LINK_PROGRAM(name) void name( GLuint program)
-typedef GL_LINK_PROGRAM(OpenGL_LinkProgram);
-GLOBAL OpenGL_LinkProgram *glLinkProgram;
-
-// Installs a program object as part of current rendering state
-#define GL_USE_PROGRAM(name) void name(GLuint program)
-typedef GL_USE_PROGRAM(OpenGL_UseProgram);
-GLOBAL OpenGL_UseProgram *glUseProgram;
-
-// Return a parameter from a shader object. The following parameters are defined:
-// GL_SHADER_TYPE -- params returns GL_VERTEX_SHADER if shader is a vertex shader object, and GL_FRAGMENT_SHADER if shader is a fragment shader object.
-// GL_DELETE_STATUS -- params returns GL_TRUE if shader is currently flagged for deletion, and GL_FALSE otherwise.
-// GL_COMPILE_STATUS -- For implementations that support a shader compiler, params returns GL_TRUE if the last compile operation on shader was successful, and GL_FALSE otherwise.
-// GL_INFO_LOG_LENGTH -- For implementations that support a shader compiler, params returns the number of characters in the information log for shader including the null termination character (i.e., the size of the character buffer required to store the information log). If shader has no information log, a value of 0 is returned.
-// GL_SHADER_SOURCE_LENGTH -- For implementations that support a shader compiler, params returns the length of the concatenation of the source strings that make up the shader source for the shader, including the null termination character. (i.e., the size of the character buffer required to store the shader source). If no source code exists, 0 is returned.
-#define GL_GET_SHADERIV(name) void name(GLuint shader, GLenum pname, GLint *params)
-typedef GL_GET_SHADERIV(OpenGL_GetShaderiv);
-GLOBAL OpenGL_GetShaderiv *glGetShaderiv;
-
-// Returns the information log for a shader object
-#define GL_GET_SHADER_INFO_LOG(name) void name(GLuint shader, GLsizei maxLength, GLsizei *length, char *infoLog)
-typedef GL_GET_SHADER_INFO_LOG(OpenGL_GetShaderInfoLog);
-GLOBAL OpenGL_GetShaderInfoLog *glGetShaderInfoLog;
-
-// Deletes a shader object
-#define GL_DELETE_SHADER(name) void name(GLuint shader)
-typedef GL_DELETE_SHADER(OpenGL_DeleteShader);
-GLOBAL OpenGL_DeleteShader *glDeleteShader;
-
-// Validates a program object
-#define GL_VALIDATE_PROGRAM(name) void name(GLuint program)
-typedef GL_VALIDATE_PROGRAM(OpenGL_ValidateProgram);
-GLOBAL OpenGL_ValidateProgram *glValidateProgram;
-
-// Returns a parameter from a program object
-#define GL_GET_PROGRAMIV(name) void name(GLuint program, GLenum pname, GLint *params)
-typedef GL_GET_PROGRAMIV(OpenGL_GetProgramiv);
-GLOBAL OpenGL_GetProgramiv *glGetProgramiv;
-
-// Returns the location of a uniform variable
-#define GL_GET_UNIFORM_LOCATION(name) GLint name(GLuint program, char const *uniform_name)
-typedef GL_GET_UNIFORM_LOCATION(OpenGL_GetUniformLocation);
-GLOBAL OpenGL_GetUniformLocation *glGetUniformLocation;
-
-// Specify the value of a uniform variable for the current program object
-// #define GL_UNIFORM_1F(name) void (GLint location, GLfloat v0)
-// #define GL_UNIFORM_2F(name) void (GLint location, GLfloat v0)
-// #define GL_UNIFORM_3F(name) void (GLint location, GLfloat v0)
-// #define GL_UNIFORM_4F(name) void (GLint location, GLfloat v0)
-// @todo: All other definitions here.
-#define GL_UNIFORM_MATRIX4(name) void name(int32 location, isize count, bool transpose, float32 const *value)
-typedef GL_UNIFORM_MATRIX4(OpenGL_UniformMatrix4);
-GLOBAL OpenGL_UniformMatrix4 *glUniformMatrix4fv;
-
-// Establish the data storage, format, dimensions, and number of samples of a multisample texture's image
-#define GL_TEX_IMAGE_2D_MULTISAMPLE(name) void name(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
-typedef GL_TEX_IMAGE_2D_MULTISAMPLE(OpenGL_TexImage2DMultisample);
-GLOBAL OpenGL_TexImage2DMultisample *glTexImage2DMultisample;
-
-// Get string which you need to parse, to get what extensions are there
-#define WGL_GET_EXTENSIONS_STRING_ARB(name) const char *WINAPI name(HDC hdc)
-typedef WGL_GET_EXTENSIONS_STRING_ARB(WGL_GetExtensionsStringARB);
-GLOBAL WGL_GetExtensionsStringARB *wglGetExtensionsStringARB;
-
-// Extension for choosing pixel formats
-#define WGL_CHOOSE_PIXEL_FORMAT_ARB(name) BOOL WINAPI name(HDC hdc, const int *piAttribIList, const FLOAT *pfAttribFList, UINT nMaxFormats, int *piFormats, UINT *nNumFormats)
-typedef WGL_CHOOSE_PIXEL_FORMAT_ARB(WGL_ChoosePixelFormatARB);
-GLOBAL WGL_ChoosePixelFormatARB *wglChoosePixelFormatARB;
-
-// Extension function for creating OpenGL context with attributes
-#define WGL_CREATE_CONTEXT_ATTRIBS_ARB(name) HGLRC WINAPI name(HDC hdc, HGLRC hShareContext, int const *attribList)
-typedef WGL_CREATE_CONTEXT_ATTRIBS_ARB(WGL_CreateContextAttribsARB);
-GLOBAL WGL_CreateContextAttribsARB *wglCreateContextAttribsARB;
-
-// Extension function that sets swap interval
-#define WGL_SWAP_INTERVAL_EXT(name) BOOL name(int interval)
-typedef WGL_SWAP_INTERVAL_EXT(WGL_SwapInterval);
-GLOBAL WGL_SwapInterval *wglSwapIntervalEXT;
-
-// Extension function that gets swap interval
-#define WGL_GET_SWAP_INTERVAL_EXT(name) int name(void)
-typedef WGL_GET_SWAP_INTERVAL_EXT(WGL_GetSwapInterval);
-GLOBAL WGL_GetSwapInterval *wglGetSwapIntervalEXT;
+GLOBAL glGenFramebuffersType *glGenFramebuffers;
+GLOBAL glBindFramebufferType *glBindFramebuffer;
+GLOBAL glFramebufferTexture2DType *glFramebufferTexture2D;
+GLOBAL glBlitFramebufferType *glBlitFramebuffer;
+GLOBAL glClearBufferivType *glClearBufferiv;
+GLOBAL glGenBuffersType *glGenBuffers;
+GLOBAL glBindBufferType *glBindBuffer;
+GLOBAL glBufferDataType *glBufferData;
+GLOBAL glGenVertexArraysType *glGenVertexArrays;
+GLOBAL glBindVertexArrayType *glBindVertexArray;
+GLOBAL glVertexAttribPointerType *glVertexAttribPointer;
+GLOBAL glEnableVertexAttribArrayType *glEnableVertexAttribArray;
+GLOBAL glCreateShaderType *glCreateShader;
+GLOBAL glShaderSourceType *glShaderSource;
+GLOBAL glCompileShaderType *glCompileShader;
+GLOBAL glCreateProgramType *glCreateProgram;
+GLOBAL glAttachShaderType *glAttachShader;
+GLOBAL glDetachShaderType *glDetachShader;
+GLOBAL glLinkProgramType *glLinkProgram;
+GLOBAL glUseProgramType *glUseProgram;
+GLOBAL glGetShaderivType *glGetShaderiv;
+GLOBAL glGetShaderInfoLogType *glGetShaderInfoLog;
+GLOBAL glDeleteShaderType *glDeleteShader;
+GLOBAL glValidateProgramType *glValidateProgram;
+GLOBAL glGetProgramivType *glGetProgramiv;
+GLOBAL glGetUniformLocationType *glGetUniformLocation;
+GLOBAL glUniformMatrix4fvType *glUniformMatrix4fv;
+GLOBAL glTexImage2DMultisampleType *glTexImage2DMultisample;
+GLOBAL wglGetExtensionsStringARBType *wglGetExtensionsStringARB;
+GLOBAL wglChoosePixelFormatARBType *wglChoosePixelFormatARB;
+GLOBAL wglCreateContextAttribsARBType *wglCreateContextAttribsARB;
+GLOBAL wglSwapIntervalEXTType *wglSwapIntervalEXT;
+GLOBAL wglGetSwapIntervalEXTType *wglGetSwapIntervalEXT;
 
 
 void InitializeOpenGLFunctions()
 {
-    glGenFramebuffers = (OpenGL_GenFrameffers *) wglGetProcAddress("glGenFramebuffers");
-    glBindFramebuffer = (OpenGL_BindFramebuffer *) wglGetProcAddress("glBindFramebuffer");
-    glFramebufferTexture2D = (OpenGL_FramebufferTexture2D *) wglGetProcAddress("glFramebufferTexture2D");
-    glBlitFramebuffer = (OpenGL_BlitFramebuffer *) wglGetProcAddress("glBlitFramebuffer");
-
-    glClearBufferiv = (OpenGL_ClearBufferiv *) wglGetProcAddress("glClearBufferiv");
-    glGenBuffers = (OpenGL_GenBuffers *) wglGetProcAddress("glGenBuffers");
-    glBindBuffer = (OpenGL_BindBuffer *) wglGetProcAddress("glBindBuffer");
-    glBufferData = (OpenGL_BufferData *) wglGetProcAddress("glBufferData");
-    glGenVertexArrays = (OpenGL_GenVertexArray *) wglGetProcAddress("glGenVertexArrays");
-    glBindVertexArray = (OpenGL_BindVertexArray *) wglGetProcAddress("glBindVertexArray");
-    glVertexAttribPointer = (OpenGL_VertexAttribPointer *) wglGetProcAddress("glVertexAttribPointer");
-    glEnableVertexAttribArray = (OpenGL_EnableVertexAttribArray *) wglGetProcAddress("glEnableVertexAttribArray");
-    glCreateShader = (OpenGL_CreateShader *) wglGetProcAddress("glCreateShader");
-    glShaderSource = (OpenGL_ShaderSource *) wglGetProcAddress("glShaderSource");
-    glCompileShader = (OpenGL_CompileShader *) wglGetProcAddress("glCompileShader");
-    glCreateProgram = (OpenGL_CreateProgram *) wglGetProcAddress("glCreateProgram");
-    glAttachShader = (OpenGL_AttachShader *) wglGetProcAddress("glAttachShader");
-    glDetachShader = (OpenGL_DetachShader *) wglGetProcAddress("glDetachShader");
-    glLinkProgram = (OpenGL_LinkProgram *) wglGetProcAddress("glLinkProgram");
-    glUseProgram = (OpenGL_UseProgram *) wglGetProcAddress("glUseProgram");
-    glGetShaderiv = (OpenGL_GetShaderiv *) wglGetProcAddress("glGetShaderiv");
-    glGetShaderInfoLog = (OpenGL_GetShaderInfoLog *) wglGetProcAddress("glGetShaderInfoLog");
-    glDeleteShader = (OpenGL_DeleteShader *) wglGetProcAddress("glDeleteShader");
-    glValidateProgram = (OpenGL_ValidateProgram *) wglGetProcAddress("glValidateProgram");
-    glGetProgramiv = (OpenGL_GetProgramiv *) wglGetProcAddress("glGetProgramiv");
-
-    glGetUniformLocation = (OpenGL_GetUniformLocation *) wglGetProcAddress("glGetUniformLocation");
-    glUniformMatrix4fv = (OpenGL_UniformMatrix4 *) wglGetProcAddress("glUniformMatrix4fv");
-
-    glTexImage2DMultisample = (OpenGL_TexImage2DMultisample *) wglGetProcAddress("glTexImage2DMultisample");
+    glGenFramebuffers = (glGenFramebuffersType *) wglGetProcAddress("glGenFramebuffers");
+    glBindFramebuffer = (glBindFramebufferType *) wglGetProcAddress("glBindFramebuffer");
+    glFramebufferTexture2D = (glFramebufferTexture2DType *) wglGetProcAddress("glFramebufferTexture2D");
+    glBlitFramebuffer = (glBlitFramebufferType *) wglGetProcAddress("glBlitFramebuffer");
+    glClearBufferiv = (glClearBufferivType *) wglGetProcAddress("glClearBufferiv");
+    glGenBuffers = (glGenBuffersType *) wglGetProcAddress("glGenBuffers");
+    glBindBuffer = (glBindBufferType *) wglGetProcAddress("glBindBuffer");
+    glBufferData = (glBufferDataType *) wglGetProcAddress("glBufferData");
+    glGenVertexArrays = (glGenVertexArraysType *) wglGetProcAddress("glGenVertexArrays");
+    glBindVertexArray = (glBindVertexArrayType *) wglGetProcAddress("glBindVertexArray");
+    glVertexAttribPointer = (glVertexAttribPointerType *) wglGetProcAddress("glVertexAttribPointer");
+    glEnableVertexAttribArray = (glEnableVertexAttribArrayType *) wglGetProcAddress("glEnableVertexAttribArray");
+    glCreateShader = (glCreateShaderType *) wglGetProcAddress("glCreateShader");
+    glShaderSource = (glShaderSourceType *) wglGetProcAddress("glShaderSource");
+    glCompileShader = (glCompileShaderType *) wglGetProcAddress("glCompileShader");
+    glCreateProgram = (glCreateProgramType *) wglGetProcAddress("glCreateProgram");
+    glAttachShader = (glAttachShaderType *) wglGetProcAddress("glAttachShader");
+    glDetachShader = (glDetachShaderType *) wglGetProcAddress("glDetachShader");
+    glLinkProgram = (glLinkProgramType *) wglGetProcAddress("glLinkProgram");
+    glUseProgram = (glUseProgramType *) wglGetProcAddress("glUseProgram");
+    glGetShaderiv = (glGetShaderivType *) wglGetProcAddress("glGetShaderiv");
+    glGetShaderInfoLog = (glGetShaderInfoLogType *) wglGetProcAddress("glGetShaderInfoLog");
+    glDeleteShader = (glDeleteShaderType *) wglGetProcAddress("glDeleteShader");
+    glValidateProgram = (glValidateProgramType *) wglGetProcAddress("glValidateProgram");
+    glGetProgramiv = (glGetProgramivType *) wglGetProcAddress("glGetProgramiv");
+    glGetUniformLocation = (glGetUniformLocationType *) wglGetProcAddress("glGetUniformLocation");
+    glUniformMatrix4fv = (glUniformMatrix4fvType *) wglGetProcAddress("glUniformMatrix4fv");
+    glTexImage2DMultisample = (glTexImage2DMultisampleType *) wglGetProcAddress("glTexImage2DMultisample");
 }
 
 
@@ -806,12 +698,12 @@ int WINAPI WinMain(
             TempRenderContext = wglCreateContext(DeviceContext);
             if (wglMakeCurrent(DeviceContext, TempRenderContext))
             {
-                wglGetExtensionsStringARB = (WGL_GetExtensionsStringARB *) wglGetProcAddress("wglGetExtensionsStringARB");
-                wglChoosePixelFormatARB = (WGL_ChoosePixelFormatARB *) wglGetProcAddress("wglChoosePixelFormatARB");
-                wglCreateContextAttribsARB = (WGL_CreateContextAttribsARB *) wglGetProcAddress("wglCreateContextAttribsARB");
+                wglGetExtensionsStringARB = (wglGetExtensionsStringARBType *) wglGetProcAddress("wglGetExtensionsStringARB");
+                wglChoosePixelFormatARB = (wglChoosePixelFormatARBType *) wglGetProcAddress("wglChoosePixelFormatARB");
+                wglCreateContextAttribsARB = (wglCreateContextAttribsARBType *) wglGetProcAddress("wglCreateContextAttribsARB");
                 // @todo Check if 'WGL_EXT_swap_control' extension is available
-                wglSwapIntervalEXT = (WGL_SwapInterval *) wglGetProcAddress("wglSwapIntervalEXT");
-                wglGetSwapIntervalEXT = (WGL_GetSwapInterval *) wglGetProcAddress("wglGetSwapIntervalEXT");
+                wglSwapIntervalEXT = (wglSwapIntervalEXTType *) wglGetProcAddress("wglSwapIntervalEXT");
+                wglGetSwapIntervalEXT = (wglGetSwapIntervalEXTType *) wglGetProcAddress("wglGetSwapIntervalEXT");
 
                 wglMakeCurrent(NULL, NULL);
                 wglDeleteContext(TempRenderContext);
@@ -887,9 +779,9 @@ int WINAPI WinMain(
     InitializeOpenGLFunctions();
 
     {
-        osOutputDebugString("%s\n", glGetString(GL_VENDOR));
-        osOutputDebugString("%s\n", glGetString(GL_RENDERER));
-        osOutputDebugString("%s\n", glGetString(GL_VERSION));
+        osOutputDebugString("Vendor:     %s\n", glGetString(GL_VENDOR));
+        osOutputDebugString("Renderer:   %s\n", glGetString(GL_RENDERER));
+        osOutputDebugString("GL Version: %s\n", glGetString(GL_VERSION));
 
         int32 GL_MajorVersion, GL_MinorVersion;
         glGetIntegerv(GL_MAJOR_VERSION, &GL_MajorVersion);
@@ -907,11 +799,10 @@ int WINAPI WinMain(
     // glEnable(GL_CULL_FACE);
     // glCullFace(GL_BACK);
 
-    RenderTarget framebuffer = make_render_target(CurrentClientWidth, CurrentClientHeight, 16);
+    int32 num_samples = 16;
+    RenderTarget framebuffer = make_render_target(CurrentClientWidth, CurrentClientHeight, num_samples);
 
-    int32 NumberOfSamples;
-    glGetIntegerv(GL_SAMPLES, &NumberOfSamples);
-    osOutputDebugString("Number of samples: %d\n", NumberOfSamples);
+    osOutputDebugString("Number of samples: %d\n", num_samples);
 
     struct Vertex
     {
