@@ -234,6 +234,8 @@ struct string_view
 
     bool is_empty() const { return (size == 0); }
     bool is_valid() const { return (data != 0) && (size != 0); }
+
+    char operator[] (int32 index);
 };
 
 bool operator == (string_view left, string_view right)
@@ -309,7 +311,7 @@ template <typename Allocator>
 string string::copy_from(Allocator *allocator, char const *s)
 {
     string result;
-    result.size = cstring::size_no0(s);
+    result.size = cstring::size_with0(s);
     result.data = ALLOCATE_BUFFER_(allocator, char, result.size);
     memory::copy(result.data, s, result.size);
 
@@ -331,9 +333,10 @@ template <typename Allocator>
 string string::copy_from(Allocator *allocator, string_view s)
 {
     string result;
-    result.size = s.size;
+    result.size = s.size + 1; // +1 for null terminator
     result.data = ALLOCATE_BUFFER_(allocator, char, result.size);
     memory::copy(result.data, s.data, result.size);
+    result.data[result.size - 1] = 0; // null terminator
 
     return result;
 }
@@ -362,6 +365,16 @@ string_view::string_view(string_id const& s)
 {
     // @todo
     NOT_IMPLEMENTED();
+}
+
+char string_view::operator [] (int32 index)
+{
+    char c = 0;
+    if (index < size)
+    {
+        c = data[index];
+    }
+    return c;
 }
 
 // ============================================================
