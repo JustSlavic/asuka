@@ -336,8 +336,8 @@ matrix4 make_projection_matrix(float32 w, float32 h, float32 n, float32 f)
     result._11 = 2.0f * n / w;
     result._22 = 2.0f * n / h;
     result._33 = -(f + n) / (f - n);
-    result._34 = -2.0f * f * n / (f - n);
-    result._43 = -1.0f;
+    result._34 = -1.0f;
+    result._43 = -2.0f * f * n / (f - n);
 
     return result;
 }
@@ -360,8 +360,8 @@ matrix4 make_projection_matrix_fov(float32 fov, float32 aspect_ratio, float32 n,
     result._11 = tf2;
     result._22 = tf2 * aspect_ratio;
     result._33 = -(f + n) / (f - n);
-    result._34 = -2.0f * f * n / (f - n);
-    result._43 = -1.0f;
+    result._34 = -1.0f;
+    result._43 = -2.0f * f * n / (f - n);
 
     return result;
 }
@@ -373,7 +373,7 @@ matrix4 make_orthographic_matrix(float32 w, float32 h, float32 n, float32 f)
     result._11 = 2.0f / w;
     result._22 = 2.0f / h;
     result._33 = -2.0f / (f - n);
-    result._34 = -(f + n) / (f - n);
+    result._43 = -(f + n) / (f - n);
     result._44 = 1.0f;
 
     return result;
@@ -386,7 +386,7 @@ matrix4 make_orthographic_matrix(float32 aspect_ratio, float32 n, float32 f)
     result._11 = 1.0f;
     result._22 = 1.0f * aspect_ratio;
     result._33 = -2.0f / (f - n);
-    result._34 = -(f + n) / (f - n);
+    result._43 = -(f + n) / (f - n);
     result._44 = 1.0f;
 
     return result;
@@ -523,43 +523,43 @@ i32 Height(RECT Rect)
 }
 
 
-struct ViewportSize
+struct Viewport
 {
-    uint32 OffsetX;
-    uint32 OffsetY;
-    uint32 Width;
-    uint32 Height;
+    uint32 offset_x;
+    uint32 offset_y;
+    uint32 width;
+    uint32 height;
 };
 
 
-ViewportSize GetViewportSize(uint32 ClientWidth, uint32 ClientHeight, float32 DesiredAspectRatio)
+Viewport get_viewport_size(uint32 width, uint32 height, float32 desired_aspect_ratio)
 {
-    ViewportSize Viewport;
+    Viewport result;
 
-    float32 AspectRatio = f32(ClientWidth) / f32(ClientHeight);
-    if (AspectRatio < DesiredAspectRatio)
+    float32 aspect_ratio = f32(width) / f32(height);
+    if (aspect_ratio < desired_aspect_ratio)
     {
-        Viewport.Width   = ClientWidth;
-        Viewport.Height  = uint32(Viewport.Width / DesiredAspectRatio);
-        Viewport.OffsetX = 0;
-        Viewport.OffsetY = (ClientHeight - Viewport.Height) / 2;
+        result.width    = width;
+        result.height   = uint32(result.width / desired_aspect_ratio);
+        result.offset_x = 0;
+        result.offset_y = (height - result.height) / 2;
     }
-    else if (AspectRatio > DesiredAspectRatio)
+    else if (aspect_ratio > desired_aspect_ratio)
     {
-        Viewport.Height  = CurrentClientHeight;
-        Viewport.Width   = uint32(Viewport.Height * DesiredAspectRatio);
-        Viewport.OffsetX = (ClientWidth - Viewport.Width) / 2;
-        Viewport.OffsetY = 0;
+        result.height   = CurrentClientHeight;
+        result.width    = uint32(result.height * desired_aspect_ratio);
+        result.offset_x = (width - result.width) / 2;
+        result.offset_y = 0;
     }
     else
     {
-        Viewport.Width   = ClientWidth;
-        Viewport.Height  = ClientHeight;
-        Viewport.OffsetX = 0;
-        Viewport.OffsetY = 0;
+        result.width    = width;
+        result.height   = height;
+        result.offset_x = 0;
+        result.offset_y = 0;
     }
 
-    return Viewport;
+    return result;
 }
 
 
@@ -579,6 +579,157 @@ Camera make_camera_at(vector3 position)
     result.forward = { 0, 0, -1 };
     result.up = { 0, 1, 0 };
     result.right = { 1, 0, 0 };
+    return result;
+}
+
+
+struct RenderTarget
+{
+    uint32 id;
+    uint32 backbuffer_texture;
+    uint32 depth_stencil_texture;
+
+    uint32 width;
+    uint32 height;
+    int32  num_samples;
+};
+
+
+RenderTarget make_render_target(uint32 width, uint32 height, int32 num_samples = 1)
+{
+    uint32 textures[2] = {};
+    glGenTextures(2, textures);
+
+    uint32 framebuffer = 0;
+    glGenFramebuffers(1, &framebuffer);
+
+    if (num_samples > 1)
+    {
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textures[0]);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, num_samples, GL_RGBA8, width, height, false);
+        GL_CHECK_ERRORS();
+
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textures[1]);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, num_samples, GL_DEPTH24_STENCIL8, width, height, false);
+        GL_CHECK_ERRORS();
+
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textures[0], 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D_MULTISAMPLE, textures[1], 0);
+        GL_CHECK_ERRORS();
+    }
+    else if (num_samples == 1)
+    {
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_INT, NULL);
+        GL_CHECK_ERRORS();
+
+        glBindTexture(GL_TEXTURE_2D, textures[1]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+        GL_CHECK_ERRORS();
+
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[0], 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, textures[1], 0);
+        GL_CHECK_ERRORS();
+    }
+    else
+    {
+        INVALID_CODE_PATH();
+    }
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glDrawBuffer(GL_BACK);
+    GL_CHECK_ERRORS();
+
+    RenderTarget result = {};
+    result.id = framebuffer;
+    result.backbuffer_texture = textures[0];
+    result.depth_stencil_texture = textures[1];
+    result.width = width;
+    result.height = height;
+    result.num_samples = num_samples;
+
+    return result;
+}
+
+
+void bind_render_target(RenderTarget *rt)
+{
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rt->id);
+}
+
+
+void blit_render_target(RenderTarget *rt)
+{
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, rt->id);
+
+    glDrawBuffer(GL_BACK);
+    glBlitFramebuffer(0, 0, rt->width, rt->height, 0, 0, rt->width, rt->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    GL_CHECK_ERRORS();
+}
+
+
+void resize_render_target(RenderTarget *fbo, uint32 width, uint32 height)
+{
+    if (fbo->num_samples > 1)
+    {
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, fbo->backbuffer_texture);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, fbo->num_samples, GL_RGBA8, width, height, false);
+        GL_CHECK_ERRORS();
+
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, fbo->depth_stencil_texture);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, fbo->num_samples, GL_DEPTH24_STENCIL8, width, height, false);
+        GL_CHECK_ERRORS();
+    }
+    else
+    {
+        glBindTexture(GL_TEXTURE_2D, fbo->backbuffer_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_INT, NULL);
+        GL_CHECK_ERRORS();
+
+        glBindTexture(GL_TEXTURE_2D, fbo->depth_stencil_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+        GL_CHECK_ERRORS();
+    }
+
+    fbo->width  = width;
+    fbo->height = height;
+}
+
+
+struct Shader
+{
+    uint32 id;
+    uint32 vertex_shader;
+    uint32 fragment_shader;
+};
+
+
+Shader link_shader(uint32 vs, uint32 fs)
+{
+    auto id = glCreateProgram();
+    glAttachShader(id, vs);
+    glAttachShader(id, fs);
+    glLinkProgram(id);
+    glDetachShader(id, vs);
+    glDetachShader(id, fs);
+
+    GL_CHECK_ERRORS();
+
+    Shader result = {};
+    if (is_shader_program_valid(id))
+    {
+        result.id = id;
+        result.vertex_shader = vs;
+        result.fragment_shader = fs;
+    }
+    else
+    {
+        // @todo: process error
+    }
+
     return result;
 }
 
@@ -756,53 +907,7 @@ int WINAPI WinMain(
     // glEnable(GL_CULL_FACE);
     // glCullFace(GL_BACK);
 
-    uint32 framebuffer = 0;
-    {
-        uint32 framebuffer_color_texture;
-        glGenTextures(1, &framebuffer_color_texture);
-
-#define USE_MSAAx4 1
-#if USE_MSAAx4
-        int32 num_samples = 4;
-        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebuffer_color_texture);
-        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, num_samples, GL_RGBA8, CurrentClientWidth, CurrentClientHeight, false);
-#else
-        glBindTexture(GL_TEXTURE_2D, framebuffer_color_texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, CurrentClientWidth, CurrentClientHeight, 0, GL_RGBA, GL_UNSIGNED_INT, NULL);
-#endif
-
-        GL_CHECK_ERRORS();
-
-        uint32 framebuffer_depthstencil_texture;
-        glGenTextures(1, &framebuffer_depthstencil_texture);
-
-#if USE_MSAAx4
-        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebuffer_depthstencil_texture);
-        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, num_samples, GL_DEPTH24_STENCIL8, CurrentClientWidth, CurrentClientHeight, false);
-#else
-        glBindTexture(GL_TEXTURE_2D, framebuffer_depthstencil_texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, CurrentClientWidth, CurrentClientHeight, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-#endif
-
-        GL_CHECK_ERRORS();
-
-        glGenFramebuffers(1, &framebuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-#if USE_MSAAx4
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebuffer_color_texture, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D_MULTISAMPLE, framebuffer_depthstencil_texture, 0);
-#else
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer_color_texture, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, framebuffer_depthstencil_texture, 0);
-#endif
-
-        GL_CHECK_ERRORS();
-
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-        glDrawBuffer(GL_BACK);
-
-        GL_CHECK_ERRORS();
-    }
+    RenderTarget framebuffer = make_render_target(CurrentClientWidth, CurrentClientHeight, 16);
 
     int32 NumberOfSamples;
     glGetIntegerv(GL_SAMPLES, &NumberOfSamples);
@@ -1050,7 +1155,7 @@ int WINAPI WinMain(
         }
     }
 
-    char const *vertex_shader = R"GLSL(
+    char const *vs_source = R"GLSL(
 #version 400
 
 layout (location = 0) in vec3 vertex_position;
@@ -1072,7 +1177,7 @@ void main()
 
 )GLSL";
 
-    char const *textured_uv_vs = R"GLSL(
+    char const *cube_vs_source = R"GLSL(
 #version 400
 
 layout (location = 0) in vec3 vertex_position;
@@ -1095,7 +1200,7 @@ void main()
 
 )GLSL";
 
-    char const *fragment_shader = R"GLSL(
+    char const *fs_source = R"GLSL(
 #version 400
 
 // in vec4 fragment_position;
@@ -1110,46 +1215,16 @@ void main()
 
 )GLSL";
 
-    auto vertex_shader_id = compile_shader(vertex_shader, GL_VERTEX_SHADER);
-    auto fragment_shader_id = compile_shader(fragment_shader, GL_FRAGMENT_SHADER);
+    auto plane_vs = compile_shader(vs_source, GL_VERTEX_SHADER);
+    auto cube_vs = compile_shader(cube_vs_source, GL_VERTEX_SHADER);
+    auto fs = compile_shader(fs_source, GL_FRAGMENT_SHADER);
 
-    auto shader_program_id = glCreateProgram();
-    glAttachShader(shader_program_id, fragment_shader_id);
-    glAttachShader(shader_program_id, vertex_shader_id);
-    glLinkProgram(shader_program_id);
+    auto plane_shader = link_shader(plane_vs, fs);
+    auto cube_shader = link_shader(cube_vs, fs);
 
-    glDetachShader(shader_program_id, fragment_shader_id);
-    glDetachShader(shader_program_id, vertex_shader_id);
-    glDeleteShader(vertex_shader_id);
-
-    if (!is_shader_program_valid(shader_program_id))
-    {
-        return 1;
-    }
-
-    auto tex_vs_id = compile_shader(textured_uv_vs, GL_VERTEX_SHADER);
-    auto tex_uv_shader_program = glCreateProgram();
-    glAttachShader(tex_uv_shader_program, tex_vs_id);
-    glAttachShader(tex_uv_shader_program, fragment_shader_id);
-    glLinkProgram(tex_uv_shader_program);
-
-    auto err = glGetError();
-    if (err)
-    {
-        osOutputDebugString("%s\n", gl_error_string(err));
-    }
-
-
-    glDetachShader(tex_uv_shader_program, tex_vs_id);
-    glDetachShader(tex_uv_shader_program, fragment_shader_id);
-
-    glDeleteShader(tex_vs_id);
-    glDeleteShader(fragment_shader_id);
-
-    if (!is_shader_program_valid(tex_uv_shader_program))
-    {
-        return 1;
-    }
+    glDeleteShader(plane_vs);
+    glDeleteShader(cube_vs);
+    glDeleteShader(fs);
 
     float32 DesiredAspectRatio = 16.0f / 9.0f;
 
@@ -1166,6 +1241,10 @@ void main()
     float32 dtFromLastFrame = 0.0f;
 
     auto projection = perspective;
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+    Viewport viewport = {};
 
     while (Running)
     {
@@ -1192,28 +1271,24 @@ void main()
 
         if (ViewportNeedsResize)
         {
-            ViewportSize Viewport = GetViewportSize(CurrentClientWidth, CurrentClientHeight, DesiredAspectRatio);
-            glViewport(Viewport.OffsetX, Viewport.OffsetY, Viewport.Width, Viewport.Height);
+            resize_render_target(&framebuffer, CurrentClientWidth, CurrentClientHeight);
+
+            viewport = get_viewport_size(CurrentClientWidth, CurrentClientHeight, DesiredAspectRatio);
+            glViewport(viewport.offset_x, viewport.offset_y, viewport.width, viewport.height);
 
             ViewportNeedsResize = false;
         }
 
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer.id);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
-        if (1)
-        {
-            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
-            glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
-        }
+        glUseProgram(plane_shader.id);
 
-        glUseProgram(shader_program_id);
+        int32 u_view_location = glGetUniformLocation(plane_shader.id, "u_view");
+        glUniformMatrix4fv(u_view_location, 1, GL_FALSE, matrix4::identity.get_data());
 
-        int32 u_view_location = glGetUniformLocation(shader_program_id, "u_view");
-        glUniformMatrix4fv(u_view_location, 1, GL_TRUE, matrix4::identity.get_data());
-
-        int32 u_projection_location = glGetUniformLocation(shader_program_id, "u_projection");
-        glUniformMatrix4fv(u_projection_location, 1, GL_TRUE, matrix4::identity.get_data());
+        int32 u_projection_location = glGetUniformLocation(plane_shader.id, "u_projection");
+        glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, matrix4::identity.get_data());
 
 #if 0
         glBindVertexArray(vertex_array_id);
@@ -1239,31 +1314,25 @@ void main()
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
-        glUniformMatrix4fv(u_view_location, 1, GL_TRUE, view.get_data());
-        glUniformMatrix4fv(u_projection_location, 1, GL_TRUE, projection.get_data());
+        glUniformMatrix4fv(u_view_location, 1, GL_FALSE, view.get_data());
+        glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, projection.get_data());
 
         glBindVertexArray(vertex_array_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
         glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
 
-        glUseProgram(tex_uv_shader_program);
-        u_view_location = glGetUniformLocation(shader_program_id, "u_view");
-        glUniformMatrix4fv(u_view_location, 1, GL_TRUE, view.get_data());
-        u_projection_location = glGetUniformLocation(shader_program_id, "u_projection");
-        glUniformMatrix4fv(u_projection_location, 1, GL_TRUE, projection.get_data());
+        glUseProgram(cube_shader.id);
+
+        u_view_location = glGetUniformLocation(cube_shader.id, "u_view");
+        glUniformMatrix4fv(u_view_location, 1, GL_FALSE, view.get_data());
+        u_projection_location = glGetUniformLocation(cube_shader.id, "u_projection");
+        glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, projection.get_data());
 
         glBindVertexArray(cube_vertex_array_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
         glDrawElements(GL_TRIANGLES, ARRAY_COUNT(cube_indices), GL_UNSIGNED_INT, NULL);
 
-        if (1)
-        {
-            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
-
-            glDrawBuffer(GL_BACK);
-            glBlitFramebuffer(0, 0, CurrentClientWidth, CurrentClientHeight, 0, 0, CurrentClientWidth, CurrentClientHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        }
+        blit_render_target(&framebuffer);
 
         SwapBuffers(DeviceContext);
 

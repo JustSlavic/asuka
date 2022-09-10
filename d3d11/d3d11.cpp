@@ -27,19 +27,6 @@ GLOBAL UINT CurrentClientWidth;
 GLOBAL UINT CurrentClientHeight;
 GLOBAL BOOL ViewportNeedsResize;
 
-GLOBAL ID3D11Device *D3D11_Device;
-GLOBAL ID3D11DeviceContext *D3D11_DeviceContext;
-GLOBAL IDXGISwapChain *D3D11_SwapChain;
-
-GLOBAL ID3D11RenderTargetView *D3D11_BackBufferView;
-GLOBAL ID3D11DepthStencilView *D3D11_DepthStencilView;
-
-GLOBAL ID3D11RasterizerState* D3D11_RasterizerState;
-GLOBAL ID3D11RasterizerState* D3D11_WireframeRasterizerState;
-
-GLOBAL ID3D11DepthStencilState *D3D11_DepthStencilState;
-GLOBAL ID3D11DepthStencilState *D3D11_DisabledDepthStencilState;
-
 
 char const *get_d3d11_error_string(HRESULT ec)
 {
@@ -219,8 +206,8 @@ matrix4 MakeProjectionMatrix(float32 w, float32 h, float32 n, float32 f)
     Result._11 = 2.0f * n / w;
     Result._22 = 2.0f * n / h;
     Result._33 = -f / (f - n);
-    Result._34 = -f*n / (f - n);
-    Result._43 = -1.0f;
+    Result._34 = -1.0f;
+    Result._43 = -f*n / (f - n);
 
     return Result;
 }
@@ -244,8 +231,8 @@ matrix4 MakeProjectionMatrixFov(float32 fov, float32 aspect_ratio, float32 n, fl
     result._11 = tf2;
     result._22 = tf2 * aspect_ratio;
     result._33 = -f / (f - n);
-    result._34 = -f*n / (f - n);
-    result._43 = -1.0f;
+    result._34 = -1.0f;
+    result._43 = -f*n / (f - n);
 
     return result;
 }
@@ -258,7 +245,7 @@ matrix4 MakeOrthographicMatrix(float32 w, float32 h, float32 n, float32 f)
     result._11 = 2.0f / w;
     result._22 = 2.0f / h;
     result._33 = -1.0f / (f - n);
-    result._34 = -n / (f - n);
+    result._43 = -n / (f - n);
     result._44 = 1.0f;
 
     return result;
@@ -271,11 +258,19 @@ matrix4 MakeOrthographicMatrix(float32 aspect_ratio, float32 n, float32 f)
     result._11 = 1.0f;
     result._22 = 1.0f * aspect_ratio;
     result._33 = -1.0f / (f - n);
-    result._34 = -n / (f - n);
+    result._43 = -n / (f - n);
     result._44 = 1.0f;
 
     return result;
 }
+
+
+struct Dx11
+{
+    ID3D11Device *Device;
+    ID3D11DeviceContext *DeviceContext;
+    IDXGISwapChain *SwapChain;
+};
 
 
 struct ViewportSize
@@ -338,12 +333,118 @@ Camera make_camera_at(vector3 position)
 }
 
 
+struct RenderTarget
+{
+    ID3D11RenderTargetView *backbuffer;
+    ID3D11DepthStencilView *depth_stencil;
+
+    uint32 width;
+    uint32 height;
+    int32  num_samples;
+};
+
+
+RenderTarget MakeRenderTarget(Dx11 *Driver, uint32 width, uint32 height, int32 num_samples)
+{
+    RenderTarget result = {};
+
+    ID3D11Texture2D *BackBufferTexture = NULL;
+    HRESULT GetBufferResult = Driver->SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&BackBufferTexture);
+    if (SUCCEEDED(GetBufferResult))
+    {
+        ID3D11RenderTargetView *BackBufferView = NULL;
+        HRESULT CreateRenderTargetViewResult = Driver->Device->CreateRenderTargetView(BackBufferTexture, NULL, &BackBufferView);
+        if (SUCCEEDED(CreateRenderTargetViewResult))
+        {
+            D3D11_TEXTURE2D_DESC DepthStencilTextureDescription = {};
+            BackBufferTexture->GetDesc(&DepthStencilTextureDescription);
+
+            DepthStencilTextureDescription.Format    = DXGI_FORMAT_D24_UNORM_S8_UINT;
+            DepthStencilTextureDescription.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+            ID3D11Texture2D *DepthStencilTexture;
+            HRESULT DepthStencilCreationResult = Driver->Device->CreateTexture2D(&DepthStencilTextureDescription, NULL, &DepthStencilTexture);
+            if (SUCCEEDED(DepthStencilCreationResult))
+            {
+                ID3D11DepthStencilView *DepthStencilView = NULL;
+                HRESULT DepthStencilViewCreationResult = Driver->Device->CreateDepthStencilView(DepthStencilTexture, NULL, &DepthStencilView);
+                if (SUCCEEDED(DepthStencilViewCreationResult))
+                {
+                    // Ok.
+                    result.backbuffer = BackBufferView;
+                    result.depth_stencil = DepthStencilView;
+                    result.width = width;
+                    result.height = height;
+                    result.num_samples = num_samples;
+                }
+                else
+                {
+                    MessageBoxA(0, "Failed to create Depth Stencil View", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+                    RELEASE_COM(BackBufferView);
+                }
+
+                RELEASE_COM(DepthStencilTexture);
+            }
+            else
+            {
+                MessageBoxA(0, "Failed to create DepthStencil texture.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+                RELEASE_COM(BackBufferView);
+            }
+        }
+        else
+        {
+            MessageBoxA(0, "Failed to create RenderTargetView.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+        }
+
+        RELEASE_COM(BackBufferTexture);
+    }
+    else
+    {
+        MessageBoxA(0, "Failed to get BackBuffer texture.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+    }
+
+    return result;
+}
+
+
+void BindRenderTarget(Dx11 *Driver, RenderTarget *rt)
+{
+    Driver->DeviceContext->OMSetRenderTargets(1, &rt->backbuffer, rt->depth_stencil);
+}
+
+
+void ResizeRenderTarget(Dx11 *Driver, RenderTarget *rt, uint32 width, uint32 height)
+{
+    Driver->DeviceContext->OMSetRenderTargets(0, NULL, NULL);
+    RELEASE_COM(rt->backbuffer);
+    RELEASE_COM(rt->depth_stencil);
+
+    HRESULT ResizeBuffersResult = Driver->SwapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+    if (SUCCEEDED(ResizeBuffersResult))
+    {
+        *rt = MakeRenderTarget(Driver, width, height, 4);
+    }
+    else
+    {
+        MessageBoxA(0, "Failed to resize buffers.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+    }
+}
+
+
 int WINAPI WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
     LPSTR CmdLine,
     int CmdShow)
 {
+    Dx11 Dx = {};
+
+    ID3D11RasterizerState* D3D11_RasterizerState = NULL;
+    ID3D11RasterizerState* D3D11_WireframeRasterizerState = NULL;
+
+    ID3D11DepthStencilState *D3D11_DepthStencilState = NULL;
+    ID3D11DepthStencilState *D3D11_DisabledDepthStencilState = NULL;
+
     int32 PrimaryMonitorWidth  = GetSystemMetrics(SM_CXSCREEN);
     int32 PrimaryMonitorHeight = GetSystemMetrics(SM_CYSCREEN);
 
@@ -423,10 +524,10 @@ int WINAPI WinMain(
         NULL, // FeatureLevelCount,
         D3D11_SDK_VERSION, // SDKVersion
         &SwapChainDescription,
-        &D3D11_SwapChain,
-        &D3D11_Device,
+        &Dx.SwapChain,
+        &Dx.Device,
         NULL, // FeatureLevel
-        &D3D11_DeviceContext)))
+        &Dx.DeviceContext)))
     {
         MessageBeep(MB_ICONERROR);
         MessageBoxA(0, "Could not create Direct3D 11 device and swap chain.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
@@ -442,16 +543,16 @@ int WINAPI WinMain(
         RasterizerDescription.DepthClipEnable = TRUE;
         RasterizerDescription.MultisampleEnable = FALSE;
 
-        HRESULT CreateRasterizerStateResult = D3D11_Device->CreateRasterizerState(&RasterizerDescription, &D3D11_RasterizerState);
+        HRESULT CreateRasterizerStateResult = Dx.Device->CreateRasterizerState(&RasterizerDescription, &D3D11_RasterizerState);
         if (SUCCEEDED(CreateRasterizerStateResult))
         {
-            D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
+            Dx.DeviceContext->RSSetState(D3D11_RasterizerState);
         }
 
 
         RasterizerDescription.FillMode = D3D11_FILL_WIREFRAME;
 
-        HRESULT CreateWireframeRasterizerStateResult = D3D11_Device->CreateRasterizerState(&RasterizerDescription, &D3D11_WireframeRasterizerState);
+        HRESULT CreateWireframeRasterizerStateResult = Dx.Device->CreateRasterizerState(&RasterizerDescription, &D3D11_WireframeRasterizerState);
         if (SUCCEEDED(CreateWireframeRasterizerStateResult))
         {
             // Ok.
@@ -462,7 +563,7 @@ int WINAPI WinMain(
     {
         D3D11_DEPTH_STENCIL_DESC DepthStencilDescription = {};
 
-        HRESULT CreateDepthStencilStateResult = D3D11_Device->CreateDepthStencilState(&DepthStencilDescription, &D3D11_DisabledDepthStencilState);
+        HRESULT CreateDepthStencilStateResult = Dx.Device->CreateDepthStencilState(&DepthStencilDescription, &D3D11_DisabledDepthStencilState);
         if (SUCCEEDED(CreateDepthStencilStateResult))
         {
             // Ok.
@@ -472,10 +573,10 @@ int WINAPI WinMain(
         DepthStencilDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
         DepthStencilDescription.DepthFunc      = D3D11_COMPARISON_LESS;
 
-        CreateDepthStencilStateResult = D3D11_Device->CreateDepthStencilState(&DepthStencilDescription, &D3D11_DepthStencilState);
+        CreateDepthStencilStateResult = Dx.Device->CreateDepthStencilState(&DepthStencilDescription, &D3D11_DepthStencilState);
         if (SUCCEEDED(CreateDepthStencilStateResult))
         {
-            D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
+            Dx.DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
         }
     }
 
@@ -544,7 +645,7 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
     }
 
     ID3D11VertexShader *VertexShader = NULL;
-    D3D11_Device->CreateVertexShader(VS->GetBufferPointer(), VS->GetBufferSize(), NULL, &VertexShader);
+    Dx.Device->CreateVertexShader(VS->GetBufferPointer(), VS->GetBufferSize(), NULL, &VertexShader);
 
     ID3DBlob *PS = NULL;
     HRESULT PixelShaderCompilationResult = D3DCompile(
@@ -567,8 +668,8 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         return 1;
     }
 
-    ID3D11PixelShader  *PixelShader = NULL;
-    D3D11_Device->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &PixelShader);
+    ID3D11PixelShader *PixelShader = NULL;
+    Dx.Device->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &PixelShader);
 
     struct Vertex
     {
@@ -593,12 +694,12 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-        D3D11_Device->CreateBuffer(&BufferDescription, NULL, &VertexBuffer);
+        Dx.Device->CreateBuffer(&BufferDescription, NULL, &VertexBuffer);
 
         D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
-        D3D11_DeviceContext->Map(VertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+        Dx.DeviceContext->Map(VertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
         memcpy(MappedSubresource.pData, Vertices, sizeof(Vertices));
-        D3D11_DeviceContext->Unmap(VertexBuffer, NULL);
+        Dx.DeviceContext->Unmap(VertexBuffer, NULL);
     }
 
     ID3D11Buffer *SkyboxBuffer = NULL;
@@ -615,12 +716,12 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-        D3D11_Device->CreateBuffer(&BufferDescription, NULL, &SkyboxBuffer);
+        Dx.Device->CreateBuffer(&BufferDescription, NULL, &SkyboxBuffer);
 
         D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
-        D3D11_DeviceContext->Map(SkyboxBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+        Dx.DeviceContext->Map(SkyboxBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
         memcpy(MappedSubresource.pData, Vertices, sizeof(Vertices));
-        D3D11_DeviceContext->Unmap(SkyboxBuffer, NULL);
+        Dx.DeviceContext->Unmap(SkyboxBuffer, NULL);
     }
 
     u32 Indices[] =
@@ -640,7 +741,7 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 
         D3D11_SUBRESOURCE_DATA IndexData = { Indices };
 
-        HRESULT CreateBufferResult = D3D11_Device->CreateBuffer(&BufferDescription, &IndexData, &IndexBuffer);
+        HRESULT CreateBufferResult = Dx.Device->CreateBuffer(&BufferDescription, &IndexData, &IndexBuffer);
         if (SUCCEEDED(CreateBufferResult))
         {
             // Ok.
@@ -659,7 +760,7 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
             { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         };
 
-        D3D11_Device->CreateInputLayout(InputDescription, 2, VS->GetBufferPointer(), VS->GetBufferSize(), &InputLayout);
+        Dx.Device->CreateInputLayout(InputDescription, 2, VS->GetBufferPointer(), VS->GetBufferSize(), &InputLayout);
     }
 
     // ================= cube =================
@@ -715,7 +816,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
     }
 
     ID3D11VertexShader *CubeVertexShader = NULL;
-    D3D11_Device->CreateVertexShader(Cube_VS->GetBufferPointer(), Cube_VS->GetBufferSize(), NULL, &CubeVertexShader);
+    Dx.Device->CreateVertexShader(Cube_VS->GetBufferPointer(), Cube_VS->GetBufferSize(), NULL, &CubeVertexShader);
 
     vector3 CubeVertices[] =
     {
@@ -784,13 +885,13 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-        HRESULT CreateBufferResult = D3D11_Device->CreateBuffer(&BufferDescription, NULL, &CubeVertexBuffer);
+        HRESULT CreateBufferResult = Dx.Device->CreateBuffer(&BufferDescription, NULL, &CubeVertexBuffer);
         if (SUCCEEDED(CreateBufferResult))
         {
             D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
-            D3D11_DeviceContext->Map(CubeVertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+            Dx.DeviceContext->Map(CubeVertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
             memcpy(MappedSubresource.pData, CubeVertices, sizeof(CubeVertices));
-            D3D11_DeviceContext->Unmap(CubeVertexBuffer, NULL);
+            Dx.DeviceContext->Unmap(CubeVertexBuffer, NULL);
         }
     }
 
@@ -803,13 +904,13 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-        HRESULT CreateBufferResult = D3D11_Device->CreateBuffer(&BufferDescription, NULL, &CubeTextureUVBuffer);
+        HRESULT CreateBufferResult = Dx.Device->CreateBuffer(&BufferDescription, NULL, &CubeTextureUVBuffer);
         if (SUCCEEDED(CreateBufferResult))
         {
             D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
-            D3D11_DeviceContext->Map(CubeTextureUVBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+            Dx.DeviceContext->Map(CubeTextureUVBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
             memcpy(MappedSubresource.pData, CubeTextureUV, sizeof(CubeTextureUV));
-            D3D11_DeviceContext->Unmap(CubeTextureUVBuffer, NULL);
+            Dx.DeviceContext->Unmap(CubeTextureUVBuffer, NULL);
         }
     }
 
@@ -824,7 +925,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
         D3D11_SUBRESOURCE_DATA IndexData = { CubeIndices };
 
-        HRESULT CreateBufferResult = D3D11_Device->CreateBuffer(&BufferDescription, &IndexData, &CubeIndexBuffer);
+        HRESULT CreateBufferResult = Dx.Device->CreateBuffer(&BufferDescription, &IndexData, &CubeIndexBuffer);
     }
 
     ID3D11InputLayout *CubeInputLayout = NULL;
@@ -835,7 +936,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
             { "TEXTURE_UV", 0, DXGI_FORMAT_R32G32_FLOAT,       1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         };
 
-        D3D11_Device->CreateInputLayout(InputDescription, 2, Cube_VS->GetBufferPointer(), Cube_VS->GetBufferSize(), &CubeInputLayout);
+        Dx.Device->CreateInputLayout(InputDescription, 2, Cube_VS->GetBufferPointer(), Cube_VS->GetBufferSize(), &CubeInputLayout);
     }
 
     // ================= cube =================
@@ -864,11 +965,11 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
         D3D11_SUBRESOURCE_DATA ConstantData = { &VSConstants };
 
-        HRESULT CreateBufferResult = D3D11_Device->CreateBuffer(&BufferDescription, &ConstantData, &VsConstantBuffer);
+        HRESULT CreateBufferResult = Dx.Device->CreateBuffer(&BufferDescription, &ConstantData, &VsConstantBuffer);
         if (SUCCEEDED(CreateBufferResult))
         {
             // Ok.
-            D3D11_DeviceContext->VSSetConstantBuffers(0, 1, &VsConstantBuffer);
+            Dx.DeviceContext->VSSetConstantBuffers(0, 1, &VsConstantBuffer);
         }
         else
         {
@@ -886,6 +987,8 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
     auto ProjectionMatrix = PerspectiveProjection;
 
     Camera camera = make_camera_at({0, 0, 3});
+
+    RenderTarget MainRenderTarget = {};
 
     Running = TRUE;
     os::timepoint LastClockTimepoint = os::get_wall_clock();
@@ -917,66 +1020,8 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         {
             ViewportNeedsResize = FALSE;
 
-            D3D11_DeviceContext->OMSetRenderTargets(0, NULL, NULL);
-            RELEASE_COM(D3D11_BackBufferView);
-            RELEASE_COM(D3D11_DepthStencilView);
-
-            HRESULT ResizeBuffersResult = D3D11_SwapChain->ResizeBuffers(0, CurrentClientWidth, CurrentClientHeight, DXGI_FORMAT_UNKNOWN, 0);
-            if (SUCCEEDED(ResizeBuffersResult))
-            {
-                ID3D11Texture2D *BackBufferTexture = NULL;
-                HRESULT GetBufferResult = D3D11_SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&BackBufferTexture);
-                if (SUCCEEDED(GetBufferResult))
-                {
-                    HRESULT CreateRenderTargetViewResult = D3D11_Device->CreateRenderTargetView(BackBufferTexture, NULL, &D3D11_BackBufferView);
-                    if (SUCCEEDED(CreateRenderTargetViewResult))
-                    {
-                        D3D11_TEXTURE2D_DESC DepthStencilTextureDescription = {};
-                        BackBufferTexture->GetDesc(&DepthStencilTextureDescription);
-
-                        DepthStencilTextureDescription.Format    = DXGI_FORMAT_D24_UNORM_S8_UINT;
-                        DepthStencilTextureDescription.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-
-                        ID3D11Texture2D *DepthStencilTexture;
-                        HRESULT DepthStencilCreationResult = D3D11_Device->CreateTexture2D(&DepthStencilTextureDescription, NULL, &DepthStencilTexture);
-                        if (SUCCEEDED(DepthStencilCreationResult))
-                        {
-                            HRESULT DepthStencilViewCreationResult = D3D11_Device->CreateDepthStencilView(DepthStencilTexture, NULL, &D3D11_DepthStencilView);
-                            if (SUCCEEDED(DepthStencilViewCreationResult))
-                            {
-                                // Ok.
-                                D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBufferView, D3D11_DepthStencilView);
-                            }
-                            else
-                            {
-                                MessageBoxA(0, "Failed to create Depth Stencil View", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
-                                RELEASE_COM(D3D11_DepthStencilView);
-                            }
-
-                            RELEASE_COM(DepthStencilTexture);
-                        }
-                        else
-                        {
-                            MessageBoxA(0, "Failed to create DepthStencil texture.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
-                        }
-                        // D3D11_DeviceContext->OMSetRenderTargets(1, &D3D11_BackBufferView, D3D11_DepthStencilView);
-                    }
-                    else
-                    {
-                        MessageBoxA(0, "Failed to create RenderTargetView.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
-                    }
-
-                    RELEASE_COM(BackBufferTexture);
-                }
-                else
-                {
-                    MessageBoxA(0, "Failed to get BackBuffer texture.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
-                }
-            }
-            else
-            {
-                MessageBoxA(0, "Failed to resize buffers.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
-            }
+            ResizeRenderTarget(&Dx, &MainRenderTarget, CurrentClientWidth, CurrentClientHeight);
+            BindRenderTarget(&Dx, &MainRenderTarget);
 
             ViewportSize Viewport = GetViewportSize(CurrentClientWidth, CurrentClientHeight, DesiredAspectRatio);
 
@@ -988,7 +1033,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
             DxViewport.MinDepth = 0.0f;
             DxViewport.MaxDepth = 1.0f;
 
-            D3D11_DeviceContext->RSSetViewports(1, &DxViewport);
+            Dx.DeviceContext->RSSetViewports(1, &DxViewport);
 
             osOutputDebugString("(%u, %u) - (%u, %u)    Ratio - %4.2f (should be ~1.0)\n",
                 Viewport.OffsetX, Viewport.OffsetY,
@@ -998,95 +1043,95 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
         // Clear the back buffer to a black color
         auto BackgroundColor = color32::black;
-        D3D11_DeviceContext->ClearRenderTargetView(D3D11_BackBufferView, color32::black.e);
-        D3D11_DeviceContext->ClearDepthStencilView(D3D11_DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+        Dx.DeviceContext->ClearRenderTargetView(MainRenderTarget.backbuffer, color32::black.e);
+        Dx.DeviceContext->ClearDepthStencilView(MainRenderTarget.depth_stencil, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
         // Do 3D rendering on the back buffer here
         u32 Stride = sizeof(Vertex);
         u32 Offset = 0;
 
         {
-            D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DisabledDepthStencilState, 0);
+            Dx.DeviceContext->OMSetDepthStencilState(D3D11_DisabledDepthStencilState, 0);
 
-            D3D11_DeviceContext->IASetVertexBuffers(
+            Dx.DeviceContext->IASetVertexBuffers(
                 0, // Start slot
                 1, // Num buffers
                 &SkyboxBuffer, // Vertex Buffers
                 &Stride, // Strides
                 &Offset); // Offsets
-            D3D11_DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-            D3D11_DeviceContext->IASetInputLayout(InputLayout);
+            Dx.DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+            Dx.DeviceContext->IASetInputLayout(InputLayout);
 
             {
                 D3D11_MAPPED_SUBRESOURCE MappedSubresource;
 
-                D3D11_DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+                Dx.DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
                 auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
                 Constants->ViewMatrix = matrix4::identity;
                 Constants->ProjectionMatrix = matrix4::identity;
-                D3D11_DeviceContext->Unmap(VsConstantBuffer, NULL);
+                Dx.DeviceContext->Unmap(VsConstantBuffer, NULL);
             }
 
-            D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
-            D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
-            D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
+            Dx.DeviceContext->VSSetShader(VertexShader, 0, 0);
+            Dx.DeviceContext->PSSetShader(PixelShader, 0, 0);
+            Dx.DeviceContext->RSSetState(D3D11_RasterizerState);
 
-            D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            D3D11_DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
+            Dx.DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            Dx.DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
         }
 
         if (Wireframe)
         {
-            D3D11_DeviceContext->RSSetState(D3D11_WireframeRasterizerState);
+            Dx.DeviceContext->RSSetState(D3D11_WireframeRasterizerState);
         }
         else
         {
-            D3D11_DeviceContext->RSSetState(D3D11_RasterizerState);
+            Dx.DeviceContext->RSSetState(D3D11_RasterizerState);
         }
 
         {
-            D3D11_DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
+            Dx.DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
 
-            D3D11_DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
-            D3D11_DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-            D3D11_DeviceContext->IASetInputLayout(InputLayout);
+            Dx.DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
+            Dx.DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+            Dx.DeviceContext->IASetInputLayout(InputLayout);
 
             {
                 D3D11_MAPPED_SUBRESOURCE MappedSubresource;
 
-                D3D11_DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+                Dx.DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
                 auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
-                Constants->ViewMatrix = transposed(ViewMatrix);
-                Constants->ProjectionMatrix = transposed(ProjectionMatrix);
-                D3D11_DeviceContext->Unmap(VsConstantBuffer, NULL);
+                Constants->ViewMatrix = ViewMatrix;
+                Constants->ProjectionMatrix = ProjectionMatrix;
+                Dx.DeviceContext->Unmap(VsConstantBuffer, NULL);
             }
 
-            D3D11_DeviceContext->VSSetShader(VertexShader, 0, 0);
-            D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
+            Dx.DeviceContext->VSSetShader(VertexShader, 0, 0);
+            Dx.DeviceContext->PSSetShader(PixelShader, 0, 0);
 
-            D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            // D3D11_DeviceContext->Draw(3, 0);
-            D3D11_DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
+            Dx.DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            // Dx.DeviceContext->Draw(3, 0);
+            Dx.DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
         }
 
         {
-            D3D11_DeviceContext->IASetInputLayout(CubeInputLayout);
+            Dx.DeviceContext->IASetInputLayout(CubeInputLayout);
 
             ID3D11Buffer *Buffers[] = { CubeVertexBuffer, CubeTextureUVBuffer };
             u32 Strides[] = { sizeof(vector3), sizeof(vector2) };
             u32 Offsets[] = { 0, 0 };
-            D3D11_DeviceContext->IASetVertexBuffers(0, 2, Buffers, Strides, Offsets);
-            D3D11_DeviceContext->IASetIndexBuffer(CubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+            Dx.DeviceContext->IASetVertexBuffers(0, 2, Buffers, Strides, Offsets);
+            Dx.DeviceContext->IASetIndexBuffer(CubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
-            D3D11_DeviceContext->VSSetShader(CubeVertexShader, 0, 0);
-            D3D11_DeviceContext->PSSetShader(PixelShader, 0, 0);
+            Dx.DeviceContext->VSSetShader(CubeVertexShader, 0, 0);
+            Dx.DeviceContext->PSSetShader(PixelShader, 0, 0);
 
-            D3D11_DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            D3D11_DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(CubeIndices), 1, 0, 0, 0);
+            Dx.DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            Dx.DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(CubeIndices), 1, 0, 0, 0);
         }
 
         // Switch the back buffer and the front buffer
-        D3D11_SwapChain->Present(0, 0);
+        Dx.SwapChain->Present(0, 0);
 
         os::timepoint WorkTimepoint = os::get_wall_clock();
         dtFromLastFrame = get_seconds(WorkTimepoint - LastClockTimepoint);
@@ -1102,11 +1147,11 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
     RELEASE_COM(D3D11_WireframeRasterizerState);
     RELEASE_COM(D3D11_RasterizerState);
 
-    RELEASE_COM(D3D11_DepthStencilView);
-    RELEASE_COM(D3D11_BackBufferView);
-    RELEASE_COM(D3D11_SwapChain);
-    RELEASE_COM(D3D11_DeviceContext);
-    RELEASE_COM(D3D11_Device);
+    RELEASE_COM(MainRenderTarget.backbuffer);
+    RELEASE_COM(MainRenderTarget.depth_stencil);
+    RELEASE_COM(Dx.SwapChain);
+    RELEASE_COM(Dx.DeviceContext);
+    RELEASE_COM(Dx.Device);
 
     return 0;
 }

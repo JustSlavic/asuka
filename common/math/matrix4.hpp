@@ -72,10 +72,10 @@ matrix4 make_look_at_matrix(vector3 eye, vector3 center, vector3 up)
 
     matrix4 result =
     {
-        s.x, u.x, -f.x, -dot(s, eye),
-        s.y, u.y, -f.y, -dot(u, eye),
-        s.z, u.z, -f.z,  dot(f, eye),
-          0,   0,    0,            1,
+         s.x,  s.y,  s.z, 0,
+         u.x,  u.y,  u.z, 0,
+        -f.x, -f.y, -f.z, 0,
+        -dot(s, eye), -dot(u, eye), dot(f, eye), 1,
     };
 
     return result;
