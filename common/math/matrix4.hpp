@@ -64,6 +64,32 @@ matrix4 transposed(matrix4 m)
     return m;
 }
 
+void translate(matrix4& m, vector3 v)
+{
+    m.sw.xyz += v;
+}
+
+matrix4 translated(vector3 v, matrix4 m)
+{
+    m.sw.xyz += v;
+    return m;
+}
+
+void scale(matrix4& m, vector3 v)
+{
+    m._11 *= v.x;
+    m._22 *= v.y;
+    m._33 *= v.z;
+}
+
+matrix4 scaled(vector3 v, matrix4 m)
+{
+    m._11 *= v.x;
+    m._22 *= v.y;
+    m._33 *= v.z;
+    return m;
+}
+
 matrix4 make_look_at_matrix(vector3 eye, vector3 center, vector3 up)
 {
     vector3 f = normalized(center - eye);

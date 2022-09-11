@@ -6,12 +6,13 @@
 #include <allocator.hpp>
 
 
-template <typename T>
+template <typename T, typename Allocator = memory::mallocator>
 struct array
 {
     T *data;
     usize size;
     usize capacity;
+    Allocator *allocator;
 
     constexpr T* get_data() { return data; }
     constexpr T const* get_data() const { return data; }
@@ -36,6 +37,8 @@ struct array
         ASSERT_MSG(index < size, "Attempt to access array memory out of bounds.");
         return data[index];
     }
+
+    T& push(T const& t);
 };
 
 using byte_array = array<memory::byte>;
@@ -51,6 +54,7 @@ array<T> allocate_array_(Allocator *allocator, usize count)
     result.data = buffer;
     result.size = 0;
     result.capacity = count;
+    result.allocator = allocator;
 
     return result;
 }
@@ -66,14 +70,15 @@ array<T> allocate_array(Allocator *allocator, usize count)
     result.data = buffer;
     result.size = 0;
     result.capacity = count;
+    result.allocator = allocator;
 
     return result;
 }
 
-template <typename T, typename Allocator>
-void deallocate_array(Allocator *allocator, array<T>& a)
+template <typename T>
+void deallocate_array(array<T>& a)
 {
-    DEALLOCATE(allocator, a.data);
+    DEALLOCATE(a.allocator, a.data);
     a.data = NULL;
     a.size = 0;
     a.capacity = 0;
@@ -94,6 +99,25 @@ array<T> make_copy(Allocator *allocator, array<T> source)
 {
     array<T> result = copy_array(allocator, source);
     return result;
+}
+
+template <typename T, typename Allocator>
+T& array<T, Allocator>::push(T const& t)
+{
+    ASSERT(size <= capacity);
+
+    if (size == capacity)
+    {
+        usize new_capacity = capacity * 2;
+        T *new_data = REALLOCATE_BUFFER(allocator, data, new_capacity);
+        if (new_data)
+        {
+            data = new_data;
+            capacity = new_capacity;
+        }
+    }
+
+    return data[size++] = t; // @todo: forward
 }
 
 template <typename T>

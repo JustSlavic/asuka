@@ -15,6 +15,5 @@ build/
 
 # Binaries
 *.lib
-*.obj
 *.exe
 *.dll

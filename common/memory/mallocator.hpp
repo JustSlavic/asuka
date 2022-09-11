@@ -67,6 +67,8 @@ void *reallocate__(mallocator *allocator, void *pointer, usize new_size, usize a
         push_allocation_entry(&allocator->log, {cl, result, new_size});
     }
 #endif // ASUKA_DEBUG
+
+    return result;
 }
 
 

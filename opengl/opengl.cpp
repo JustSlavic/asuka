@@ -48,6 +48,10 @@
 #define GL_MAJOR_VERSION                  0x821B
 #define GL_MINOR_VERSION                  0x821C
 #define GL_DEPTH_STENCIL_ATTACHMENT       0x821A
+#define GL_TEXTURE0                       0x84C0
+#define GL_TEXTURE1                       0x84C1
+#define GL_TEXTURE2                       0x84C2
+#define GL_TEXTURE3                       0x84C3
 #define GL_DEPTH_STENCIL                  0x84F9
 #define GL_UNSIGNED_INT_24_8              0x84FA
 #define GL_ARRAY_BUFFER                   0x8892
@@ -72,6 +76,7 @@ typedef void glBindFramebufferType(GLenum target, GLuint framebuffer);
 typedef void glFramebufferTexture2DType(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
 typedef void glBlitFramebufferType(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
 typedef void glClearBufferivType(GLenum buffer, GLint drawbuffer, GLint const *value);
+typedef void glActiveTextureType(GLenum texture);
 typedef void glGenBuffersType(GLsizei n, GLuint *buffers);
 typedef void glBindBufferType(GLenum target, GLuint buffer);
 typedef void glBufferDataType(GLenum target, intptr size, const void *data, GLenum usage);
@@ -93,6 +98,7 @@ typedef void glDeleteShaderType(GLuint shader);
 typedef void glValidateProgramType(GLuint program);
 typedef void glGetProgramivType(GLuint program, GLenum pname, GLint *params);
 typedef GLint glGetUniformLocationType(GLuint program, char const *uniform_name);
+typedef void glUniform1iType(GLint location, GLint v0);
 typedef void glUniformMatrix4fvType(int32 location, isize count, bool transpose, float32 const *value);
 typedef void glTexImage2DMultisampleType(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
 typedef const char *WINAPI wglGetExtensionsStringARBType(HDC hdc);
@@ -106,6 +112,7 @@ GLOBAL glBindFramebufferType *glBindFramebuffer;
 GLOBAL glFramebufferTexture2DType *glFramebufferTexture2D;
 GLOBAL glBlitFramebufferType *glBlitFramebuffer;
 GLOBAL glClearBufferivType *glClearBufferiv;
+GLOBAL glActiveTextureType *glActiveTexture;
 GLOBAL glGenBuffersType *glGenBuffers;
 GLOBAL glBindBufferType *glBindBuffer;
 GLOBAL glBufferDataType *glBufferData;
@@ -127,6 +134,7 @@ GLOBAL glDeleteShaderType *glDeleteShader;
 GLOBAL glValidateProgramType *glValidateProgram;
 GLOBAL glGetProgramivType *glGetProgramiv;
 GLOBAL glGetUniformLocationType *glGetUniformLocation;
+GLOBAL glUniform1iType *glUniform1i;
 GLOBAL glUniformMatrix4fvType *glUniformMatrix4fv;
 GLOBAL glTexImage2DMultisampleType *glTexImage2DMultisample;
 GLOBAL wglGetExtensionsStringARBType *wglGetExtensionsStringARB;
@@ -143,6 +151,7 @@ void InitializeOpenGLFunctions()
     glFramebufferTexture2D = (glFramebufferTexture2DType *) wglGetProcAddress("glFramebufferTexture2D");
     glBlitFramebuffer = (glBlitFramebufferType *) wglGetProcAddress("glBlitFramebuffer");
     glClearBufferiv = (glClearBufferivType *) wglGetProcAddress("glClearBufferiv");
+    glActiveTexture = (glActiveTextureType *) wglGetProcAddress("glActiveTexture");
     glGenBuffers = (glGenBuffersType *) wglGetProcAddress("glGenBuffers");
     glBindBuffer = (glBindBufferType *) wglGetProcAddress("glBindBuffer");
     glBufferData = (glBufferDataType *) wglGetProcAddress("glBufferData");
@@ -164,6 +173,7 @@ void InitializeOpenGLFunctions()
     glValidateProgram = (glValidateProgramType *) wglGetProcAddress("glValidateProgram");
     glGetProgramiv = (glGetProgramivType *) wglGetProcAddress("glGetProgramiv");
     glGetUniformLocation = (glGetUniformLocationType *) wglGetProcAddress("glGetUniformLocation");
+    glUniform1i = (glUniform1iType *) wglGetProcAddress("glUniform1i");
     glUniformMatrix4fv = (glUniformMatrix4fvType *) wglGetProcAddress("glUniformMatrix4fv");
     glTexImage2DMultisample = (glTexImage2DMultisampleType *) wglGetProcAddress("glTexImage2DMultisample");
 }
@@ -629,12 +639,157 @@ Shader link_shader(uint32 vs, uint32 fs)
 }
 
 
+struct Mesh
+{
+    array<vector3> vertices;
+    array<vector2> texture_uvs;
+    array<uint32>  indices;
+};
+
+
+[[nodiscard]]
+Mesh load_wavefront_obj(byte_array contents, memory::mallocator *allocator)
+{
+    auto vertices = allocate_array<vector3>(allocator, 50);
+    auto normals = allocate_array<vector3>(allocator, 50);
+    auto uvs = allocate_array<vector2>(allocator, 50);
+
+    auto result_vertices = allocate_array<vector3>(allocator, 10);
+    auto result_uvs = allocate_array<vector2>(allocator, 10);
+    auto result_indices = allocate_array<uint32>(allocator, 20);
+
+    uint32 index = 0;
+
+    while (index < contents.size)
+    {
+        auto byte = contents[index];
+        if (byte == '#')
+        {
+            // Skip comment
+            do
+            {
+                byte = contents[index++];
+            }
+            while (byte != '\n');
+        }
+        else if (byte == 'v')
+        {
+            index++; // eat 'v'
+            byte = contents[index++]; // eat next symbol
+
+            if (byte == 'n')
+            {
+                int n;
+                float x, y, z;
+                sscanf((char *) contents.get_data() + index, " %f %f %f%n", &x, &y, &z, &n);
+                index += n;
+
+                normals.push(make_vector3(x, y, z));
+            }
+            else if (byte == 't')
+            {
+                int n;
+                float u, v;
+                sscanf((char *) contents.get_data() + index, " %f %f%n", &u, &v, &n);
+                index += n;
+
+                uvs.push(make_vector2(u, v));
+            }
+            else if (byte == ' ')
+            {
+                int n;
+                float x, y, z;
+                sscanf((char *) contents.get_data() + index, " %f %f %f%n", &x, &y, &z, &n);
+                index += n;
+
+                vertices.push(make_vector3(x, y, z));
+            }
+            else
+            {
+                // Skip unrecognized line
+                do
+                {
+                    byte = contents[index++];
+                }
+                while (byte != '\n');
+            }
+        }
+        else if (byte == 'f')
+        {
+            index++;
+
+            int n;
+            int v1, v2, v3, v4;
+            int t1, t2, t3, t4;
+            int n1, n2, n3, n4;
+
+            sscanf((char *) contents.data + index, " %d/%d/%d %d/%d/%d %d/%d/%d%n",
+                &v1, &t1, &n1, &v2, &t2, &n2, &v3, &t3, &n3, &n);
+
+            index += n;
+
+            result_vertices.push(vertices[v1 - 1]);
+            result_vertices.push(vertices[v2 - 1]);
+            result_vertices.push(vertices[v3 - 1]);
+
+            result_uvs.push(uvs[t1 - 1]);
+            result_uvs.push(uvs[t2 - 1]);
+            result_uvs.push(uvs[t3 - 1]);
+
+            result_indices.push((uint32) result_vertices.size - 3);
+            result_indices.push((uint32) result_vertices.size - 2);
+            result_indices.push((uint32) result_vertices.size - 1);
+
+            byte = contents[index];
+            if (byte == ' ')
+            {
+                sscanf((char *) contents.data + index, " %d/%d/%d%n",
+                    &v4, &t4, &n4, &n);
+                index += n;
+
+                result_vertices.push(vertices[v4 - 1]);
+                result_uvs.push(uvs[t4 - 1]);
+
+                result_indices.push((uint32) result_vertices.size - 2);
+                result_indices.push((uint32) result_vertices.size - 1);
+                result_indices.push((uint32) result_vertices.size - 4);
+            }
+        }
+        else
+        {
+            // Skip unrecognized line
+            do
+            {
+                byte = contents[index++];
+            }
+            while (byte != '\n');
+        }
+    }
+
+    deallocate_array(vertices);
+    deallocate_array(normals);
+    deallocate_array(uvs);
+
+    Mesh result = {};
+    result.vertices = result_vertices;
+    result.texture_uvs = result_uvs;
+    result.indices = result_indices;
+
+    return result;
+}
+
+
 int WINAPI WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
     LPSTR CmdLine,
     int CmdShow)
 {
+    memory::mallocator mallocator;
+
+    auto obj_contents = os::load_entire_file("../data/cube.obj");
+    Mesh cube = load_wavefront_obj(obj_contents, &mallocator);
+
     int32 PrimaryMonitorWidth  = GetSystemMetrics(SM_CXSCREEN);
     int32 PrimaryMonitorHeight = GetSystemMetrics(SM_CYSCREEN);
 
@@ -792,7 +947,7 @@ int WINAPI WinMain(
         osOutputDebugString("GL_MAJOR: %d\nGL_MINOR: %d\n", GL_MajorVersion, GL_MinorVersion);
     }
 
-    wglSwapIntervalEXT(0);
+    wglSwapIntervalEXT(1); // VSync
     glDepthFunc(GL_LESS);
 
     // glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
@@ -931,86 +1086,24 @@ int WINAPI WinMain(
         }
     }
 
-    // Cube mesh rendering
-    vector3 cube_vertices[] =
-    {
-        {  1.0f,  1.0f, -0.5f },
-        {  1.0f, -1.0f, -0.5f },
-        {  1.0f,  1.0f,  0.5f },
-        {  1.0f, -1.0f,  0.5f },
-        { -1.0f,  1.0f, -0.5f },
-        { -1.0f, -1.0f, -0.5f },
-        { -1.0f,  1.0f,  0.5f },
-        { -1.0f, -1.0f,  0.5f },
-    };
-
     u32 cube_vertex_buffer_id = 0;
     {
         glGenBuffers(1, &cube_vertex_buffer_id);
         glBindBuffer(GL_ARRAY_BUFFER, cube_vertex_buffer_id);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, cube.vertices.size * sizeof(vector3), cube.vertices.data, GL_STATIC_DRAW);
     }
-
-    f32 cube_texture_uv[] =
-    {
-        0.625f, 0.500f,
-        0.875f, 0.500f,
-        0.875f, 0.750f,
-        0.625f, 0.750f,
-        0.375f, 0.750f,
-        0.625f, 1.000f,
-        0.375f, 1.000f,
-        0.375f, 0.000f,
-        0.625f, 0.000f,
-        0.625f, 0.250f,
-        0.375f, 0.250f,
-        0.125f, 0.500f,
-        0.375f, 0.500f,
-        0.125f, 0.750f,
-    };
-
     u32 cube_texture_uv_buffer_id = 0;
     {
         glGenBuffers(1, &cube_texture_uv_buffer_id);
         glBindBuffer(GL_ARRAY_BUFFER, cube_texture_uv_buffer_id);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_texture_uv), cube_texture_uv, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, cube.texture_uvs.size * sizeof(vector2), cube.texture_uvs.data, GL_STATIC_DRAW);
     }
-
-    u32 cube_indices[] =
-    {
-        // top face
-        1, 5, 7,
-        7, 3, 1,
-        // back face
-        4, 3, 7,
-        7, 8, 4,
-        // left face
-        8, 7, 5,
-        5, 6, 8,
-        // buttom face
-        6, 2, 4,
-        4, 8, 6,
-        // right face
-        2, 1, 3,
-        3, 4, 2,
-        // front face
-        6, 5, 1,
-        1, 2, 6,
-    };
-
-    // Fix enumeration from 1 in OBJ file format
-    for (uint32 i = 0; i < ARRAY_COUNT(cube_indices); i++)
-    {
-        cube_indices[i] -= 1;
-    }
-
     u32 cube_index_buffer_id = 0;
     {
         glGenBuffers(1, &cube_index_buffer_id);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, cube.indices.size * sizeof(uint32), cube.indices.data, GL_STATIC_DRAW);
     }
-
     u32 cube_vertex_array_id = 0;
     {
         glGenVertexArrays(1, &cube_vertex_array_id);
@@ -1028,7 +1121,7 @@ int WINAPI WinMain(
                 GL_FLOAT,          // Type
                 GL_FALSE,          // Normalized?
                 sizeof(vector3),   // Stride
-                (void *) 0);  // Offset
+                (void *) 0);       // Offset
 
             attrib_index += 1;
         }
@@ -1055,12 +1148,12 @@ int WINAPI WinMain(
         glGenTextures(1, &wisp_texture);
         glBindTexture(GL_TEXTURE_2D, wisp_texture);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); //GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, wisp_bitmap.width, wisp_bitmap.height, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, wisp_bitmap.pixels);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, wisp_bitmap.width, wisp_bitmap.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, wisp_bitmap.pixels);
         GL_CHECK_ERRORS();
     }
 
@@ -1083,30 +1176,6 @@ void main()
     fragment_color = vertex_color;
     gl_Position = p;
 }
-
-)GLSL";
-
-    char const *cube_vs_source = R"GLSL(
-#version 400
-
-layout (location = 0) in vec3 vertex_position;
-layout (location = 1) in vec2 uv;
-
-// out vec4 fragment_position;
-out vec4 fragment_color;
-
-uniform mat4 u_view;
-uniform mat4 u_projection;
-
-void main()
-{
-    vec4 p = u_projection * u_view * vec4(vertex_position, 1.0);
-    // fragment_position = vec4(vertex_position, 1.0);
-    fragment_color = vec4(uv.rgr, 1.0);
-
-    gl_Position = p;
-}
-
 )GLSL";
 
     char const *fs_source = R"GLSL(
@@ -1121,19 +1190,64 @@ void main()
     result_fragment_color = vec4(fragment_color.rgb, 1.0);
     // result_fragment_color = vec4(fragment_position.rgb * 2.0, 1.0);
 }
+)GLSL";
 
+    char const *cube_vs_source = R"GLSL(
+#version 400
+
+layout (location = 0) in vec3 vertex_position;
+layout (location = 1) in vec2 uv;
+
+// out vec4 fragment_position;
+out vec2 uv_coords;
+
+uniform mat4 u_model;
+uniform mat4 u_view;
+uniform mat4 u_projection;
+
+void main()
+{
+    vec4 p = u_projection * u_view * u_model * vec4(vertex_position, 1.0);
+    uv_coords = uv;
+
+    gl_Position = p;
+}
+)GLSL";
+
+    char const *cube_fs_source = R"GLSL(
+#version 400
+
+in vec2 uv_coords;
+out vec4 result_color;
+
+uniform sampler2D u_texture0;
+
+void main()
+{
+    vec4 tex_color = texture(u_texture0, uv_coords);
+    result_color = vec4(tex_color.rgb * tex_color.a, 1.0);
+}
 )GLSL";
 
     auto plane_vs = compile_shader(vs_source, GL_VERTEX_SHADER);
-    auto cube_vs = compile_shader(cube_vs_source, GL_VERTEX_SHADER);
-    auto fs = compile_shader(fs_source, GL_FRAGMENT_SHADER);
-
-    auto plane_shader = link_shader(plane_vs, fs);
-    auto cube_shader = link_shader(cube_vs, fs);
-
+    auto plane_fs = compile_shader(fs_source, GL_FRAGMENT_SHADER);
+    auto plane_shader = link_shader(plane_vs, plane_fs);
     glDeleteShader(plane_vs);
+    glDeleteShader(plane_fs);
+    GL_CHECK_ERRORS();
+
+    auto cube_vs = compile_shader(cube_vs_source, GL_VERTEX_SHADER);
+    auto cube_fs = compile_shader(cube_fs_source, GL_FRAGMENT_SHADER);
+    auto cube_shader = link_shader(cube_vs, cube_fs);
     glDeleteShader(cube_vs);
-    glDeleteShader(fs);
+    glDeleteShader(cube_fs);
+    GL_CHECK_ERRORS();
+
+
+    glUseProgram(cube_shader.id);
+    int32 u_texture_location = glGetUniformLocation(cube_shader.id, "u_texture0");
+    glUniform1i(u_texture_location, 0);
+    GL_CHECK_ERRORS();
 
     float32 DesiredAspectRatio = 16.0f / 9.0f;
 
@@ -1191,11 +1305,11 @@ void main()
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer.id);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
+        // Draw Skybox-ish thing
+        {
         glUseProgram(plane_shader.id);
-
         int32 u_view_location = glGetUniformLocation(plane_shader.id, "u_view");
         glUniformMatrix4fv(u_view_location, 1, GL_FALSE, matrix4::identity.get_data());
-
         int32 u_projection_location = glGetUniformLocation(plane_shader.id, "u_projection");
         glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, matrix4::identity.get_data());
 
@@ -1203,15 +1317,15 @@ void main()
         glBindVertexArray(vertex_array_id);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 #else
-        // Skybox-ish thing
-        glDisable(GL_DEPTH_TEST);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            glDisable(GL_DEPTH_TEST);
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-        glBindVertexArray(skybox_vao);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
-        glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
+            glBindVertexArray(skybox_vao);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
+            glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
 
-        glEnable(GL_DEPTH_TEST);
+            glEnable(GL_DEPTH_TEST);
+        }
 #endif
 
         if (Wireframe)
@@ -1223,23 +1337,41 @@ void main()
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
-        glUniformMatrix4fv(u_view_location, 1, GL_FALSE, view.get_data());
-        glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, projection.get_data());
+        // Draw plane
+        {
+            glUseProgram(plane_shader.id);
 
-        glBindVertexArray(vertex_array_id);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
-        glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
+            int32 u_view_location = glGetUniformLocation(plane_shader.id, "u_view");
+            glUniformMatrix4fv(u_view_location, 1, GL_FALSE, matrix4::identity.get_data());
+            int32 u_projection_location = glGetUniformLocation(plane_shader.id, "u_projection");
 
-        glUseProgram(cube_shader.id);
+            glUniformMatrix4fv(u_view_location, 1, GL_FALSE, view.get_data());
+            glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, projection.get_data());
 
-        u_view_location = glGetUniformLocation(cube_shader.id, "u_view");
-        glUniformMatrix4fv(u_view_location, 1, GL_FALSE, view.get_data());
-        u_projection_location = glGetUniformLocation(cube_shader.id, "u_projection");
-        glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, projection.get_data());
+            glBindVertexArray(vertex_array_id);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
+            glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
+        }
 
-        glBindVertexArray(cube_vertex_array_id);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
-        glDrawElements(GL_TRIANGLES, ARRAY_COUNT(cube_indices), GL_UNSIGNED_INT, NULL);
+        // Draw cube
+        {
+            glUseProgram(cube_shader.id);
+
+            int32 u_model_location = glGetUniformLocation(cube_shader.id, "u_model");
+            matrix4 model = matrix4::identity;
+            glUniformMatrix4fv(u_model_location, 1, GL_FALSE, model.get_data());
+            int32 u_view_location = glGetUniformLocation(cube_shader.id, "u_view");
+            glUniformMatrix4fv(u_view_location, 1, GL_FALSE, view.get_data());
+            int32 u_projection_location = glGetUniformLocation(cube_shader.id, "u_projection");
+            glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, projection.get_data());
+
+            glActiveTexture(GL_TEXTURE0); // Texture unit (slot)
+            glBindTexture(GL_TEXTURE_2D, wisp_texture);
+
+            glBindVertexArray(cube_vertex_array_id);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
+            glDrawElements(GL_TRIANGLES, (int32) cube.indices.size, GL_UNSIGNED_INT, NULL);
+        }
 
         blit_render_target(&framebuffer);
 
