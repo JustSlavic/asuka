@@ -5,6 +5,7 @@
 #include <math/matrix4.hpp>
 #include <math/color.hpp>
 #include <os/time.hpp>
+#include <png.hpp>
 
 #include <windows.h>
 
@@ -35,6 +36,7 @@
 #define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
 
 #define GL_INVALID_FRAMEBUFFER_OPERATION  0x0506
+#define GL_UNSIGNED_INT_8_8_8_8           0x8035
 #define GL_MULTISAMPLE                    0x809D
 #define GL_MULTISAMPLE_ARB                0x809D
 #define GL_SAMPLE_ALPHA_TO_COVERAGE       0x809E
@@ -42,6 +44,7 @@
 #define GL_SAMPLES                        0x80A9
 #define GL_SAMPLES_ARB                    0x80A9
 #define GL_SAMPLES_EXT                    0x80A9
+#define GL_CLAMP_TO_EDGE                  0x812F
 #define GL_MAJOR_VERSION                  0x821B
 #define GL_MINOR_VERSION                  0x821C
 #define GL_DEPTH_STENCIL_ATTACHMENT       0x821A
@@ -1044,6 +1047,21 @@ int WINAPI WinMain(
 
             attrib_index += 1;
         }
+    }
+
+    Bitmap wisp_bitmap = load_png_file("../data/familiar.png");
+    uint32 wisp_texture = 0;
+    {
+        glGenTextures(1, &wisp_texture);
+        glBindTexture(GL_TEXTURE_2D, wisp_texture);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, wisp_bitmap.width, wisp_bitmap.height, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, wisp_bitmap.pixels);
+        GL_CHECK_ERRORS();
     }
 
     char const *vs_source = R"GLSL(

@@ -29,7 +29,7 @@ variables:
 
   identifier: '\b[[:alpha:]_][[:alnum:]_]*\b' # upper and lowercase
   glsl_types: 'float|vec2|vec3|vec4'
-  glsl_keywords: 'attribute|const|uniform|varying|layout|centroid|flat|smooth|noperspective|patch|sample|break|continue|do|for|while|switch|case|default|if|else|subroutine|in|out|inout|float|double|int|void|bool|true|false|invariant|discard|return|d?mat[234](?:x[234])?|[ibdu]?vec[234]|lowp|mediump|highp|precision|struct|[iu]?sampler(?:1D|2D|3D|Cube)|sampler(?:1D|2D|Cube)Shadow|[iu]?sampler(?:1D|2D)Array(?:Shadow)?|sampler2DRectShadow|[iu]sampler2DRect|[iu]?samplerBuffer|[iu]?sampler2DMS(?:Array)?|[iu]?samplerCubeArray|samplerCubeArrayShadow'
+  glsl_keywords: 'attribute|const|uniform|varying|layout|centroid|flat|smooth|noperspective|patch|break|continue|do|for|while|switch|case|default|if|else|subroutine|in|out|inout|bool|true|false|invariant|discard|return|lowp|mediump|highp|precision' # |[ibdu]?vec[234]|struct|[iu]?sampler(?:1D|2D|3D|Cube)|sampler(?:1D|2D|Cube)Shadow|[iu]?sampler(?:1D|2D)Array(?:Shadow)?|sampler2DRectShadow|[iu]sampler2DRect|[iu]?samplerBuffer|[iu]?sampler2DMS(?:Array)?|[iu]?samplerCubeArray|samplerCubeArrayShadow|sample|float|double|int|void|d?mat[234](?:x[234])?'
   glsl_reserved: 'gl_VertexID|gl_FragCoord|gl_InstanceID|gl_Position|gl_PointSize|gl_ClipDistance|gl_PrimitiveIDIn|gl_InvocationID|gl_PrimitiveID|gl_Layer|gl_ViewportIndex|gl_PatchVerticesIn'
 
 contexts:
@@ -65,12 +65,12 @@ contexts:
       pop: true
 
   keywords:
-    - match: '\b{{glsl_keywords}}\b'
+    - match: '\b(?:{{glsl_keywords}})\b'
       scope: keyword.control.glsl
-    - match: '{{glsl_reserved}}'
+    - match: '\b(?:{{glsl_reserved}})\b'
       scope: keyword.glsl
-    - match: 'gl_\w+'
-      scope: invalid.illegal.reserved-but-unrecognized-identifier.glsl
+    # - match: 'gl_\w+'
+    #   scope: invalid.illegal.reserved-but-unrecognized-identifier.glsl
 
   statements:
     - include: expressions
