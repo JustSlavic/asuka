@@ -33,6 +33,14 @@ struct matrix4
 
 using m4 = matrix4;
 
+matrix4 operator + (matrix4 a, matrix4 b);
+matrix4 operator - (matrix4 a, matrix4 b);
+matrix4 operator * (matrix4 a, float32 c);
+matrix4 operator * (float32 c, matrix4 a);
+vector4 operator * (matrix4 m, vector4 v);
+vector4 operator * (vector4 v, matrix4 m);
+matrix4 operator * (matrix4 a, matrix4 b);
+
 
 matrix4 make_matrix4(f32 _11, f32 _12, f32 _13, f32 _14,
                      f32 _21, f32 _22, f32 _23, f32 _24,
@@ -90,17 +98,56 @@ matrix4 scaled(vector3 v, matrix4 m)
     return m;
 }
 
-matrix4 make_look_at_matrix(vector3 eye, vector3 center, vector3 up)
+matrix4 rotated_x(float a, matrix4 const& m)
 {
-    vector3 f = normalized(center - eye);
+    return m * make_matrix4(1,             0,            0, 0,
+                            0,  math::cos(a), -math::sin(a), 0,
+                            0,  math::sin(a), math::cos(a), 0,
+                            0,             0,            0, 1);
+}
+
+void rotate_x(matrix4& m, float a)
+{
+    m = rotated_x(a, m);
+}
+
+matrix4 rotated_y(float b, matrix4 const& m)
+{
+    return m * make_matrix4(math::cos(b), 0, -math::sin(b), 0,
+                                       0, 1,             0, 0,
+                            math::sin(b), 0,  math::cos(b), 0,
+                                       0, 0,             0, 1);
+}
+
+void rotate_y(matrix4& m, float b)
+{
+    m = rotated_y(b, m);
+}
+
+matrix4 rotated_z(float y, matrix4 const& m)
+{
+    return m * make_matrix4(math::cos(y), math::sin(y), 0, 0,
+                           -math::sin(y), math::cos(y), 0, 0,
+                                       0,            0, 1, 0,
+                                       0,            0, 0, 1);
+}
+
+void rotate_z(matrix4& m, float y)
+{
+    m = rotated_z(y, m);
+}
+
+matrix4 make_look_at_matrix(vector3 eye, vector3 at, vector3 up)
+{
+    vector3 f = normalized(at - eye);
     vector3 s = normalized(cross(f, up));
     vector3 u = cross(s, f);
 
     matrix4 result =
     {
-         s.x,  s.y,  s.z, 0,
-         u.x,  u.y,  u.z, 0,
-        -f.x, -f.y, -f.z, 0,
+         s.x,  u.x,  -f.x, 0,
+         s.y,  u.y,  -f.y, 0,
+         s.z,  u.z,  -f.z, 0,
         -dot(s, eye), -dot(u, eye), dot(f, eye), 1,
     };
 

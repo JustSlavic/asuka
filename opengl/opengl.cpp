@@ -99,6 +99,10 @@ typedef void glValidateProgramType(GLuint program);
 typedef void glGetProgramivType(GLuint program, GLenum pname, GLint *params);
 typedef GLint glGetUniformLocationType(GLuint program, char const *uniform_name);
 typedef void glUniform1iType(GLint location, GLint v0);
+typedef void glUniform1fType(GLint location, GLfloat v0);
+typedef void glUniform2fType(GLint location, GLfloat v0, GLfloat v1);
+typedef void glUniform3fType(GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
+typedef void glUniform4fType(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
 typedef void glUniformMatrix4fvType(int32 location, isize count, bool transpose, float32 const *value);
 typedef void glTexImage2DMultisampleType(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
 typedef const char *WINAPI wglGetExtensionsStringARBType(HDC hdc);
@@ -135,6 +139,10 @@ GLOBAL glValidateProgramType *glValidateProgram;
 GLOBAL glGetProgramivType *glGetProgramiv;
 GLOBAL glGetUniformLocationType *glGetUniformLocation;
 GLOBAL glUniform1iType *glUniform1i;
+GLOBAL glUniform1fType *glUniform1f;
+GLOBAL glUniform2fType *glUniform2f;
+GLOBAL glUniform3fType *glUniform3f;
+GLOBAL glUniform4fType *glUniform4f;
 GLOBAL glUniformMatrix4fvType *glUniformMatrix4fv;
 GLOBAL glTexImage2DMultisampleType *glTexImage2DMultisample;
 GLOBAL wglGetExtensionsStringARBType *wglGetExtensionsStringARB;
@@ -174,6 +182,10 @@ void InitializeOpenGLFunctions()
     glGetProgramiv = (glGetProgramivType *) wglGetProcAddress("glGetProgramiv");
     glGetUniformLocation = (glGetUniformLocationType *) wglGetProcAddress("glGetUniformLocation");
     glUniform1i = (glUniform1iType *) wglGetProcAddress("glUniform1i");
+    glUniform1f = (glUniform1fType *) wglGetProcAddress("glUniform1f");
+    glUniform2f = (glUniform2fType *) wglGetProcAddress("glUniform2f");
+    glUniform3f = (glUniform3fType *) wglGetProcAddress("glUniform3f");
+    glUniform4f = (glUniform4fType *) wglGetProcAddress("glUniform4f");
     glUniformMatrix4fv = (glUniformMatrix4fvType *) wglGetProcAddress("glUniformMatrix4fv");
     glTexImage2DMultisample = (glTexImage2DMultisampleType *) wglGetProcAddress("glTexImage2DMultisample");
 }
@@ -306,6 +318,8 @@ GLOBAL BOOL IsPerspectiveProjection = TRUE;
 GLOBAL BOOL ProjectionMatrixNeedsChange;
 GLOBAL float32 inter_t;
 
+GLOBAL float32 dup;
+
 GLOBAL UINT CurrentClientWidth;
 GLOBAL UINT CurrentClientHeight;
 GLOBAL BOOL ViewportNeedsResize;
@@ -396,6 +410,16 @@ void Win32_ProcessPendingMessages()
                             ProjectionMatrixNeedsChange = TRUE;
                             inter_t = 1.0f;
                         }
+                    }
+                    if (VKCode == VK_UP)
+                    {
+                        if (IsDown) dup = 1.0f;
+                        else dup = 0.0f;
+                    }
+                    if (VKCode == VK_DOWN)
+                    {
+                        if (IsDown) dup = -1.0f;
+                        else dup = 0.0f;
                     }
                     if (VKCode == VK_ESCAPE)
                     {
@@ -639,6 +663,41 @@ Shader link_shader(uint32 vs, uint32 fs)
 }
 
 
+void uniform(Shader shader, char const *name, float f)
+{
+    auto location = glGetUniformLocation(shader.id, name);
+    glUniform1f(location, f);
+}
+
+
+void uniform(Shader shader, char const *name, vector2 const& v)
+{
+    auto location = glGetUniformLocation(shader.id, name);
+    glUniform2f(location, v.x, v.y);
+}
+
+
+void uniform(Shader shader, char const *name, vector3 const& v)
+{
+    auto location = glGetUniformLocation(shader.id, name);
+    glUniform3f(location, v.x, v.y, v.z);
+}
+
+
+void uniform(Shader shader, char const *name, vector4 const& v)
+{
+    auto location = glGetUniformLocation(shader.id, name);
+    glUniform4f(location, v.x, v.y, v.z, v.w);
+}
+
+
+void uniform(Shader shader, char const *name, matrix4 const& m)
+{
+    auto location = glGetUniformLocation(shader.id, name);
+    glUniformMatrix4fv(location, 1, GL_FALSE, m.get_data());
+}
+
+
 struct Mesh
 {
     array<vector3> vertices;
@@ -787,7 +846,7 @@ int WINAPI WinMain(
 {
     memory::mallocator mallocator;
 
-    auto obj_contents = os::load_entire_file("../data/cube.obj");
+    auto obj_contents = os::load_entire_file("../data/donut.obj");
     Mesh cube = load_wavefront_obj(obj_contents, &mallocator);
 
     int32 PrimaryMonitorWidth  = GetSystemMetrics(SM_CXSCREEN);
@@ -1157,6 +1216,35 @@ int WINAPI WinMain(
         GL_CHECK_ERRORS();
     }
 
+    char const *vs_1color = R"GLSL(
+#version 400
+#define square(x) (x*x)
+
+layout (location = 0) in vec3 vertex_position;
+
+uniform mat4 u_model;
+uniform mat4 u_view;
+uniform mat4 u_projection;
+
+void main()
+{
+    gl_Position = u_projection * u_view * u_model * vec4(vertex_position, 1.0);
+}
+)GLSL";
+
+    char const *fs_1color = R"GLSL(
+#version 400
+
+out vec4 result_color;
+
+uniform vec4 u_color;
+
+void main()
+{
+    result_color = u_color;
+}
+)GLSL";
+
     char const *vs_source = R"GLSL(
 #version 400
 
@@ -1229,6 +1317,13 @@ void main()
 }
 )GLSL";
 
+    auto color_vs = compile_shader(vs_1color, GL_VERTEX_SHADER);
+    auto color_fs = compile_shader(fs_1color, GL_FRAGMENT_SHADER);
+    auto color_shader = link_shader(color_vs, color_fs);
+    glDeleteShader(color_vs);
+    glDeleteShader(color_fs);
+    GL_CHECK_ERRORS();
+
     auto plane_vs = compile_shader(vs_source, GL_VERTEX_SHADER);
     auto plane_fs = compile_shader(fs_source, GL_FRAGMENT_SHADER);
     auto plane_shader = link_shader(plane_vs, plane_fs);
@@ -1257,7 +1352,7 @@ void main()
     auto perspective = make_projection_matrix_fov(to_radians(60), DesiredAspectRatio, n, f);
     auto orthographic = make_orthographic_matrix(4, 3, n, f);
 
-    Camera camera = make_camera_at({0, 0, 3});
+    Camera camera = make_camera_at({0, 3, 3});
 
     Running = true;
     os::timepoint LastClockTimepoint = os::get_wall_clock();
@@ -1274,15 +1369,16 @@ void main()
         Win32_ProcessPendingMessages();
 
         PERSIST f32 circle_t = 0.0f;
-        f32 rot_x = 6.0f * cosf(circle_t);
-        f32 rot_z = 6.0f * sinf(circle_t);
+        f32 rot_x = 3.0f * cosf(circle_t);
+        f32 rot_z = 3.0f * sinf(circle_t);
 
         camera.position.x = rot_x;
+        camera.position.y += dtFromLastFrame * dup;
         camera.position.z = rot_z;
 
         circle_t += 0.5f * dtFromLastFrame;
 
-        auto view = make_look_at_matrix(camera.position, make_vector3(0, 0, 0), camera.up);
+        auto view = make_look_at_matrix(camera.position, make_vector3(0, 0, 0), make_vector3(0, 1, 0));
 
         if (ProjectionMatrixNeedsChange)
         {
@@ -1307,26 +1403,23 @@ void main()
 
         // Draw Skybox-ish thing
         {
-        glUseProgram(plane_shader.id);
-        int32 u_view_location = glGetUniformLocation(plane_shader.id, "u_view");
-        glUniformMatrix4fv(u_view_location, 1, GL_FALSE, matrix4::identity.get_data());
-        int32 u_projection_location = glGetUniformLocation(plane_shader.id, "u_projection");
-        glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, matrix4::identity.get_data());
+            glUseProgram(plane_shader.id);
+            uniform(plane_shader, "u_view", matrix4::identity);
+            uniform(plane_shader, "u_projection", matrix4::identity);
 
 #if 0
-        glBindVertexArray(vertex_array_id);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-#else
+            glBindVertexArray(vertex_array_id);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+#endif
             glDisable(GL_DEPTH_TEST);
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
             glBindVertexArray(skybox_vao);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
-            glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
+            // glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
 
             glEnable(GL_DEPTH_TEST);
         }
-#endif
 
         if (Wireframe)
         {
@@ -1341,12 +1434,8 @@ void main()
         {
             glUseProgram(plane_shader.id);
 
-            int32 u_view_location = glGetUniformLocation(plane_shader.id, "u_view");
-            glUniformMatrix4fv(u_view_location, 1, GL_FALSE, matrix4::identity.get_data());
-            int32 u_projection_location = glGetUniformLocation(plane_shader.id, "u_projection");
-
-            glUniformMatrix4fv(u_view_location, 1, GL_FALSE, view.get_data());
-            glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, projection.get_data());
+            uniform(plane_shader, "u_view", view);
+            uniform(plane_shader, "u_projection", projection);
 
             glBindVertexArray(vertex_array_id);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
@@ -1357,13 +1446,15 @@ void main()
         {
             glUseProgram(cube_shader.id);
 
-            int32 u_model_location = glGetUniformLocation(cube_shader.id, "u_model");
             matrix4 model = matrix4::identity;
-            glUniformMatrix4fv(u_model_location, 1, GL_FALSE, model.get_data());
-            int32 u_view_location = glGetUniformLocation(cube_shader.id, "u_view");
-            glUniformMatrix4fv(u_view_location, 1, GL_FALSE, view.get_data());
-            int32 u_projection_location = glGetUniformLocation(cube_shader.id, "u_projection");
-            glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, projection.get_data());
+            scale(model, make_vector3(20));
+            // rotate_z(model, to_radians(30.0f * circle_t));
+            // rotate_y(model, to_radians(30.0f * circle_t));
+            // rotate_x(model, to_radians(30.0f * circle_t));
+
+            uniform(cube_shader, "u_model", model);
+            uniform(cube_shader, "u_view", view);
+            uniform(cube_shader, "u_projection", projection);
 
             glActiveTexture(GL_TEXTURE0); // Texture unit (slot)
             glBindTexture(GL_TEXTURE_2D, wisp_texture);
@@ -1371,6 +1462,38 @@ void main()
             glBindVertexArray(cube_vertex_array_id);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cube_index_buffer_id);
             glDrawElements(GL_TRIANGLES, (int32) cube.indices.size, GL_UNSIGNED_INT, NULL);
+        }
+
+        // Draw Axis
+        {
+            glUseProgram(color_shader.id);
+
+            auto model = matrix4::identity;
+            translate(model, make_vector3(0, 0, 1));
+
+            scale(model, make_vector3(0.5, 0.01, 1));
+            translate(model, make_vector3(0.5, 0, 0));
+
+            uniform(color_shader, "u_model", model);
+            uniform(color_shader, "u_view", view);
+            uniform(color_shader, "u_projection", projection);
+
+            uniform(color_shader, "u_color", make_vector4(1, 0, 0, 1));
+
+            glBindVertexArray(vertex_array_id);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
+            glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
+
+            rotate_z(model, to_radians(90));
+            uniform(color_shader, "u_model", model);
+            uniform(color_shader, "u_color", make_vector4(0, 1, 0, 1));
+            glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
+
+            rotate_x(model, to_radians(90));
+            rotate_y(model, to_radians(180));
+            uniform(color_shader, "u_model", model);
+            uniform(color_shader, "u_color", make_vector4(0, 0, 1, 1));
+            glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indices), GL_UNSIGNED_INT, NULL);
         }
 
         blit_render_target(&framebuffer);
