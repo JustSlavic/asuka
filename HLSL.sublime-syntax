@@ -3,132 +3,276 @@
 name: HLSL
 file_extensions:
   - hlsl
-  - shader
-scope: hlsl source.hlsl
+scope: source.hlsl
+
+variables:
+  # number digits
+  bin_digit: '[01]'
+  oct_digit: '[0-7]'
+  dec_digit: '\d'
+  hex_digit: '\h'
+
+  dec_digits: '{{dec_digit}}+'
+
+  # number exponents
+  dec_exponent: '(?:[eE][-+]?{{dec_digit}}*)'
+  hex_exponent: '(?:[pP][-+]?{{dec_digit}}*)'
+
+  # number suffixes
+  bin_suffix: '[2-9a-zA-Z_][[:alnum:]_]*'
+  oct_suffix: '[8-9g-zG-Z_][[:alnum:]_]*'
+  dec_suffix: '[a-zA-Z_][[:alnum:]_]*'
+  hex_suffix: '[g-zG-Z_][[:alnum:]_]*'
+  double_suffix: '[fFlL]'
+  float_suffix: '[fF]'
+  integer_suffix: '[lL]{1,2}[uU]?|[uU][lL]{0,2}'
+
+  identifier: '\b[[:alpha:]_][[:alnum:]_]*\b' # upper and lowercase
+  hlsl_types: 'float|float2|float3|float4'
+  hlsl_keywords: ''
+  hlsl_reserved: ''
+
 contexts:
   main:
-    # Comments begin with a '//' and finish at the end of the line
-    - match: '//'
-      scope: asuka.comment
-      push: line_comment
+    - include: preprocessor
+    - include: global
 
-    - match: '\/\*'
-      scope: asuka.comment
-      push: multiline_comment
+  global:
+    - include: comments
+    - include: keywords
+    - include: layout
+    - include: operators
+    - include: function-definition
+    - include: block
+    - include: statements
 
-    - match: '\b(if|else|while|for|break|switch|case|return)\b'
-      scope: asuka.keyword
-
-    - match: '\b(0x[0-9ABCDEF\'']+|0b[01\'']+|[+\-]?\d+e[+\-]\d+f?|[+\-]?\d+\.\d+f?|[+\-]?\.\d+f?|[+\-]?\d+)\b'
-      scope: asuka.constant.numeric
-
-    # - match: '#\w+'
-    #   scope: asuka.preprocessor.head
-    #   push: preprocessor
-
-    - match: '\bstruct\b'
-      scope: asuka.keyword.struct
-      push: struct
-
-    - match: '[\-=+<&!\|\*>%/]'
-      scope: asuka.operator
-    - match: '[\.::\(\),\{\};]'
-      scope: asuka.punctuation
-
-    - match: '([\w_][\w\d_²]*|operator\s*[\-\+\*\/\%\<\>\!\=]{1,2})\s*(\()'
+  function-definition:
+    - match: '({{identifier}})\s*(\()'
       captures:
-        1: asuka.function.name meta.function.c++ entity.name.function.c++
-        2: asuka.punctuation
-
-  struct:
-    - meta_scope: asuka.struct
-    - match: '\b\w*\b'
-      scope: asuka.struct.name source.c++ meta.struct.c++ entity.name.struct.c++
-    - match: '\{'
-      scope: asuka.punctuation
-      push: struct_body
-
-    - match: '\;'
-      scope: asuka.punctuation
-      pop: true
-
-    - match: '//'
-      scope: asuka.comment
-      push: line_comment
-
-    - match: '\/\*'
-      scope: asuka.comment
-      push: multiline_comment
-
-  struct_body:
-    - meta_scope: asuka.struct.body
-    - match: '\b(\.\d+f?|\d+\.(\d+)?f?|\d+(e[+-]\d+)?)\b'
-      scope: asuka.constant.numeric
-    - match: '//'
-      push: line_comment
-    - match: '/\*'
-      push: multiline_comment
-    - match: '[\-=+<&!\|\*>%/]'
-      scope: asuka.operator
-    - match: '[\.::\(\),;\[\]]'
-      scope: asuka.punctuation
-    - match: '([\w_][\w\d_²]*)(\()'
-      captures:
-        1: asuka.function.name meta.function.c++
-        2: asuka.punctuation punctuation
-    - match: '#\w+'
-      scope: asuka.preprocessor.head
-      push: preprocessor
-    - match: '\}'
-      scope: asuka.punctuation
-      pop: true
+        1: entity.name.function.hlsl
+        2: punctuation
+      push:
+        - match: ','
+          scope: punctuation
+        - match: '\)'
+          scope: punctuation
+          pop: true
 
   line_comment:
-    - meta_scope: asuka.comment.line
-    - match: '@todo:?'
-      scope: asuka.todo
-    - match: '@note:?'
-      scope: asuka.note
-    - match: '@nocommit\b'
-      scope: asuka.nocommit
-    - match: '@\w+:?'
-      scope: asuka.at
+    - meta_scope: comment.line.example-c
     - match: $
       pop: true
 
-  multiline_comment:
-    - meta_scope: asuka.comment.multiline
+  keywords:
+    - match: '\b{{hlsl_keywords}}\b'
+      scope: keyword.control.hlsl
+    - match: '{{hlsl_reserved}}'
+      scope: keyword.hlsl
+
+  statements:
+    - include: expressions
+
+  expressions:
+    - include: early-expressions
+    - include: late-expressions
+
+  early-expressions:
+    - include: comments
+    - include: operators
+    - include: keywords
+    - include: numbers
+    - match: ','
+      scope: punctuation.separator.hlsl
+    - match: '\)|\}'
+      scope: invalid.illegal.stray-bracket-end.hlsl
+
+  late-expressions:
+    - include: function-call
+    - match: ';'
+      scope: punctuation.terminator.hlsl
+
+  operators:
+    - match: (?:\+\+|--)
+      scope: keyword.operator.arithmetic.hlsl
+    - match: \+|\-|/|%|\||\^|~|!
+      scope: keyword.operator.arithmetic.hlsl
+    - match: '\+\=|\-\=|\*\=|/\=|%\=|&\=|\|\=|\^\=|>>\=|<<\='
+      scope: keyword.operator.assignment.augmented.hlsl
+    - match: \=
+      scope: keyword.operator.assignment.hlsl
+
+  layout:
+    - match: 'layout'
+      scope: keyword.control.hlsl
+    - match: '\('
+      scope: meta.group.hlsl punctuation.section.group.begin.hlsl
+      push:
+        - include: operators
+        - include: numbers
+        - match: '\)'
+          scope: meta.group.hlsl punctuation.section.group.end.hlsl
+          pop: true
+
+  function-call:
+    - match: '(?={{identifier}}\s*\()'
+      push:
+        - meta_content_scope: meta.function-call.hlsl
+        - match: '({{identifier}})\s*(?=\()'
+          captures:
+            1: variable.function.hlsl
+        - match: '\('
+          scope: meta.group.hlsl punctuation.section.group.begin.hlsl
+          set:
+            - meta_content_scope: meta.function-call.hlsl meta.group.hlsl
+            - match: '\)'
+              scope: meta.function-call.hlsl meta.group.hlsl punctuation.section.group.end.hlsl
+              pop: true
+            - include: expressions
+
+  block:
+    - match: '\{'
+      scope: punctuation.section.block.begin.hlsl
+      push:
+        - meta_scope: meta.block.hlsl
+        - match: (?=^\s*#\s*(elif|else|endif)\b)
+          pop: true
+        - match: '\}'
+          scope: punctuation.section.block.end.hlsl
+          pop: true
+        - include: statements
+
+  comments:
+    - match: ^/\* =(\s*.*?)\s*= \*/$\n?
+      scope: comment.block.hlsl
+      captures:
+        1: meta.toc-list.banner.block.hlsl
+    - match: /\*
+      scope: punctuation.definition.comment.hlsl
+      push:
+        - meta_scope: comment.block.hlsl
+        - include: comment-tags
+        - match: \*/
+          scope: punctuation.definition.comment.hlsl
+          pop: true
+        - match: ^\s*(\*)(?!/)
+          captures:
+            1: punctuation.definition.comment.hlsl
+    - match: \*/(?!\*)
+      scope: invalid.illegal.stray-comment-end.hlsl
+    - match: ^// =(\s*.*?)\s*=\s*$\n?
+      scope: comment.line.banner.hlsl
+      captures:
+        1: meta.toc-list.banner.line.hlsl
+    - match: //
+      scope: punctuation.definition.comment.hlsl
+      push:
+        - meta_scope: comment.line.double-slash.hlsl
+        - include: comment-tags
+        - match: '(\\)$\n'
+          captures:
+            1: punctuation.separator.continuation.hlsl
+        - match: \n
+          pop: true
+
+  comment-tags:
     - match: '@todo:?'
-      scope: asuka.todo
+      scope: comment.todo
     - match: '@note:?'
-      scope: asuka.note
+      scope: comment.note
     - match: '@nocommit\b'
-      scope: asuka.nocommit
-    - match: '\*\/'
-      pop: true
+      scope: comment.nocommit
+    - match: '@\w+:?'
+      scope: comment.at
 
   preprocessor:
-    - meta_scope: asuka.preprocessor.body
-    - match: '//'
-      scope: asuka.comment
-      push: line_comment
-    - match: '\/\*'
-      scope: asuka.comment
-      push: multiline_comment
-    - match: '\b(if|else|while|for|break|switch|case|return|typedef)\b'
-      scope: asuka.keyword
-    - match: '\b(-)?[0-9.]+f?\b'
-      scope: asuka.constant.numeric
-    - match: 'NULL'
-      scope: asuka.constant
-    - match: '[\-=+<&!\|\*>%/]'
-      scope: asuka.operator
-    - match: '[\.::\(\),;]'
-      scope: asuka.punctuation
-    - match: '([\w_][\w\d_²]*)\s*(\()'
-      captures:
-        1: asuka.function.name meta.function.c++ entity.name.function.c++
-        2: asuka.punctuation
+    - match: '\#{{identifier}}'
+      scope: meta.preprocessor.macro.hlsl keyword.control.import
+      push:
+        - match: $
+          pop: true
+        - include: expressions
 
-    - match: '$'
-      pop: true
+  numbers:
+    # https://en.cppreference.com/w/c/language/floating_constant
+    # decimal floats
+    - match: |-
+        (?x:
+          \b({{dec_digits}})
+          (?:
+            ( (\.)
+              (?:
+                # 1.1, 1.1e1, 1.1e-1, 1.1f, 1.1e1f, 1.1e-1f, 1.1L, 1.1e1L, 1.1e-1L
+                {{dec_digit}}+ {{dec_exponent}}?
+                # 1.e1, 1.e-1, 1.e1f, 1.e-1f, 1.e1L, 1.e-1L
+                | {{dec_exponent}}
+                # 1., 1.f, 1.L # but not `..`
+                | (?!\.)
+              )
+              # 1e1 1e1f 1e1L
+              | {{dec_exponent}}
+            ) ({{double_suffix}})?
+            # 1f
+            | ({{float_suffix}})
+          ) ({{dec_suffix}})?
+          # .1, .1e1, .1e-1, .1f, .1e1f, .1e-1f, .1L, .1e1L, .1e-1L
+          | ( (\.) {{dec_digit}}+ {{dec_exponent}}? ) (?: ({{double_suffix}}) | ({{dec_suffix}}) )?
+        )
+      scope: meta.number.float.decimal.hlsl
+      captures:
+        1: constant.numeric.value.hlsl
+        2: constant.numeric.value.hlsl
+        3: punctuation.separator.decimal.hlsl
+        4: constant.numeric.suffix.hlsl
+        5: constant.numeric.suffix.hlsl
+        6: invalid.illegal.numeric.suffix.hlsl
+        7: constant.numeric.value.hlsl
+        8: punctuation.separator.decimal.hlsl
+        9: constant.numeric.suffix.hlsl
+        10: invalid.illegal.numeric.suffix.hlsl
+
+    # hexadecimal float (C99)
+    - match: \b(0[xX])({{hex_digit}}*(\.){{hex_digit}}*{{hex_exponent}})(?:([fFlL]\b)|({{dec_suffix}}))?
+      scope: meta.number.float.hexadecimal.hlsl
+      captures:
+        1: constant.numeric.base.hlsl
+        2: constant.numeric.value.hlsl
+        3: punctuation.separator.decimal.hlsl
+        4: constant.numeric.suffix.hlsl
+        5: invalid.illegal.numeric.suffix.hlsl
+
+    # https://en.cppreference.com/w/c/language/integer_constant
+
+    # binary integer (C23)
+    - match: \b(0[bB])({{bin_digit}}*)(?:({{integer_suffix}})|({{bin_suffix}}))?
+      scope: meta.number.integer.binary.hlsl
+      captures:
+        1: constant.numeric.base.hlsl
+        2: constant.numeric.value.hlsl
+        3: constant.numeric.suffix.hlsl
+        4: invalid.illegal.numeric.suffix.hlsl
+
+    # hexadecimal integer
+    - match: \b(0[xX])({{hex_digit}}*)(?:({{integer_suffix}})|({{hex_suffix}}))?
+      scope: meta.number.integer.hexadecimal.hlsl
+      captures:
+        1: constant.numeric.base.hlsl
+        2: constant.numeric.value.hlsl
+        3: constant.numeric.suffix.hlsl
+        4: invalid.illegal.numeric.suffix.hlsl
+
+    # octal integer
+    - match: \b(0)({{oct_digit}}+)(?:({{integer_suffix}})|({{oct_suffix}}))?
+      scope: meta.number.integer.octal.hlsl
+      captures:
+        1: constant.numeric.base.hlsl
+        2: constant.numeric.value.hlsl
+        3: constant.numeric.suffix.hlsl
+        4: invalid.illegal.numeric.suffix.hlsl
+
+    # decimal integer
+    - match: \b({{dec_digits}})(?:({{integer_suffix}})|({{dec_suffix}}))?
+      scope: meta.number.integer.decimal.hlsl
+      captures:
+        1: constant.numeric.value.hlsl
+        2: constant.numeric.suffix.hlsl
+        3: invalid.illegal.numeric.suffix.hlsl

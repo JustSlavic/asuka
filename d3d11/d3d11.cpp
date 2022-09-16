@@ -5,6 +5,8 @@
 #include <math/vector3.hpp>
 #include <math/matrix4.hpp>
 #include <os/time.hpp>
+#include <png.hpp>
+#include <obj.hpp>
 
 #include <windows.h>
 
@@ -273,6 +275,90 @@ struct Dx11
 };
 
 
+struct Shader
+{
+    ID3D11VertexShader *VertexShader;
+    ID3D11PixelShader *PixelShader;
+    ID3DBlob *VertexShaderBytecode;
+    ID3DBlob *PixelShaderBytecode;
+};
+
+
+Shader compile_shader(Dx11& Dx, string_view source_code)
+{
+    ID3DBlob *ShaderErrors = NULL;
+
+    ID3DBlob *VSByteCode = NULL;
+    HRESULT VertexShaderCompilationResult = D3DCompile(
+        source_code.data, // SrcData
+        source_code.size, // SrcDataSize
+        NULL,             // SourceName
+        NULL,             // Defines
+        NULL,             // Include
+        "VShader",        // Entrypoint
+        "vs_4_0",         // Target,
+        0,                // Flags1
+        0,                // Flags2
+        &VSByteCode,      // Code
+        &ShaderErrors);   // ErrorMsgs
+
+    if (FAILED(VertexShaderCompilationResult))
+    {
+        char ErrorBuffer[1024] = {};
+        sprintf(ErrorBuffer, "Vertex Shader compilation error:\n\n%.*s",
+            (int) ShaderErrors->GetBufferSize(), (char *) ShaderErrors->GetBufferPointer());
+
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, ErrorBuffer, "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+        RELEASE_COM(ShaderErrors);
+        return {};
+    }
+
+    ID3D11VertexShader *VertexShader = NULL;
+    Dx.Device->CreateVertexShader(VSByteCode->GetBufferPointer(), VSByteCode->GetBufferSize(), NULL, &VertexShader);
+
+    ID3DBlob *PSBytecode = NULL;
+    HRESULT PixelShaderCompilationResult = D3DCompile(
+        source_code.data, // SrcData
+        source_code.size, // SrcDataSize
+        NULL,             // SourceName
+        NULL,             // Defines
+        NULL,             // Include
+        "PShader",        // Entrypoint
+        "ps_4_0",         // Target
+        0,                // Flags1
+        0,                // Flags2
+        &PSBytecode,      // Code
+        &ShaderErrors);   // ErrorMsgs
+
+    if (FAILED(PixelShaderCompilationResult))
+    {
+        char ErrorBuffer[1024] = {};
+        sprintf(ErrorBuffer, "Pixel Shader compilation error:\n\n%.*s",
+            (int) ShaderErrors->GetBufferSize(), (char *) ShaderErrors->GetBufferPointer());
+
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, ErrorBuffer, "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+
+        RELEASE_COM(VSByteCode);
+        RELEASE_COM(VertexShader);
+        RELEASE_COM(ShaderErrors);
+        return {};
+    }
+
+    ID3D11PixelShader *PixelShader = NULL;
+    Dx.Device->CreatePixelShader(PSBytecode->GetBufferPointer(), PSBytecode->GetBufferSize(), NULL, &PixelShader);
+
+    Shader Result;
+    Result.VertexShader = VertexShader;
+    Result.PixelShader = PixelShader;
+    Result.VertexShaderBytecode = VSByteCode;
+    Result.PixelShaderBytecode = PSBytecode;
+
+    return Result;
+}
+
+
 struct ViewportSize
 {
     uint32 OffsetX;
@@ -437,6 +523,13 @@ int WINAPI WinMain(
     LPSTR CmdLine,
     int CmdShow)
 {
+    memory::mallocator mallocator;
+
+    auto wisp_bitmap = load_png_file("../data/familiar.png");
+
+    auto obj_contents = os::load_entire_file("../data/donut.obj");
+    auto cube = load_wavefront_obj(obj_contents, &mallocator);
+
     Dx11 Dx = {};
 
     ID3D11RasterizerState* D3D11_RasterizerState = NULL;
@@ -580,9 +673,10 @@ int WINAPI WinMain(
         }
     }
 
-    char const Shader[] = R"HLSL(
+    char const ShaderCode1[] = R"HLSL(
 cbuffer VsConstantBuffer : register(b0)
 {
+    float4x4 model_matrix;
     float4x4 view_matrix;
     float4x4 projection_matrix;
 };
@@ -616,60 +710,7 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 }
 )HLSL";
 
-    ID3DBlob *ShaderErrors = NULL;
-
-    ID3DBlob *VS = NULL;
-    HRESULT VertexShaderCompilationResult = D3DCompile(
-        Shader,         // SrcData
-        sizeof(Shader), // SrcDataSize
-        NULL,           // SourceName
-        NULL,           // Defines
-        NULL,           // Include
-        "VShader",      // Entrypoint
-        "vs_4_0",       // Target,
-        0,              // Flags1
-        0,              // Flags2
-        &VS,            // Code
-        &ShaderErrors); // ErrorMsgs
-
-    if (FAILED(VertexShaderCompilationResult))
-    {
-        MessageBeep(MB_ICONERROR);
-
-        char ErrorBuffer[1024] = {};
-        sprintf(ErrorBuffer, "Vertex Shader compilation error:\n\n%.*s",
-            (int) ShaderErrors->GetBufferSize(), (char *) ShaderErrors->GetBufferPointer());
-
-        MessageBoxA(0, ErrorBuffer, "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
-        return 1;
-    }
-
-    ID3D11VertexShader *VertexShader = NULL;
-    Dx.Device->CreateVertexShader(VS->GetBufferPointer(), VS->GetBufferSize(), NULL, &VertexShader);
-
-    ID3DBlob *PS = NULL;
-    HRESULT PixelShaderCompilationResult = D3DCompile(
-        Shader,         // SrcData
-        sizeof(Shader), // SrcDataSize
-        NULL,           // SourceName
-        NULL,           // Defines
-        NULL,           // Include
-        "PShader",      // Entrypoint
-        "ps_4_0",       // Target
-        0,              // Flags1
-        0,              // Flags2
-        &PS,            // Code
-        &ShaderErrors); // ErrorMsgs
-
-    if (FAILED(PixelShaderCompilationResult))
-    {
-        MessageBeep(MB_ICONERROR);
-        MessageBoxA(0, "Pixel Shader compilation error.", "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
-        return 1;
-    }
-
-    ID3D11PixelShader *PixelShader = NULL;
-    Dx.Device->CreatePixelShader(PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &PixelShader);
+    Shader PlaneShader = compile_shader(Dx, ShaderCode1);
 
     struct Vertex
     {
@@ -760,14 +801,15 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
             { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         };
 
-        Dx.Device->CreateInputLayout(InputDescription, 2, VS->GetBufferPointer(), VS->GetBufferSize(), &InputLayout);
+        Dx.Device->CreateInputLayout(InputDescription, 2, PlaneShader.VertexShaderBytecode->GetBufferPointer(), PlaneShader.VertexShaderBytecode->GetBufferSize(), &InputLayout);
     }
 
     // ================= cube =================
 
-    char const CubeShader[] = R"HLSL(
+    char const CubeShaderCode1[] = R"HLSL(
 cbuffer VsConstantBuffer : register(b0)
 {
+    float4x4 model_matrix;
     float4x4 view_matrix;
     float4x4 projection_matrix;
 };
@@ -781,107 +823,37 @@ struct VS_Input
 struct VS_Output
 {
     float4 position : SV_POSITION;
-    float4 color : COLOR;
+    float2 uv : TEXTURE_UV;
 };
+
+Texture2D    my_texture : register(t0);
+SamplerState my_sampler : register(s0);
 
 VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 {
-    float4 p = mul(projection_matrix, mul(view_matrix, float4(position, 1.0)));
+    float4 p = mul(projection_matrix, mul(view_matrix, mul(model_matrix, float4(position, 1.0))));
 
     VS_Output result;
     result.position = p;
-    result.color = float4(uv.rgr, 1.0);
+    result.uv = uv;
 
     return result;
 }
+
+float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGET
+{
+    return my_texture.Sample(my_sampler, uv);
+}
 )HLSL";
 
-    ID3DBlob *Cube_VS = NULL;
-    HRESULT CubeVertexShaderCompilationResult = D3DCompile(
-        CubeShader, sizeof(CubeShader),
-        NULL, NULL, NULL,
-        "VShader", "vs_4_0",
-        0, 0, &Cube_VS, &ShaderErrors);
-
-    if (FAILED(CubeVertexShaderCompilationResult))
-    {
-        MessageBeep(MB_ICONERROR);
-
-        char ErrorBuffer[1024] = {};
-        sprintf(ErrorBuffer, "Vertex Shader compilation error:\n\n%.*s",
-            (int) ShaderErrors->GetBufferSize(), (char *) ShaderErrors->GetBufferPointer());
-
-        MessageBoxA(0, ErrorBuffer, "Asuka Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
-        return 1;
-    }
-
-    ID3D11VertexShader *CubeVertexShader = NULL;
-    Dx.Device->CreateVertexShader(Cube_VS->GetBufferPointer(), Cube_VS->GetBufferSize(), NULL, &CubeVertexShader);
-
-    vector3 CubeVertices[] =
-    {
-        {  1.0f,  1.0f, -0.5f },
-        {  1.0f, -1.0f, -0.5f },
-        {  1.0f,  1.0f,  0.5f },
-        {  1.0f, -1.0f,  0.5f },
-        { -1.0f,  1.0f, -0.5f },
-        { -1.0f, -1.0f, -0.5f },
-        { -1.0f,  1.0f,  0.5f },
-        { -1.0f, -1.0f,  0.5f },
-    };
-
-    f32 CubeTextureUV[] =
-    {
-        0.625f, 0.500f,
-        0.875f, 0.500f,
-        0.875f, 0.750f,
-        0.625f, 0.750f,
-        0.375f, 0.750f,
-        0.625f, 1.000f,
-        0.375f, 1.000f,
-        0.375f, 0.000f,
-        0.625f, 0.000f,
-        0.625f, 0.250f,
-        0.375f, 0.250f,
-        0.125f, 0.500f,
-        0.375f, 0.500f,
-        0.125f, 0.750f,
-    };
-
-    u32 CubeIndices[] =
-    {
-        // top face
-        1, 5, 7,
-        7, 3, 1,
-        // back face
-        4, 3, 7,
-        7, 8, 4,
-        // left face
-        8, 7, 5,
-        5, 6, 8,
-        // buttom face
-        6, 2, 4,
-        4, 8, 6,
-        // right face
-        2, 1, 3,
-        3, 4, 2,
-        // front face
-        6, 5, 1,
-        1, 2, 6,
-    };
-
-    // Fix enumeration from 1 in OBJ file format
-    for (uint32 i = 0; i < ARRAY_COUNT(CubeIndices); i++)
-    {
-        CubeIndices[i] -= 1;
-    }
+    Shader CubeShader = compile_shader(Dx, CubeShaderCode1);
 
     ID3D11Buffer *CubeVertexBuffer = NULL;
     {
         D3D11_BUFFER_DESC BufferDescription = {};
 
         BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
-        BufferDescription.ByteWidth = sizeof(CubeVertices);
+        BufferDescription.ByteWidth = uint32(cube.vertices.size * sizeof(vector3));
         BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -890,7 +862,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         {
             D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
             Dx.DeviceContext->Map(CubeVertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
-            memcpy(MappedSubresource.pData, CubeVertices, sizeof(CubeVertices));
+            memcpy(MappedSubresource.pData, cube.vertices.data, uint32(cube.vertices.size * sizeof(vector3)));
             Dx.DeviceContext->Unmap(CubeVertexBuffer, NULL);
         }
     }
@@ -900,7 +872,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         D3D11_BUFFER_DESC BufferDescription = {};
 
         BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
-        BufferDescription.ByteWidth = sizeof(CubeTextureUV);
+        BufferDescription.ByteWidth = uint32(cube.texture_uvs.size * sizeof(vector2));
         BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -909,7 +881,7 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         {
             D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
             Dx.DeviceContext->Map(CubeTextureUVBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
-            memcpy(MappedSubresource.pData, CubeTextureUV, sizeof(CubeTextureUV));
+            memcpy(MappedSubresource.pData, cube.texture_uvs.data, uint32(cube.texture_uvs.size * sizeof(vector2)));
             Dx.DeviceContext->Unmap(CubeTextureUVBuffer, NULL);
         }
     }
@@ -919,11 +891,11 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         D3D11_BUFFER_DESC BufferDescription = {};
 
         BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
-        BufferDescription.ByteWidth = sizeof(CubeIndices);
+        BufferDescription.ByteWidth = uint32(cube.indices.size * sizeof(uint32));
         BufferDescription.Usage     = D3D11_USAGE_IMMUTABLE;
         BufferDescription.BindFlags = D3D11_BIND_INDEX_BUFFER;
 
-        D3D11_SUBRESOURCE_DATA IndexData = { CubeIndices };
+        D3D11_SUBRESOURCE_DATA IndexData = { cube.indices.data };
 
         HRESULT CreateBufferResult = Dx.Device->CreateBuffer(&BufferDescription, &IndexData, &CubeIndexBuffer);
     }
@@ -936,13 +908,54 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
             { "TEXTURE_UV", 0, DXGI_FORMAT_R32G32_FLOAT,       1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         };
 
-        Dx.Device->CreateInputLayout(InputDescription, 2, Cube_VS->GetBufferPointer(), Cube_VS->GetBufferSize(), &CubeInputLayout);
+        Dx.Device->CreateInputLayout(InputDescription, 2, CubeShader.VertexShaderBytecode->GetBufferPointer(), CubeShader.VertexShaderBytecode->GetBufferSize(), &CubeInputLayout);
     }
 
     // ================= cube =================
 
+    // ================= texture =================
+
+    ID3D11Texture2D *WispTexture = NULL;
+    {
+        D3D11_TEXTURE2D_DESC TextureDescription;
+        TextureDescription.Width = wisp_bitmap.width;
+        TextureDescription.Height = wisp_bitmap.height;
+        TextureDescription.MipLevels = 1;
+        TextureDescription.ArraySize = 1;
+        TextureDescription.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        TextureDescription.SampleDesc.Count = 1;
+        TextureDescription.SampleDesc.Quality = 0;
+        TextureDescription.Usage = D3D11_USAGE_DYNAMIC;
+        TextureDescription.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        TextureDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        TextureDescription.MiscFlags = 0;
+
+        Dx.Device->CreateTexture2D(&TextureDescription, NULL, &WispTexture);
+
+        D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+        Dx.DeviceContext->Map(WispTexture, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+        memory::copy(MappedSubresource.pData, wisp_bitmap.pixels, wisp_bitmap.size);
+        Dx.DeviceContext->Unmap(WispTexture, NULL);
+    }
+
+    ID3D11ShaderResourceView* WispTextureView;
+    Dx.Device->CreateShaderResourceView(WispTexture, NULL, &WispTextureView);
+
+    D3D11_SAMPLER_DESC SamplerDescription = {};
+    SamplerDescription.Filter         = D3D11_FILTER_MIN_MAG_MIP_POINT;
+    SamplerDescription.AddressU       = D3D11_TEXTURE_ADDRESS_WRAP;
+    SamplerDescription.AddressV       = D3D11_TEXTURE_ADDRESS_WRAP;
+    SamplerDescription.AddressW       = D3D11_TEXTURE_ADDRESS_WRAP;
+    SamplerDescription.ComparisonFunc = D3D11_COMPARISON_NEVER;
+
+    ID3D11SamplerState* SamplerState;
+    Dx.Device->CreateSamplerState(&SamplerDescription, &SamplerState);
+
+    // ================= texture =================
+
     struct VertexShaderContants
     {
+        matrix4 ModelMatrix;
         matrix4 ViewMatrix;
         matrix4 ProjectionMatrix;
     };
@@ -1067,13 +1080,14 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
                 Dx.DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
                 auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
+                Constants->ModelMatrix = matrix4::identity;
                 Constants->ViewMatrix = matrix4::identity;
                 Constants->ProjectionMatrix = matrix4::identity;
                 Dx.DeviceContext->Unmap(VsConstantBuffer, NULL);
             }
 
-            Dx.DeviceContext->VSSetShader(VertexShader, 0, 0);
-            Dx.DeviceContext->PSSetShader(PixelShader, 0, 0);
+            Dx.DeviceContext->VSSetShader(PlaneShader.VertexShader, 0, 0);
+            Dx.DeviceContext->PSSetShader(PlaneShader.PixelShader, 0, 0);
             Dx.DeviceContext->RSSetState(D3D11_RasterizerState);
 
             Dx.DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -1101,13 +1115,14 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
 
                 Dx.DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
                 auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
+                Constants->ModelMatrix = matrix4::identity;
                 Constants->ViewMatrix = ViewMatrix;
                 Constants->ProjectionMatrix = ProjectionMatrix;
                 Dx.DeviceContext->Unmap(VsConstantBuffer, NULL);
             }
 
-            Dx.DeviceContext->VSSetShader(VertexShader, 0, 0);
-            Dx.DeviceContext->PSSetShader(PixelShader, 0, 0);
+            Dx.DeviceContext->VSSetShader(PlaneShader.VertexShader, 0, 0);
+            Dx.DeviceContext->PSSetShader(PlaneShader.PixelShader, 0, 0);
 
             Dx.DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             // Dx.DeviceContext->Draw(3, 0);
@@ -1123,11 +1138,27 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
             Dx.DeviceContext->IASetVertexBuffers(0, 2, Buffers, Strides, Offsets);
             Dx.DeviceContext->IASetIndexBuffer(CubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
-            Dx.DeviceContext->VSSetShader(CubeVertexShader, 0, 0);
-            Dx.DeviceContext->PSSetShader(PixelShader, 0, 0);
+            auto model = matrix4::identity;
+            scale(model, make_vector3(20));
+
+            {
+                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+
+                Dx.DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+                auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
+                Constants->ModelMatrix = model;
+                Constants->ViewMatrix = ViewMatrix;
+                Constants->ProjectionMatrix = ProjectionMatrix;
+                Dx.DeviceContext->Unmap(VsConstantBuffer, NULL);
+            }
+
+            Dx.DeviceContext->VSSetShader(CubeShader.VertexShader, 0, 0);
+            Dx.DeviceContext->PSSetShader(CubeShader.PixelShader, 0, 0);
+            Dx.DeviceContext->PSSetShaderResources(0, 1, &WispTextureView);
+            Dx.DeviceContext->PSSetSamplers(0, 1, &SamplerState);
 
             Dx.DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            Dx.DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(CubeIndices), 1, 0, 0, 0);
+            Dx.DeviceContext->DrawIndexedInstanced(uint32(cube.indices.size), 1, 0, 0, 0);
         }
 
         // Switch the back buffer and the front buffer
@@ -1138,8 +1169,15 @@ VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
         LastClockTimepoint = os::get_wall_clock();
     }
 
-    RELEASE_COM(VertexShader);
-    RELEASE_COM(PixelShader);
+    RELEASE_COM(PlaneShader.VertexShader);
+    RELEASE_COM(PlaneShader.PixelShader);
+    RELEASE_COM(PlaneShader.VertexShaderBytecode);
+    RELEASE_COM(PlaneShader.PixelShaderBytecode);
+
+    RELEASE_COM(CubeShader.VertexShader);
+    RELEASE_COM(CubeShader.PixelShader);
+    RELEASE_COM(CubeShader.VertexShaderBytecode);
+    RELEASE_COM(CubeShader.PixelShaderBytecode);
 
     RELEASE_COM(D3D11_DisabledDepthStencilState);
     RELEASE_COM(D3D11_DepthStencilState);
