@@ -391,6 +391,8 @@ Bitmap load_png_file(const char* filename) {
         return result;
     }
 
+    stbi_set_flip_vertically_on_load(true);
+
     i32 x, y, n;
     u8 *pixels = stbi_load(filename, &x, &y, &n, 0);
 

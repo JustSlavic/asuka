@@ -707,8 +707,11 @@ int WINAPI WinMain(
 {
     memory::mallocator mallocator;
 
-    auto obj_contents = os::load_entire_file("../data/donut.obj");
+    auto obj_contents = os::load_entire_file("../data/cube.obj");
     Mesh cube = load_wavefront_obj(obj_contents, &mallocator);
+
+    // Bitmap wisp_bitmap = load_png_file("../data/cube_texture.png");
+    Bitmap wisp_bitmap = load_png_file("../data/familiar.png");
 
     int32 PrimaryMonitorWidth  = GetSystemMetrics(SM_CXSCREEN);
     int32 PrimaryMonitorHeight = GetSystemMetrics(SM_CYSCREEN);
@@ -1062,7 +1065,6 @@ int WINAPI WinMain(
         }
     }
 
-    Bitmap wisp_bitmap = load_png_file("../data/familiar.png");
     uint32 wisp_texture = 0;
     {
         glGenTextures(1, &wisp_texture);
@@ -1175,6 +1177,7 @@ void main()
 {
     vec4 tex_color = texture(u_texture0, uv_coords);
     result_color = vec4(tex_color.rgb * tex_color.a, 1.0);
+    // result_color = vec4(uv_coords.rgr, 1.0);
 }
 )GLSL";
 
@@ -1308,7 +1311,7 @@ void main()
             glUseProgram(cube_shader.id);
 
             matrix4 model = matrix4::identity;
-            scale(model, make_vector3(20));
+            // scale(model, make_vector3(20));
             // rotate_z(model, to_radians(30.0f * circle_t));
             // rotate_y(model, to_radians(30.0f * circle_t));
             // rotate_x(model, to_radians(30.0f * circle_t));

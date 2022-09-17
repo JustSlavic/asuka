@@ -17,3 +17,7 @@ build/
 *.lib
 *.exe
 *.dll
+
+# Art
+*.blend1
+

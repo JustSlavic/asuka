@@ -525,9 +525,10 @@ int WINAPI WinMain(
 {
     memory::mallocator mallocator;
 
+    auto cube_bitmap = load_png_file("../data/cube_texture.png");
     auto wisp_bitmap = load_png_file("../data/familiar.png");
 
-    auto obj_contents = os::load_entire_file("../data/donut.obj");
+    auto obj_contents = os::load_entire_file("../data/cube.obj");
     auto cube = load_wavefront_obj(obj_contents, &mallocator);
 
     Dx11 Dx = {};
@@ -608,18 +609,19 @@ int WINAPI WinMain(
     // SwapChainDescription.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // Allow full-screen switching
 
     D3D_FEATURE_LEVEL FeatureLevel = D3D_FEATURE_LEVEL_11_0;
+    D3D_FEATURE_LEVEL CreatedFeatureLevel;
     if(FAILED(D3D11CreateDeviceAndSwapChain(
         NULL,
         D3D_DRIVER_TYPE_HARDWARE, // DriverType
-        NULL, // Software
-        NULL, // Flags
-        NULL, // FeatureLevels
-        NULL, // FeatureLevelCount,
-        D3D11_SDK_VERSION, // SDKVersion
+        NULL,               // Software
+        NULL,               // Flags
+        &FeatureLevel,      // FeatureLevels
+        1,                  // FeatureLevelCount,
+        D3D11_SDK_VERSION,  // SDKVersion
         &SwapChainDescription,
         &Dx.SwapChain,
         &Dx.Device,
-        NULL, // FeatureLevel
+        &CreatedFeatureLevel, // OutFeatureLevel
         &Dx.DeviceContext)))
     {
         MessageBeep(MB_ICONERROR);
@@ -829,20 +831,21 @@ struct VS_Output
 Texture2D    my_texture : register(t0);
 SamplerState my_sampler : register(s0);
 
-VS_Output VShader(float3 position : POSITION, float2 uv : TEXTURE_UV)
+VS_Output VShader(VS_Input input)
 {
-    float4 p = mul(projection_matrix, mul(view_matrix, mul(model_matrix, float4(position, 1.0))));
+    float4 p = mul(projection_matrix, mul(view_matrix, mul(model_matrix, float4(input.position, 1.0))));
 
     VS_Output result;
     result.position = p;
-    result.uv = uv;
+    result.uv = input.uv;
 
     return result;
 }
 
 float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGET
 {
-    return my_texture.Sample(my_sampler, uv);
+    float4 tex_color = my_texture.Sample(my_sampler, uv);
+    return float4(tex_color.rgb * tex_color.a, 1.0);
 }
 )HLSL";
 
@@ -853,7 +856,7 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
         D3D11_BUFFER_DESC BufferDescription = {};
 
         BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
-        BufferDescription.ByteWidth = uint32(cube.vertices.size * sizeof(vector3));
+        BufferDescription.ByteWidth = uint32(cube.vertices.get_size_in_bytes());
         BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -872,7 +875,7 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
         D3D11_BUFFER_DESC BufferDescription = {};
 
         BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
-        BufferDescription.ByteWidth = uint32(cube.texture_uvs.size * sizeof(vector2));
+        BufferDescription.ByteWidth = uint32(cube.texture_uvs.get_size_in_bytes());
         BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -881,7 +884,7 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
         {
             D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
             Dx.DeviceContext->Map(CubeTextureUVBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
-            memcpy(MappedSubresource.pData, cube.texture_uvs.data, uint32(cube.texture_uvs.size * sizeof(vector2)));
+            memcpy(MappedSubresource.pData, cube.texture_uvs.data, uint32(cube.texture_uvs.get_size_in_bytes()));
             Dx.DeviceContext->Unmap(CubeTextureUVBuffer, NULL);
         }
     }
@@ -891,12 +894,11 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
         D3D11_BUFFER_DESC BufferDescription = {};
 
         BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
-        BufferDescription.ByteWidth = uint32(cube.indices.size * sizeof(uint32));
+        BufferDescription.ByteWidth = uint32(cube.indices.get_size_in_bytes());
         BufferDescription.Usage     = D3D11_USAGE_IMMUTABLE;
         BufferDescription.BindFlags = D3D11_BIND_INDEX_BUFFER;
 
         D3D11_SUBRESOURCE_DATA IndexData = { cube.indices.data };
-
         HRESULT CreateBufferResult = Dx.Device->CreateBuffer(&BufferDescription, &IndexData, &CubeIndexBuffer);
     }
 
@@ -930,12 +932,24 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
         TextureDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         TextureDescription.MiscFlags = 0;
 
-        Dx.Device->CreateTexture2D(&TextureDescription, NULL, &WispTexture);
+        // D3D11_SUBRESOURCE_DATA SubresourceData = { wisp_bitmap.pixels };
+        HRESULT CreateTextureResult = Dx.Device->CreateTexture2D(&TextureDescription, NULL, &WispTexture);
+        if (SUCCEEDED(CreateTextureResult))
+        {
+            D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+            Dx.DeviceContext->Map(WispTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubresource);
+            memory::copy(MappedSubresource.pData, wisp_bitmap.pixels, wisp_bitmap.size);
+            Dx.DeviceContext->Unmap(WispTexture, NULL);
+        }
+        else
+        {
+            char buffer[1024] = {};
+            sprintf(buffer, "Cannot create a texture.\n\n%s", get_d3d11_error_string(CreateTextureResult));
 
-        D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-        Dx.DeviceContext->Map(WispTexture, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
-        memory::copy(MappedSubresource.pData, wisp_bitmap.pixels, wisp_bitmap.size);
-        Dx.DeviceContext->Unmap(WispTexture, NULL);
+            MessageBeep(MB_ICONERROR);
+            MessageBoxA(0, buffer, "D3D11 Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+            return 1;
+        }
     }
 
     ID3D11ShaderResourceView* WispTextureView;
@@ -999,7 +1013,7 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
     auto OrthographicProjection = MakeOrthographicMatrix(4, 3, n, f);
     auto ProjectionMatrix = PerspectiveProjection;
 
-    Camera camera = make_camera_at({0, 0, 3});
+    Camera camera = make_camera_at({0, 3, 3});
 
     RenderTarget MainRenderTarget = {};
 
@@ -1012,8 +1026,8 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
         Win32_ProcessPendingMessages();
 
         PERSIST f32 circle_t = 0.0f;
-        f32 rot_x = 6.0f * cosf(circle_t);
-        f32 rot_z = 6.0f * sinf(circle_t);
+        f32 rot_x = 3.0f * cosf(circle_t);
+        f32 rot_z = 3.0f * sinf(circle_t);
 
         camera.position.x = rot_x;
         camera.position.z = rot_z;
@@ -1139,7 +1153,7 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
             Dx.DeviceContext->IASetIndexBuffer(CubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
             auto model = matrix4::identity;
-            scale(model, make_vector3(20));
+            // scale(model, make_vector3(20));
 
             {
                 D3D11_MAPPED_SUBRESOURCE MappedSubresource;

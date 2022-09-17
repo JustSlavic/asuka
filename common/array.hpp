@@ -14,11 +14,12 @@ struct array
     usize capacity;
     Allocator *allocator;
 
-    constexpr T* get_data() { return data; }
-    constexpr T const* get_data() const { return data; }
-    constexpr usize get_size() const { return size; }
-    constexpr bool is_empty() const { return (size == 0); }
-    constexpr bool is_valid() const { return (data != 0) && (size != 0); }
+    T* get_data() { return data; }
+    T const* get_data() const { return data; }
+    usize get_size() const { return size; }
+    usize get_size_in_bytes() const { return sizeof(T) * size; }
+    bool is_empty() const { return (size == 0); }
+    bool is_valid() const { return (data != 0) && (size != 0); }
 
     T& operator [] (usize index)
     {
