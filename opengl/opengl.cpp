@@ -707,11 +707,12 @@ int WINAPI WinMain(
 {
     memory::mallocator mallocator;
 
-    auto obj_contents = os::load_entire_file("../data/cube.obj");
+    auto obj_contents = os::load_entire_file("../data/donut.obj");
     Mesh cube = load_wavefront_obj(obj_contents, &mallocator);
 
-    // Bitmap wisp_bitmap = load_png_file("../data/cube_texture.png");
-    Bitmap wisp_bitmap = load_png_file("../data/familiar.png");
+    // auto wisp_bitmap = load_png_file("../data/cube_texture.png");
+    // auto wisp_bitmap = load_png_file("../data/familiar.png");
+    auto wisp_bitmap = load_png_file("../data/checkboard1.png");
 
     int32 PrimaryMonitorWidth  = GetSystemMetrics(SM_CXSCREEN);
     int32 PrimaryMonitorHeight = GetSystemMetrics(SM_CYSCREEN);
@@ -1311,7 +1312,7 @@ void main()
             glUseProgram(cube_shader.id);
 
             matrix4 model = matrix4::identity;
-            // scale(model, make_vector3(20));
+            scale(model, make_vector3(20));
             // rotate_z(model, to_radians(30.0f * circle_t));
             // rotate_y(model, to_radians(30.0f * circle_t));
             // rotate_x(model, to_radians(30.0f * circle_t));

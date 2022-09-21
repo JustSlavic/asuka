@@ -19,5 +19,5 @@ build/
 *.dll
 
 # Art
-*.blend1
-
+data/
+source_art/*.blend1

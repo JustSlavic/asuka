@@ -26,7 +26,7 @@ REM pushd build
 REM ASUKA
 SET PDB_FILENAME=%date:~6,4%_%date:~3,2%_%date:~0,2%_%HOUR%_%time:~3,2%_%time:~6,2%_asuka.pdb
 echo WAITING FOR PDB > lock.tmp
-cl %COMMON_CL_FLAGS% %COMMON_FLAGS% %BUILD_SETTINGS% /DASUKA_DLL=1 /Feasuka ../src/asuka.cpp /LD /link /PDB:%PDB_FILENAME% %COMMON_LINKER_FLAGS%
+rem cl %COMMON_CL_FLAGS% %COMMON_FLAGS% %BUILD_SETTINGS% /DASUKA_DLL=1 /Feasuka ../src/asuka.cpp /LD /link /PDB:%PDB_FILENAME% %COMMON_LINKER_FLAGS%
 del lock.tmp
 
 
@@ -38,7 +38,7 @@ rem del lock.tmp
 
 
 REM Platform code
-cl %COMMON_CL_FLAGS% %COMMON_FLAGS% %BUILD_SETTINGS% /Femain ../src/win32_main.cpp /link %COMMON_LINKER_FLAGS% %COMMON_LIBS%
+rem cl %COMMON_CL_FLAGS% %COMMON_FLAGS% %BUILD_SETTINGS% /Femain ../src/win32_main.cpp /link %COMMON_LINKER_FLAGS% %COMMON_LIBS%
 
 
 REM Tests
@@ -57,7 +57,7 @@ REM D3D11
 cl %COMMON_CL_FLAGS% %COMMON_FLAGS% %WARNINGS% /I../common /Fed3d11_demo ../d3d11/d3d11.cpp /link /PDB:d3d11.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% D3D11.lib D3DCompiler.lib
 
 REM D3D12
-rem cl %COMMON_CL_FLAGS% /DASUKA_DEBUG=1 /DUNITY_BUILD=1 /DASUKA_OS_WINDOWS=1 /I../common /Fed3d12_demo ../d3d12/d3d12.cpp /link /PDB:d3d12.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% D3D12.lib DXGI.lib
+rem cl %COMMON_CL_FLAGS% %COMMON_FLAGS% %WARNINGS% /I../common /Fed3d12_demo ../d3d12/d3d12.cpp /link /PDB:d3d12.pdb %COMMON_LINKER_FLAGS% %COMMON_LIBS% D3D12.lib DXGI.lib D3DCompiler.lib
 
 
 REM NOCRT TEST BUILD

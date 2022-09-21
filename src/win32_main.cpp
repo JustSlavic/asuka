@@ -1483,10 +1483,10 @@ int WINAPI WinMain(
             Game.UpdateAndRender(&GameThread, &GameMemory, NewInput, &ScreenBuffer);
         }
 
-        if (Game.OutputSound)
-        {
-            Game.OutputSound(&SoundThread, &GameMemory, &SoundBuffer);
-        }
+        // if (Game.OutputSound)
+        // {
+        //     Game.OutputSound(&SoundThread, &GameMemory, &SoundBuffer);
+        // }
 
         Win32_FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
 

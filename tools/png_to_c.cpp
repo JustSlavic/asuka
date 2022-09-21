@@ -55,7 +55,6 @@ int main(int argc, char **argv)
 
     Bitmap png = load_png_file(argv[1]);
     ASSERT(png.pixels);
-    ASSERT(png.bytes_per_pixel == 4);
 
     FILE *output_file = fopen(name, "wb");
 
@@ -64,9 +63,9 @@ int main(int argc, char **argv)
     u8 *bytes = (u8 *) png.pixels;
     for (usize idx = 0;
         idx < png.size;
-        idx += 4)
+        idx += 1)
     {
-        u32 value = *(u32 *)(bytes + idx);
+        u8 value = *(bytes + idx);
         fprintf(output_file, "%u,", value);
     }
 

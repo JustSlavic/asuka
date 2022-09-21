@@ -1,5 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
-
 #include <stdio.h>
 
 #include <defines.hpp>
@@ -15,18 +13,21 @@
 // #include <d3dx12.h>
 
 
+#define RELEASE_COM(PTR) do { if ((PTR)) { (PTR)->Release(); } (PTR) = NULL; } while(0)
+
+
 struct Vertex
 {
-    f32 x, y, z;
-    Color32 color;
+    float32 x, y, z;
+    color32 color;
 };
 
 
 GLOBAL Vertex Vertices[3] =
 {
-    {  0.0f,   0.5f, 0.0f, Color32{ 1.0f, 0.0f, 0.0f, 1.0f } },
-    {  0.45f, -0.5f, 0.0f, Color32{ 0.0f, 1.0f, 0.0f, 1.0f } },
-    { -0.45f, -0.5f, 0.0f, Color32{ 0.0f, 0.0f, 1.0f, 1.0f } },
+    {  0.0f,   0.5f, 0.0f, color32{ 1.0f, 0.0f, 0.0f, 1.0f } },
+    {  0.45f, -0.5f, 0.0f, color32{ 0.0f, 1.0f, 0.0f, 1.0f } },
+    { -0.45f, -0.5f, 0.0f, color32{ 0.0f, 0.0f, 1.0f, 1.0f } },
 };
 
 GLOBAL bool Running;
@@ -207,7 +208,6 @@ int WINAPI WinMain(
     if (!Window) { return 1; }
 
 
-#if ASUKA_DEBUG
     ID3D12Debug *D3D12_Debug = NULL;
     {
         // Activate Debugging capabilities
@@ -216,9 +216,6 @@ int WINAPI WinMain(
             D3D12_Debug->EnableDebugLayer();
         }
     }
-
-    defer { if (D3D12_Debug) D3D12_Debug->Release(); };
-#endif
 
     // Initializating Direct 3D
     //   - Create ID3D12Device using D3D12CreateDevice function;
@@ -243,8 +240,6 @@ int WINAPI WinMain(
         ASSERT(SUCCEEDED(DeviceCreationResult));
     }
 
-    defer { D3D12_Device->Release(); };
-
     ID3D12Fence *Fence = NULL;
     {
         HRESULT FenceCreationResult = D3D12_Device->CreateFence(
@@ -256,8 +251,6 @@ int WINAPI WinMain(
 
         ASSERT(SUCCEEDED(FenceCreationResult));
     }
-
-    defer { Fence->Release(); };
 
     DXGI_FORMAT BackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     DXGI_FORMAT DepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -292,9 +285,7 @@ int WINAPI WinMain(
     ID3D12CommandAllocator *CommandAllocator = NULL;
     ID3D12GraphicsCommandList *CommandList = NULL;
     {
-        D3D12_COMMAND_QUEUE_DESC QueueDescription;
-        ZeroMemory(&QueueDescription, sizeof(QueueDescription));
-
+        D3D12_COMMAND_QUEUE_DESC QueueDescription = {};
         QueueDescription.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
         QueueDescription.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
         QueueDescription.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
@@ -306,22 +297,11 @@ int WINAPI WinMain(
         HRESULT CommandAllocatorCreationResult = D3D12_Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, __uuidof(ID3D12CommandAllocator), (void **) &CommandAllocator);
         ASSERT(SUCCEEDED(CommandAllocatorCreationResult));
 
-        HRESULT CommandListCreationResult = D3D12_Device->CreateCommandList(
-            0, // NodeMask
-            D3D12_COMMAND_LIST_TYPE_DIRECT, // Type
-            CommandAllocator, // pCommandAllocator
-            NULL, // pInitialState
-            __uuidof(ID3D12GraphicsCommandList), // riid
-            (void **) &CommandList // ppCommandList
-        );
+        HRESULT CommandListCreationResult = D3D12_Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CommandAllocator, NULL, __uuidof(ID3D12GraphicsCommandList), (void **) &CommandList);
         ASSERT(SUCCEEDED(CommandListCreationResult));
 
         CommandList->Close();
     }
-
-    defer { CommandQueue->Release(); };
-    defer { CommandAllocator->Release(); };
-    defer { CommandList->Release(); };
 
     IDXGIFactory *DXGI_Factory = NULL;
     {
@@ -343,10 +323,8 @@ int WINAPI WinMain(
         SwapChainDescription.BufferDesc.RefreshRate.Numerator = 60;
         SwapChainDescription.BufferDesc.RefreshRate.Denominator = 1;
         SwapChainDescription.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-
-        SwapChainDescription.SampleDesc.Count = D3D12_4xMSAA_Active ? 4 : 1;
-        SwapChainDescription.SampleDesc.Quality = D3D12_4xMSAA_Active ? D3D12_4xMSAA_QualityLevelCount - 1 : 0;
-
+        SwapChainDescription.SampleDesc.Count = 1;
+        SwapChainDescription.SampleDesc.Quality = 0;
         SwapChainDescription.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         SwapChainDescription.BufferCount = SwapChainBufferCount;
         SwapChainDescription.OutputWindow = Window;
@@ -357,8 +335,6 @@ int WINAPI WinMain(
         HRESULT SwapChainCreationResult = DXGI_Factory->CreateSwapChain(CommandQueue, &SwapChainDescription, &SwapChain);
         ASSERT(SUCCEEDED(SwapChainCreationResult));
     }
-
-    defer { SwapChain->Release(); };
 
     ID3D12DescriptorHeap *RtvDescriptorHeap = NULL;
     ID3D12DescriptorHeap *DsvDescriptorHeap = NULL;
@@ -386,9 +362,6 @@ int WINAPI WinMain(
         ASSERT(SUCCEEDED(DsvHeapCreationResult));
     }
 
-    defer { RtvDescriptorHeap->Release(); };
-    defer { DsvDescriptorHeap->Release(); };
-
     D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView = InitOffseted(RtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), CurrentBackBuffer, RtvDescriptorSize);
     D3D12_CPU_DESCRIPTOR_HANDLE CurrentStencilBufferView = DsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -406,17 +379,9 @@ int WINAPI WinMain(
         }
     }
 
-    defer {
-        for (i32 i = 0; i < ARRAY_COUNT(RenderTargetViews); i++) {
-            RenderTargetViews[i]->Release();
-        }
-    };
-
     ID3D12Resource *DepthStencilBuffer = NULL;
     {
-        D3D12_RESOURCE_DESC DepthStencilDescription;
-        ZeroMemory(&DepthStencilDescription, sizeof(DepthStencilDescription));
-
+        D3D12_RESOURCE_DESC DepthStencilDescription = {};
         DepthStencilDescription.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
         DepthStencilDescription.Alignment = 0;
         DepthStencilDescription.Width = ClientWidth;
@@ -424,24 +389,19 @@ int WINAPI WinMain(
         DepthStencilDescription.DepthOrArraySize = 1;
         DepthStencilDescription.MipLevels = 1;
         DepthStencilDescription.Format = DepthStencilFormat;
-        DepthStencilDescription.SampleDesc.Count = D3D12_4xMSAA_Active ? 4 : 1;
-        DepthStencilDescription.SampleDesc.Quality = D3D12_4xMSAA_Active ? (D3D12_4xMSAA_QualityLevelCount - 1) : 0;
+        DepthStencilDescription.SampleDesc.Count = 1;
+        DepthStencilDescription.SampleDesc.Quality = 0;
         DepthStencilDescription.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
         DepthStencilDescription.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
-
-        D3D12_HEAP_PROPERTIES HeapProperties;
-        ZeroMemory(&HeapProperties, sizeof(HeapProperties));
-
+        D3D12_HEAP_PROPERTIES HeapProperties = {};
         HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
         HeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
         HeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
         HeapProperties.CreationNodeMask = 1;
         HeapProperties.VisibleNodeMask = 1;
 
-        D3D12_CLEAR_VALUE OptimizedClearValue;
-        ZeroMemory(&OptimizedClearValue, sizeof(OptimizedClearValue));
-
+        D3D12_CLEAR_VALUE OptimizedClearValue = {};
         OptimizedClearValue.Format = DepthStencilFormat;
         OptimizedClearValue.DepthStencil.Depth = 1.0f;
         OptimizedClearValue.DepthStencil.Stencil = 0;
@@ -468,55 +428,29 @@ int WINAPI WinMain(
 
     FlushCommandQueue(CommandQueue, Fence);
 
-    D3D12_VIEWPORT Viewport;
-    D3D12_RECT ScissorRect;
-    {
-        ZeroMemory(&Viewport, sizeof(Viewport));
+    D3D12_VIEWPORT Viewport = {};
+    Viewport.TopLeftX = 0;
+    Viewport.TopLeftY = 0;
+    Viewport.Width = float32(ClientWidth);
+    Viewport.Height = float32(ClientHeight);
+    Viewport.MinDepth = 0;
+    Viewport.MaxDepth = 1;
+    CommandList->RSSetViewports(1, &Viewport);
 
-        Viewport.TopLeftX = 0;
-        Viewport.TopLeftY = 0;
-        Viewport.Width = f32(ClientWidth);
-        Viewport.Height = f32(ClientHeight);
-        Viewport.MinDepth = 0;
-        Viewport.MaxDepth = 1;
+    D3D12_RECT ScissorRect = {};
+    ScissorRect.left = 0;
+    ScissorRect.top = 0;
+    ScissorRect.right = ClientWidth;
+    ScissorRect.bottom = ClientHeight;
+    CommandList->RSSetScissorRects(1, &ScissorRect);
 
-        CommandList->RSSetViewports(1, &Viewport);
-
-        ZeroMemory(&ScissorRect, sizeof(ScissorRect));
-
-        ScissorRect.left = 0;
-        ScissorRect.top = 0;
-        ScissorRect.right = ClientWidth;
-        ScissorRect.bottom = ClientHeight;
-
-        CommandList->RSSetScissorRects(1, &ScissorRect);
-    }
-
-    f64 dts_for_average_fps[100] = {};
-    f64 sum_for_average_fps = 0;
-    u32 dt_current_index = 0;
-
-    os::timepoint t_start = os::get_wall_clock();
-    f64 dt = 0;
-
-    char WindowText[256];
-
-    HRESULT D3D_Result;
     Running = true;
     while (Running)
     {
         Win32_ProcessPendingMessages();
 
-        memory::set(WindowText, 0, sizeof(WindowText));
-        sprintf(WindowText, "D3D12: dt=%f (fps: %f)", dt, 100.0 / (sum_for_average_fps)); // 0.01 * [seconds / frame]
-
-        SetWindowText(Window, WindowText);
-
-        D3D_Result = CommandAllocator->Reset();
-        ASSERT(SUCCEEDED(D3D_Result));
-
-        D3D_Result = CommandList->Reset(CommandAllocator, NULL);
-        ASSERT(SUCCEEDED(D3D_Result));
+        CommandAllocator->Reset();
+        CommandList->Reset(CommandAllocator, NULL);
 
         D3D12_RESOURCE_BARRIER D3D12_ResourceBarrierToRenderTarget = Transition(RenderTargetViews[CurrentBackBuffer], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
         CommandList->ResourceBarrier(1, &D3D12_ResourceBarrierToRenderTarget);
@@ -524,10 +458,10 @@ int WINAPI WinMain(
         CommandList->RSSetViewports(1, &Viewport);
         CommandList->RSSetScissorRects(1, &ScissorRect);
 
-        Color32 BackgroundColor = { 0.0f, 0.2f, 0.4f, 1.0f };
+        color32 BackgroundColor = { 0.0f, 0.2f, 0.4f, 1.0f };
         CommandList->ClearRenderTargetView(
             InitOffseted(RtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), CurrentBackBuffer, RtvDescriptorSize),
-            BackgroundColor.array_, 0, NULL);
+            BackgroundColor.e, 0, NULL);
 
         CommandList->ClearDepthStencilView(
             DsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
@@ -539,26 +473,28 @@ int WINAPI WinMain(
         CommandList->Close();
         CommandQueue->ExecuteCommandLists(1, (ID3D12CommandList **) &CommandList);
 
-        HRESULT PresentResult = SwapChain->Present(0, 0);
-        ASSERT(SUCCEEDED(PresentResult));
-
+        SwapChain->Present(0, 0);
         CurrentBackBuffer = (CurrentBackBuffer + 1) % SwapChainBufferCount;
 
         FlushCommandQueue(CommandQueue, Fence);
-
-        Sleep(20);
-        
-        os::timepoint t_end = os::get_wall_clock();
-        dt = os::get_seconds(t_end - t_start);
-
-        sum_for_average_fps -= dts_for_average_fps[dt_current_index];
-        sum_for_average_fps += dt;
-
-        dts_for_average_fps[dt_current_index] = dt;
-        dt_current_index = (dt_current_index + 1) % ARRAY_COUNT(dts_for_average_fps);
-
-        t_start = t_end;
     }
+
+    for (i32 i = 0; i < ARRAY_COUNT(RenderTargetViews); i++) {
+        RELEASE_COM(RenderTargetViews[i]);
+    }
+
+    RELEASE_COM(RtvDescriptorHeap);
+    RELEASE_COM(DsvDescriptorHeap);
+
+    RELEASE_COM(CommandQueue);
+    RELEASE_COM(CommandAllocator);
+    RELEASE_COM(CommandList);
+
+    RELEASE_COM(SwapChain);
+
+    RELEASE_COM(Fence);
+    RELEASE_COM(D3D12_Device);
+    RELEASE_COM(D3D12_Debug);
 
     return 0;
 }

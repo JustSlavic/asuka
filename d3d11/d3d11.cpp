@@ -517,6 +517,54 @@ void ResizeRenderTarget(Dx11 *Driver, RenderTarget *rt, uint32 width, uint32 hei
 }
 
 
+struct ConstantBuffer
+{
+    ID3D11Buffer *Buffer;
+    usize Size;
+};
+
+
+ConstantBuffer allocate_constant_buffer(Dx11& Dx, uint32 size)
+{
+    ConstantBuffer Result = {};
+
+    D3D11_BUFFER_DESC BufferDescription = {};
+    BufferDescription.ByteWidth = size;
+    BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
+    BufferDescription.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    HRESULT CreateBufferResult = Dx.Device->CreateBuffer(&BufferDescription, NULL, &Result.Buffer);
+    if (SUCCEEDED(CreateBufferResult))
+    {
+        // Ok.
+        Dx.DeviceContext->VSSetConstantBuffers(0, 1, &Result.Buffer);
+        Result.Size = size;
+    }
+    else
+    {
+        // Not ok.
+        char Buffer[1024] = {};
+        sprintf(Buffer, "Cannot create a constant buffer.\n\n%s", get_d3d11_error_string(CreateBufferResult));
+
+        MessageBeep(MB_ICONERROR);
+        MessageBoxA(0, Buffer, "D3D11 Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+    }
+
+    return Result;
+}
+
+
+void send_constant_buffer(Dx11& Dx, ConstantBuffer *Constant, void *data, uint32 size)
+{
+    D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+
+    Dx.DeviceContext->Map(Constant->Buffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+    memory::copy(MappedSubresource.pData, data, size);
+    Dx.DeviceContext->Unmap(Constant->Buffer, NULL);
+}
+
+
 int WINAPI WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
@@ -525,10 +573,11 @@ int WINAPI WinMain(
 {
     memory::mallocator mallocator;
 
-    auto cube_bitmap = load_png_file("../data/cube_texture.png");
-    auto wisp_bitmap = load_png_file("../data/familiar.png");
+    // auto wisp_bitmap = load_png_file("../data/cube_texture.png");
+    auto wisp_bitmap = load_png_file("../data/checkboard1.png");
+    // auto wisp_bitmap = load_png_file("../data/familiar.png");
 
-    auto obj_contents = os::load_entire_file("../data/cube.obj");
+    auto obj_contents = os::load_entire_file("../data/donut.obj");
     auto cube = load_wavefront_obj(obj_contents, &mallocator);
 
     Dx11 Dx = {};
@@ -697,7 +746,7 @@ struct VS_Output
 
 VS_Output VShader(VS_Input input)
 {
-    float4 p = mul(projection_matrix, mul(view_matrix, float4(input.position, 1.0)));
+    float4 p = mul(projection_matrix, mul(view_matrix, mul(model_matrix, float4(input.position, 1.0))));
 
     VS_Output result;
     result.position = p;
@@ -728,7 +777,7 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         { -1.0f,  1.0f, -1.0f, color32::yellow }, // 3 top left
     };
 
-    ID3D11Buffer *VertexBuffer = NULL;
+    ID3D11Buffer *PlaneVertexBuffer = NULL;
     {
         D3D11_BUFFER_DESC BufferDescription = {};
 
@@ -737,12 +786,12 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
         BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-        Dx.Device->CreateBuffer(&BufferDescription, NULL, &VertexBuffer);
+        Dx.Device->CreateBuffer(&BufferDescription, NULL, &PlaneVertexBuffer);
 
         D3D11_MAPPED_SUBRESOURCE MappedSubresource = {};
-        Dx.DeviceContext->Map(VertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
+        Dx.DeviceContext->Map(PlaneVertexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
         memcpy(MappedSubresource.pData, Vertices, sizeof(Vertices));
-        Dx.DeviceContext->Unmap(VertexBuffer, NULL);
+        Dx.DeviceContext->Unmap(PlaneVertexBuffer, NULL);
     }
 
     ID3D11Buffer *SkyboxBuffer = NULL;
@@ -805,6 +854,46 @@ float4 PShader(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
 
         Dx.Device->CreateInputLayout(InputDescription, 2, PlaneShader.VertexShaderBytecode->GetBufferPointer(), PlaneShader.VertexShaderBytecode->GetBufferSize(), &InputLayout);
     }
+
+    struct OneColorConstantStructure
+    {
+        matrix4 model_matrix;
+        matrix4 view_matrix;
+        matrix4 projection_matrix;
+        color32 c_color;
+    };
+
+    ConstantBuffer OneColorConstants = allocate_constant_buffer(Dx, sizeof(OneColorConstantStructure));
+
+    char const OneColorShaderSourceCode[] = R"HLSL(
+#define v4 float4
+#define m4 float4x4
+#define vector3 float3
+#define vector4 float4
+#define matrix4 float4x4
+
+cbuffer vs_constant_buffer : register(b0)
+{
+    matrix4 model_matrix;
+    matrix4 view_matrix;
+    matrix4 projection_matrix;
+    vector4 c_color;
+};
+
+vector4 VShader(float3 position : POSITION, float4 color : COLOR) : SV_POSITION
+{
+    vector4 p = mul(projection_matrix, mul(view_matrix, mul(model_matrix, v4(position, 1.0))));
+    return p;
+}
+
+vector4 PShader(vector4 position : SV_POSITION) : SV_TARGET
+{
+    return c_color;
+    // return v4(1.0, 0.0, 0.0, 1.0);
+}
+)HLSL";
+
+    Shader OneColorShader = compile_shader(Dx, OneColorShaderSourceCode);
 
     // ================= cube =================
 
@@ -974,35 +1063,7 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
         matrix4 ProjectionMatrix;
     };
 
-    VertexShaderContants VSConstants =
-    {
-        // transposed(make_look_at_matrix(camera.position, make_vector3(0, 0, 0), camera.up)),
-        // transposed(ProjectionMatrix)
-    };
-
-    // Set VertexShader ConstantBuffer
-    ID3D11Buffer *VsConstantBuffer = NULL;
-    {
-        // Fill in a buffer description.
-        D3D11_BUFFER_DESC BufferDescription = {};
-        BufferDescription.ByteWidth = sizeof(VertexShaderContants);
-        BufferDescription.Usage = D3D11_USAGE_DYNAMIC;
-        BufferDescription.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-        BufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-
-        D3D11_SUBRESOURCE_DATA ConstantData = { &VSConstants };
-
-        HRESULT CreateBufferResult = Dx.Device->CreateBuffer(&BufferDescription, &ConstantData, &VsConstantBuffer);
-        if (SUCCEEDED(CreateBufferResult))
-        {
-            // Ok.
-            Dx.DeviceContext->VSSetConstantBuffers(0, 1, &VsConstantBuffer);
-        }
-        else
-        {
-            // Not ok.
-        }
-    }
+    ConstantBuffer VsConstantBuffer = allocate_constant_buffer(Dx, sizeof(VertexShaderContants));
 
     float32 DesiredAspectRatio = 16.0f / 9.0f;
 
@@ -1089,23 +1150,23 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
             Dx.DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
             Dx.DeviceContext->IASetInputLayout(InputLayout);
 
-            {
-                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
 
-                Dx.DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
-                auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
-                Constants->ModelMatrix = matrix4::identity;
-                Constants->ViewMatrix = matrix4::identity;
-                Constants->ProjectionMatrix = matrix4::identity;
-                Dx.DeviceContext->Unmap(VsConstantBuffer, NULL);
-            }
+            VertexShaderContants constants;
+            constants.ModelMatrix = matrix4::identity;
+            constants.ViewMatrix = matrix4::identity;
+            constants.ProjectionMatrix = matrix4::identity;
+
+            send_constant_buffer(Dx, &VsConstantBuffer, &constants, sizeof(constants));
+
+            Dx.DeviceContext->VSSetConstantBuffers(0, 1, &VsConstantBuffer.Buffer);
 
             Dx.DeviceContext->VSSetShader(PlaneShader.VertexShader, 0, 0);
             Dx.DeviceContext->PSSetShader(PlaneShader.PixelShader, 0, 0);
+
             Dx.DeviceContext->RSSetState(D3D11_RasterizerState);
 
             Dx.DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            Dx.DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
+            // Dx.DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
         }
 
         if (Wireframe)
@@ -1120,20 +1181,18 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
         {
             Dx.DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
 
-            Dx.DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
+            Dx.DeviceContext->IASetVertexBuffers(0, 1, &PlaneVertexBuffer, &Stride, &Offset);
             Dx.DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
             Dx.DeviceContext->IASetInputLayout(InputLayout);
 
-            {
-                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+            VertexShaderContants constants;
+            constants.ModelMatrix = matrix4::identity;
+            constants.ViewMatrix = ViewMatrix;
+            constants.ProjectionMatrix = ProjectionMatrix;
 
-                Dx.DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
-                auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
-                Constants->ModelMatrix = matrix4::identity;
-                Constants->ViewMatrix = ViewMatrix;
-                Constants->ProjectionMatrix = ProjectionMatrix;
-                Dx.DeviceContext->Unmap(VsConstantBuffer, NULL);
-            }
+            send_constant_buffer(Dx, &VsConstantBuffer, &constants, sizeof(constants));
+
+            Dx.DeviceContext->VSSetConstantBuffers(0, 1, &VsConstantBuffer.Buffer);
 
             Dx.DeviceContext->VSSetShader(PlaneShader.VertexShader, 0, 0);
             Dx.DeviceContext->PSSetShader(PlaneShader.PixelShader, 0, 0);
@@ -1153,26 +1212,70 @@ float4 PShader(float4 position : SV_POSITION, float2 uv : TEXTURE_UV) : SV_TARGE
             Dx.DeviceContext->IASetIndexBuffer(CubeIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
             auto model = matrix4::identity;
-            // scale(model, make_vector3(20));
+            scale(model, make_vector3(20));
 
-            {
-                D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+            VertexShaderContants constants;
+            constants.ModelMatrix = model;
+            constants.ViewMatrix = ViewMatrix;
+            constants.ProjectionMatrix = ProjectionMatrix;
 
-                Dx.DeviceContext->Map(VsConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &MappedSubresource);
-                auto *Constants = (VertexShaderContants *) MappedSubresource.pData;
-                Constants->ModelMatrix = model;
-                Constants->ViewMatrix = ViewMatrix;
-                Constants->ProjectionMatrix = ProjectionMatrix;
-                Dx.DeviceContext->Unmap(VsConstantBuffer, NULL);
-            }
+            send_constant_buffer(Dx, &VsConstantBuffer, &constants, sizeof(constants));
+
+            Dx.DeviceContext->VSSetConstantBuffers(0, 1, &VsConstantBuffer.Buffer);
 
             Dx.DeviceContext->VSSetShader(CubeShader.VertexShader, 0, 0);
             Dx.DeviceContext->PSSetShader(CubeShader.PixelShader, 0, 0);
+
             Dx.DeviceContext->PSSetShaderResources(0, 1, &WispTextureView);
             Dx.DeviceContext->PSSetSamplers(0, 1, &SamplerState);
 
             Dx.DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             Dx.DeviceContext->DrawIndexedInstanced(uint32(cube.indices.size), 1, 0, 0, 0);
+        }
+
+        // Draw Axis
+        {
+            Dx.DeviceContext->OMSetDepthStencilState(D3D11_DepthStencilState, 0);
+
+            Dx.DeviceContext->IASetVertexBuffers(0, 1, &PlaneVertexBuffer, &Stride, &Offset);
+            Dx.DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+            Dx.DeviceContext->IASetInputLayout(InputLayout);
+
+            matrix4 model = matrix4::identity;
+            translate(model, make_vector3(0.5, 0, 1));
+            scale(model, make_vector3(0.5, 0.01, 1));
+
+            OneColorConstantStructure constants;
+            constants.model_matrix = model;
+            constants.view_matrix = ViewMatrix;
+            constants.projection_matrix = ProjectionMatrix;
+            constants.c_color = color32::red;
+
+            send_constant_buffer(Dx, &OneColorConstants, &constants, sizeof(constants));
+
+            Dx.DeviceContext->VSSetConstantBuffers(0, 1, &OneColorConstants.Buffer);
+            Dx.DeviceContext->PSSetConstantBuffers(0, 1, &OneColorConstants.Buffer);
+
+            Dx.DeviceContext->VSSetShader(OneColorShader.VertexShader, 0, 0);
+            Dx.DeviceContext->PSSetShader(OneColorShader.PixelShader, 0, 0);
+
+            Dx.DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            Dx.DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
+
+            rotate_z(model, to_radians(90));
+            constants.model_matrix = model;
+            constants.c_color = color32::green;
+            send_constant_buffer(Dx, &OneColorConstants, &constants, sizeof(constants));
+
+            Dx.DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
+
+            rotate_x(model, to_radians(90));
+            rotate_y(model, to_radians(180));
+            constants.model_matrix = model;
+            constants.c_color = color32::blue;
+            send_constant_buffer(Dx, &OneColorConstants, &constants, sizeof(constants));
+
+            Dx.DeviceContext->DrawIndexedInstanced(ARRAY_COUNT(Indices), 1, 0, 0, 0);
         }
 
         // Switch the back buffer and the front buffer
